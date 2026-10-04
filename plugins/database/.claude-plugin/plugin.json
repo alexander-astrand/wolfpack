@@ -1,0 +1,9 @@
+{
+  "name": "database",
+  "version": "1.0.0",
+  "description": "The Supabase pack: the production guard (the Slap Bet Commissioner) with its hooks, the deployer ranjit and the-playbook, and SQL tests with bro-code. The production database scripts stay in each project's own scripts/ folder.",
+  "author": {
+    "name": "Alexander Åstrand"
+  },
+  "homepage": "https://github.com/alexander-astrand/wolfpack"
+}

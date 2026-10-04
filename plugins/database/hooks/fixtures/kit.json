@@ -1,0 +1,14 @@
+{
+  "refs": {
+    "dev": "devrefdevrefdevrefde",
+    "prod": "prodrefprodrefprodre"
+  },
+  "urls": {
+    "prod": "https://app.example.com"
+  },
+  "deployer": "ranjit",
+  "keychain": {
+    "dev": "example-dev-db-url",
+    "prod": "example-prod-db-url"
+  }
+}

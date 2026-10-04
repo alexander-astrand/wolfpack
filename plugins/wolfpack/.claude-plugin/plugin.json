@@ -1,0 +1,8 @@
+{
+  "name": "wolfpack",
+  "version": "1.0.0",
+  "description": "The whole kit in one install: no components of its own, it depends on core, release, design and database, which Claude Code installs with it at the same scope.",
+  "author": { "name": "Alexander Åstrand" },
+  "homepage": "https://github.com/alexander-astrand/wolfpack",
+  "dependencies": ["core", "release", "design", "database"]
+}

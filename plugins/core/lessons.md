@@ -1,0 +1,16 @@
+# Lessons
+
+The project-free rules behind the kit, each with its slug. Cite a lesson as `[slug]`, never by number (numbers move at every rewrite). A project's own `.claude/lessons.md` keeps its tuning numbers; `/future-ted` rewrites that one.
+
+- **[parallel]** Four builders at once when their files don't overlap, with one named owner per shared helper, and the navigator writes that helper before the wave. Steps on shared files go in order; above 70% of the 5-hour window, no more than two. In a shared checkout commit by path (`git add <paths>`) and never pull while another lane works.
+- **[floor]** Half of an agent's tokens is its fixed start: tool definitions from every connector. Give agents explicit `tools:` lists, and make fewer, batched calls.
+- **[sweep]** A sweep of 20+ files needs a bigger budget or two lanes. Its order greps for what the page shows, not one code pattern; a string-edit sweep greps its own diff for glued tokens and runs its pattern over the whole tree, not only the files it touched.
+- **[hank]** A `[budget NM]` tag is real tokens, counted the way Skyler counts (each message id once). Hank reads the tag of the first message only and counts a resumed agent's whole run, so put the right total in the first order. Role budgets live in the project's `.claude/kit.json`.
+- **[keep-going]** Everything that isn't a hard stop keeps going: another route, then defer after two tries and list it under "What needs you".
+- **[auto]** No session switches to manual outside production. Kit and process edits that Auto's classifier refuses as self-modification run in Bypass, with the hooks still running; route around a refused read and report it.
+- **[frozen]** The guard's own files need a person: in Auto or default mode the guard asks, in Bypass it denies, so a person applies them (built in a scratch copy, applied with `cp`). Guard work is its own small release; prefer a route that leaves the frozen set alone. A proto lays out under renamed folders, since the frozen pattern matches at any depth.
+- **[numbers]** Numbers only from Skyler, labelled from `--timeline`. Name a transcript by the command it starts with, never by its size or model. Skyler prints local time; a PR or log writes UTC with a Z. QA that changes shared state undoes it in its own order.
+- **[trials]** A trial's verdict goes in the release's log and its wrap-up, not only in the plan it feeds.
+- **[raven]** `three-eyed-raven` decides with what the order carries and names any missing source in its entry; it never sends an order back. A decided placement fixes where a thing sits, not that nothing may join it.
+- **[inception]** `/inception` settles what the build can't: a bug item names its repro path, and a brief whose two rules can collide is settled there. Sessions beside a drive don't write the checkout.
+- **[builder-checks]** The navigator reads CI after each push; a test touching browser storage stubs it. Measure a change at its breakpoint and the widest width, on the extreme fixture beside the typical one. New CSS sits inside `@layer`; a two-stack page re-measures its balance; a switched-off module's links hide; never link an unbuilt page; read hand-built class strings for missing spaces; "one shared X" greps every hand-built copy first; read lint's exit code, not its "ok".

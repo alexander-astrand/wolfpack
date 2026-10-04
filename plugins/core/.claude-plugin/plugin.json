@@ -1,0 +1,9 @@
+{
+  "name": "core",
+  "version": "1.0.0",
+  "description": "The wolfpack's shared core: the scout, test-runner, debugger, seniors and researchers, the planning, wrap-up, research, docs and routine skills, and the norms and lessons every project follows.",
+  "author": {
+    "name": "Alexander Åstrand"
+  },
+  "homepage": "https://github.com/alexander-astrand/wolfpack"
+}

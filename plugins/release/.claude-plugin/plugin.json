@@ -1,0 +1,7 @@
+{
+  "name": "release",
+  "version": "1.0.0",
+  "description": "Releases end to end: the navigator (maverick, captain-call), the builders, the review, the PR and deploy skills (carousel, its-a-trap, skinny-pete, one-ring, cattle-drive), the audits, and Hank, the hook that holds every agent to its token budget.",
+  "author": { "name": "Alexander Åstrand" },
+  "homepage": "https://github.com/alexander-astrand/wolfpack"
+}

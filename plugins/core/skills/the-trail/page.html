@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Roadmap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@500&display=swap">
+<!-- Card text comes from the db as markup; DOMPurify (pinned, with SRI) cleans it before it touches the page. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.4.16/purify.min.js" integrity="sha512-flQmhkXNRQ3iUfvtdCobtpMjCb6kE+zLnTiAulAQJ3WykVfy84JvCMOo6vhwWXHTXjR25h9Zj+LyGFRWKjRoag==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+  :root {
+    --ground: #f3f4f7;
+    --surface: #ffffff;
+    --surface-2: #f7f5f0;
+    --ink: #1a2030;
+    --muted: #5a6273;
+    --line: #dfe2e8;
+    --line-strong: #b9bfcb;
+    --accent: #b45309;
+    --accent-soft: #fdf1dc;
+    --accent-line: #f0cf95;
+    --v3: #0e6f94;
+    --v3-soft: #e3f3f9;
+    --v3-line: #a7d8ea;
+    --pip: #b45309;
+    --pip-off: #e3d8c6;
+    --ok: #15803d;
+    --ok-soft: rgb(34 197 94 / 0.12);
+    --shadow: 0 1px 2px rgb(26 32 48 / 0.06), 0 8px 24px -12px rgb(26 32 48 / 0.12);
+    --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0d121c;
+      --surface: #151c29;
+      --surface-2: #1a2231;
+      --ink: #ebe7dd;
+      --muted: #9aa3b4;
+      --line: #263045;
+      --line-strong: #3a4660;
+      --accent: #f5a524;
+      --accent-soft: rgb(245 165 36 / 0.1);
+      --accent-line: rgb(245 165 36 / 0.35);
+      --v3: #7cc8e6;
+      --v3-soft: rgb(124 200 230 / 0.08);
+      --v3-line: rgb(124 200 230 / 0.35);
+      --pip: #f5a524;
+      --pip-off: #2e3850;
+      --ok: #4ade80;
+      --ok-soft: rgb(74 222 128 / 0.12);
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 32px -16px rgb(0 0 0 / 0.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0d121c;
+    --surface: #151c29;
+    --surface-2: #1a2231;
+    --ink: #ebe7dd;
+    --muted: #9aa3b4;
+    --line: #263045;
+    --line-strong: #3a4660;
+    --accent: #f5a524;
+    --accent-soft: rgb(245 165 36 / 0.1);
+    --accent-line: rgb(245 165 36 / 0.35);
+    --v3: #7cc8e6;
+    --v3-soft: rgb(124 200 230 / 0.08);
+    --v3-line: rgb(124 200 230 / 0.35);
+    --pip: #f5a524;
+    --pip-off: #2e3850;
+    --ok: #4ade80;
+    --ok-soft: rgb(74 222 128 / 0.12);
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 32px -16px rgb(0 0 0 / 0.6);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font: 400 16px/1.6 var(--body);
+    padding-inline: 16px;
+    padding-block: 40px 64px;
+  }
+  .page { max-width: 880px; margin: 0 auto; display: grid; gap: 48px; }
+
+  h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+  p { margin: 0; }
+  ul { margin: 0; padding-left: 1.15em; display: grid; gap: 6px; }
+  li::marker { color: var(--accent); }
+  a { color: var(--accent); }
+  a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  code {
+    font-family: var(--mono);
+    font-size: 0.84em;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.05em 0.35em;
+    overflow-wrap: anywhere;
+  }
+  .eyebrow {
+    font: 500 12px/1 var(--mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* Header */
+  header { display: grid; gap: 14px; }
+  header h1 { font-size: clamp(34px, 6vw, 52px); font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; }
+  .lede { font-size: 18px; color: var(--muted); max-width: 62ch; }
+  .status {
+    display: flex; flex-wrap: wrap; gap: 8px 20px;
+    font-size: 14px; color: var(--muted);
+    padding-top: 14px; border-top: 1px solid var(--line);
+  }
+  .status strong { color: var(--ink); font-weight: 600; }
+
+  /* Why this order */
+  .principle {
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-line);
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: grid; gap: 12px;
+  }
+  .reasons { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px 24px; font-size: 15px; }
+  .reasons p strong { display: block; font-weight: 600; margin-bottom: 2px; }
+
+  /* Overview track */
+  .overview { display: grid; gap: 16px; }
+  .overview h2, .section-title { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+  .track { display: grid; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+  .track > * { border-top: 1px solid var(--line); }
+  .track > :first-child { border-top: 0; }
+  .track-group {
+    font: 500 11px/1 var(--mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--surface-2);
+    padding: 9px 18px;
+  }
+  .track a {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    gap: 4px 16px;
+    align-items: baseline;
+    padding: 14px 18px;
+    color: inherit;
+    text-decoration: none;
+  }
+  .track a:hover { background: var(--surface-2); }
+  .track a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 0; }
+  .track .ver { font: 500 15px/1.3 var(--mono); color: var(--accent); }
+  .track .theme { font-weight: 600; }
+  .track .what { grid-column: 2 / 4; font-size: 14px; color: var(--muted); }
+  .track a.is-done .ver, .track a.is-done .theme { color: var(--muted); }
+  .track a.is-done .theme { font-weight: 500; }
+  .track a.is-v3 { background: var(--v3-soft); }
+  .track a.is-v3 .ver { color: var(--v3); }
+  .track a.is-v4 .ver { color: var(--muted); }
+  .also { font-size: 14px; color: var(--muted); }
+
+  /* Effort pips */
+  .effort { display: inline-flex; align-items: center; gap: 8px; font: 500 12px/1 var(--mono); color: var(--muted); white-space: nowrap; }
+  .pips { display: inline-flex; gap: 3px; }
+  .pips i { width: 7px; height: 7px; border-radius: 50%; background: var(--pip-off); }
+  .pips i.on { background: var(--pip); }
+  .is-v3 .pips i.on, .release.v3 .pips i.on { background: var(--v3); }
+  .is-done .pips i.on { background: var(--muted); }
+  .is-v4 .pips i.on, .release.v4 .pips i.on { background: var(--muted); }
+
+  .shipped {
+    font: 500 11px/1 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ok);
+    background: var(--ok-soft);
+    border-radius: 999px;
+    padding: 3px 8px;
+    margin-left: 8px;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  /* Release sections */
+  .releases { display: grid; gap: 20px; }
+  .release {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px 22px 24px;
+    display: grid; gap: 14px;
+    scroll-margin-top: 16px;
+  }
+  .release-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+  .release-head .titles { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .release-head .ver { font: 500 15px/1 var(--mono); color: var(--accent); }
+  .release h3 { font-size: 21px; font-weight: 600; }
+  .release h4 { margin: 0; font: 500 11px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .why { color: var(--muted); max-width: 70ch; }
+  .tech {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 14px;
+    display: grid; gap: 6px;
+  }
+  .tech .label, .done .label { font: 500 11px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .note { font-size: 14px; border-left: 3px solid var(--accent); padding: 2px 0 2px 12px; color: var(--ink); max-width: 72ch; }
+  .done { font-size: 14px; display: grid; gap: 4px; color: var(--muted); }
+  .done p { color: var(--ink); }
+
+  .release.v3 {
+    border: 1.5px solid var(--v3-line);
+    background: linear-gradient(180deg, var(--v3-soft), var(--surface) 140px);
+    padding: 28px 24px;
+    gap: 18px;
+  }
+  .release.v3 .ver, .release.v3x .ver { color: var(--v3); }
+  .release.v3 .ver { font-size: 18px; }
+  .release.v3 h3 { font-size: 26px; }
+  .release.v3 li::marker, .release.v3x li::marker { color: var(--v3); }
+  .release.v3 .note { border-left-color: var(--v3); }
+  .release.v3x .pips i.on { background: var(--v3); }
+  .v3-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 24px; }
+  .v3-grid h5 { margin: 0 0 6px; font: 600 15px/1.3 var(--body); }
+
+  /* V4: the far horizon, drawn in outline */
+  .release.v4 {
+    background: transparent;
+    border: 1.5px dashed var(--line-strong);
+  }
+  .release.v4 .ver { color: var(--muted); font-size: 18px; }
+  .release.v4 li::marker { color: var(--muted); }
+
+  /* Shipped history */
+  details.history { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  details.history > summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px;
+    padding: 16px 22px;
+  }
+  details.history > summary::-webkit-details-marker { display: none; }
+  details.history > summary .sum-title { font: 600 17px/1.3 var(--display); }
+  details.history > summary .sum-title::before { content: "▸ "; color: var(--ok); }
+  details.history[open] > summary .sum-title::before { content: "▾ "; }
+  details.history > summary .sum-meta { font-size: 14px; color: var(--muted); }
+  .history-body { display: grid; gap: 16px; padding: 0 12px 12px; }
+  .history-body .release { background: var(--surface-2); border-color: transparent; }
+  .history-body .release .ver { color: var(--muted); }
+
+  /* Folding shipped releases */
+  .release.is-fold > .release-head { cursor: pointer; align-items: center; }
+  .release.is-fold > .release-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+  .release.is-fold .chev { display: inline-block; width: 1em; color: var(--ok); font-size: 14px; line-height: 1; transition: transform 0.15s; }
+  .release.is-fold:not(.is-collapsed) .chev { transform: rotate(90deg); }
+  .release.is-collapsed { padding-block: 14px; }
+  .release.is-collapsed > .release-body { display: none; }
+  .release-body { display: grid; gap: 14px; min-width: 0; }
+  @media (prefers-reduced-motion: reduce) { .release.is-fold .chev { transition: none; } }
+
+  /* Parked */
+  .parked { display: grid; gap: 16px; }
+  .parked .intro { color: var(--muted); max-width: 70ch; }
+  .parked-block { display: grid; gap: 10px; }
+  .parked-block h3 { font-size: 18px; font-weight: 600; }
+  .parked-list { display: grid; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+  .parked-item {
+    display: grid;
+    grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+    gap: 4px 20px;
+    padding: 14px 18px;
+    border-top: 1px solid var(--line);
+    font-size: 15px;
+  }
+  .parked-item:first-child { border-top: 0; }
+  .parked-item .name { font-weight: 600; }
+  .parked-item .name small { display: block; font: 500 11px/1.5 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+  .parked-item dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 10px; }
+  .parked-item dt { font: 500 11px/1.9 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .parked-item dd { margin: 0; }
+  .parked-list.against .parked-item { grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); }
+  .parked-list.against .parked-item p { color: var(--muted); }
+
+  /* Scope rules and open questions */
+  .rules { margin: 0; padding-left: 1.4em; display: grid; gap: 8px; max-width: 72ch; }
+  .rules li::marker { color: var(--accent); font: 500 14px var(--mono); }
+  .questions { display: grid; gap: 12px; }
+  .question {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: grid; gap: 6px;
+    font-size: 15px;
+  }
+  .question h3 { font-size: 17px; font-weight: 600; }
+  .question .take { color: var(--muted); }
+  .question .take strong { color: var(--ink); font-weight: 600; }
+  .question .decide { font: 500 11px/1.5 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+  .shipped.review { color: var(--accent); background: var(--accent-soft); }
+
+  /* Usage guidelines */
+  .guide { display: grid; gap: 14px; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .guide table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 520px; }
+  .guide th, .guide td { text-align: left; padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+  .guide thead th { border-top: 0; font: 500 11px/1.4 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); background: var(--surface-2); }
+  .guide td:nth-child(2), .guide td:nth-child(3) { white-space: nowrap; }
+  .guide ul { max-width: 72ch; }
+
+  .prompt-box { display: grid; gap: 10px; background: var(--surface); border: 1px solid var(--accent-line); border-radius: 12px; padding: 16px 18px; }
+  .prompt-box h3 { font-size: 17px; font-weight: 600; }
+  .prompt-box .how { font-size: 14px; color: var(--muted); }
+  .prompt-text { font: 400 14px/1.6 var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; margin: 0; }
+  .copy-btn { justify-self: start; font: 600 14px var(--body); color: var(--surface); background: var(--accent); border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  .copy-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* Shipping */
+  .shipping { display: grid; gap: 16px; }
+  .ship-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
+  .ship-grid > div { border-top: 2px solid var(--accent); padding-top: 12px; display: grid; gap: 6px; font-size: 15px; align-content: start; }
+  .ship-grid h4 { margin: 0; font: 600 15px/1.3 var(--body); }
+  .ship-grid p { color: var(--muted); }
+
+  footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+
+  @media (max-width: 560px) {
+    body { padding-block: 28px 48px; }
+    .track a { grid-template-columns: 48px minmax(0, 1fr); }
+    .track .effort { grid-column: 2; }
+    .track .what { grid-column: 2; }
+    .release { padding: 18px 16px 20px; }
+    .release.v3 { padding: 22px 16px; }
+    details.history > summary { padding: 14px 16px; }
+    .history-body { padding: 0 8px 8px; }
+    .parked-item, .parked-list.against .parked-item { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    html { scroll-behavior: smooth; }
+  }
+
+  /* Rows page additions: the notice, a status picker for Editors, and the two looks the old inline styles carried. */
+  .sections { display: grid; gap: 48px; }
+  .sections:empty { display: none; }
+  .intro { color: var(--muted); max-width: 70ch; }
+  .prompt-box.soft-edge { border-color: var(--line); }
+  .notice {
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-line);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 15px;
+  }
+  .notice[hidden] { display: none; }
+  .empty { color: var(--muted); font-size: 15px; padding: 14px 18px; }
+  .releases > .empty { padding: 0; }
+  .status-pick {
+    font: 500 11px/1 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ok);
+    background: var(--ok-soft);
+    border: 1px solid var(--ok);
+    border-radius: 999px;
+    padding: 3px 8px;
+    margin-left: 8px;
+    vertical-align: middle;
+    cursor: pointer;
+  }
+  .status-pick.review { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
+  .status-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .status-pick:disabled { cursor: progress; opacity: 0.7; }
+  .status-pick option { color: var(--ink); background: var(--surface); text-transform: none; }
+  /* Long size lines ("Size L · cap 480M …") used to push phones sideways: let them wrap there. */
+  @media (max-width: 560px) {
+    .effort { white-space: normal; line-height: 1.4; min-width: 0; flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <p class="notice" id="notice" role="status">Loading the roadmap&hellip;</p>
+
+  <header>
+    <span class="eyebrow" id="eyebrow">Product roadmap</span>
+    <h1 id="title">Roadmap</h1>
+    <p class="lede" id="lede"></p>
+    <div class="status" id="status"></div>
+  </header>
+
+  <section class="principle" id="principle" aria-labelledby="why-order" hidden>
+    <span class="eyebrow" id="why-order"></span>
+    <div class="reasons" id="reasons"></div>
+  </section>
+
+  <section class="overview" aria-labelledby="overview-title">
+    <h2 id="overview-title">At a glance</h2>
+    <nav class="track" id="track" aria-label="Releases"></nav>
+    <p class="also" id="glance-also" hidden></p>
+  </section>
+
+  <section class="releases" id="releases" aria-label="Release details">
+    <h2 class="section-title" id="releases-title">Release by release</h2>
+    <p class="also" id="also" hidden></p>
+  </section>
+
+  <div class="sections" id="sections"></div>
+
+  <footer id="footer" hidden></footer>
+</div>
+
+<script>
+  // The roadmap lives in this artifact's db: meta/page (header), meta/archive (shipped rows on the archive page),
+  // cards/<anchor> (one release card each) and sections/<id> (the long sections). This file holds only the shape.
+  (function () {
+    var STATUS = [
+      ['shipped', 'Shipped'], ['in-progress', 'In progress'], ['in-review', 'In review'], ['planned', 'Planned'], ['parked', 'Parked']
+    ];
+    var LABEL = {};
+    STATUS.forEach(function (s) { LABEL[s[0]] = s[1]; });
+    var GROUPS = [['shipped', 'Shipped'], ['to-come', 'Still to come'], ['beyond', 'Beyond V2']];
+    // Today's markup and nothing more: no style, no script, no event attributes, no images.
+    var PURIFY = {
+      ALLOWED_TAGS: ['p', 'ul', 'ol', 'li', 'strong', 'em', 'code', 'a', 'h3', 'h4', 'h5', 'div', 'span', 'i', 'small',
+        'dl', 'dt', 'dd', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'pre', 'button', 'br'],
+      ALLOWED_ATTR: ['class', 'href', 'id', 'aria-hidden', 'aria-label', 'type'],
+      RETURN_DOM_FRAGMENT: true
+    };
+
+    var state = { db: null, meta: null, archive: [], cards: null, sections: [], canEdit: false, readOnly: false, failed: false };
+    var writes = {}; // one write at a time per card doc (db rule)
+    var revealed = false;
+
+    var KEY = 'roadmap-open-releases';
+    var open = {};
+    try { open = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { open = {}; }
+    function save() { try { localStorage.setItem(KEY, JSON.stringify(open)); } catch (e) {} }
+
+    function $(id) { return document.getElementById(id); }
+    function el(tag, cls, text) {
+      var n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (text != null) n.textContent = text;
+      return n;
+    }
+    function str(v) { return typeof v === 'string' ? v : ''; }
+    // Shared data is untrusted: markup goes through DOMPurify; if it didn't load, show the words only.
+    function rich(html) {
+      html = str(html);
+      if (window.DOMPurify && window.DOMPurify.isSupported) return window.DOMPurify.sanitize(html, PURIFY);
+      var f = document.createDocumentFragment();
+      f.appendChild(document.createTextNode(new DOMParser().parseFromString(html, 'text/html').body.textContent || ''));
+      return f;
+    }
+    function fill(node, html) { node.textContent = ''; node.appendChild(rich(html)); return node; }
+    function pips(n) {
+      var p = el('span', 'pips');
+      p.setAttribute('aria-hidden', 'true');
+      for (var i = 0; i < 4; i++) p.appendChild(el('i', i < n ? 'on' : ''));
+      return p;
+    }
+    function effort(n, sizeHtml) {
+      var e = el('span', 'effort');
+      e.appendChild(pips(Number(n) || 0));
+      e.appendChild(rich(sizeHtml));
+      return e;
+    }
+    function notice(text) { var n = $('notice'); n.textContent = text || ''; n.hidden = !text; }
+    function shortBadge(badge) { return str(badge).replace(/\s*·\s*PR #\d+$/, ''); }
+    function isShipped(c) { return c.status === 'shipped'; }
+    // A card marked shipped on the page moves up to the Shipped group at once; V3 and V4 keep their own group.
+    function groupOf(c) { return isShipped(c) && c.track !== 'beyond' ? 'shipped' : (c.track || 'beyond'); }
+
+    var queued = false;
+    function render() {
+      if (queued) return;
+      queued = true;
+      setTimeout(function () { queued = false; draw(); }, 0);
+    }
+
+    function draw() {
+      drawHeader();
+      drawGlance();
+      drawCards();
+      drawSections();
+      // Jump to a hash only once everything above the cards has arrived, or the header growing later pushes it away.
+      if (!revealed && state.cards && state.cards.length && state.metaLoaded && state.archiveLoaded && location.hash) {
+        revealed = true;
+        reveal(location.hash.slice(1));
+      }
+    }
+
+    function drawHeader() {
+      var m = state.meta;
+      if (!m) return;
+      if (m.eyebrow) $('eyebrow').textContent = str(m.eyebrow);
+      if (m.title) $('title').textContent = str(m.title);
+      fill($('lede'), m.lede_html);
+      var status = $('status');
+      status.textContent = '';
+      (Array.isArray(m.status_html) ? m.status_html : []).forEach(function (h) { status.appendChild(fill(el('span'), h)); });
+      if (m.revised_html) {
+        var r = el('span');
+        r.appendChild(el('strong', '', 'Revised:'));
+        r.appendChild(document.createTextNode(' '));
+        r.appendChild(rich(m.revised_html));
+        status.appendChild(r);
+      }
+      $('why-order').textContent = str(m.principle_eyebrow);
+      fill($('reasons'), m.principle_html);
+      $('principle').hidden = !m.principle_html;
+      if (m.glance_heading) $('overview-title').textContent = str(m.glance_heading);
+      fill($('glance-also'), m.glance_also_html);
+      $('glance-also').hidden = !m.glance_also_html;
+      if (m.releases_heading) $('releases-title').textContent = str(m.releases_heading);
+      fill($('also'), m.releases_also_html);
+      $('also').hidden = !m.releases_also_html;
+      fill($('footer'), m.footer_html);
+      $('footer').hidden = !m.footer_html;
+    }
+
+    function glanceRow(href, cls, ver, themeHtml, badge, review, pipsN, sizeHtml, whatHtml) {
+      var a = el('a', cls);
+      a.setAttribute('href', href);
+      a.appendChild(el('span', 'ver', ver));
+      var t = el('span', 'theme');
+      t.appendChild(rich(themeHtml));
+      if (badge) { t.appendChild(document.createTextNode(' ')); t.appendChild(el('span', review ? 'shipped review' : 'shipped', badge)); }
+      a.appendChild(t);
+      a.appendChild(effort(pipsN, sizeHtml));
+      a.appendChild(fill(el('span', 'what'), whatHtml));
+      return a;
+    }
+
+    function drawGlance() {
+      var nav = $('track');
+      nav.textContent = '';
+      if (!state.cards) return;
+      if (!state.cards.length && !state.archive.length) { nav.appendChild(el('p', 'empty', 'No cards yet.')); return; }
+      GROUPS.forEach(function (g) {
+        var rows = [];
+        if (g[0] === 'shipped') {
+          state.archive.forEach(function (r) {
+            if (!r || typeof r.href !== 'string' || !/^https:\/\//.test(r.href)) return;
+            rows.push(glanceRow(r.href, 'is-done', str(r.ver), r.theme_html, 'Shipped', false, r.pips, r.size_html, r.what_html));
+          });
+        }
+        state.cards.forEach(function (c) {
+          if (c.glance_hide || groupOf(c) !== g[0]) return;
+          var cls = [isShipped(c) ? 'is-done' : '', c.variant === 'v4' ? 'is-v4' : (c.variant ? 'is-v3' : '')].join(' ').trim();
+          rows.push(glanceRow('#' + c.id, cls, str(c.glance_ver || c.ver), c.glance_theme || c.title, shortBadge(c.badge), !isShipped(c),
+            c.glance_pips != null ? c.glance_pips : c.size_pips, c.glance_size != null ? c.glance_size : c.size_text, c.glance_what));
+        });
+        if (!rows.length) return;
+        nav.appendChild(el('div', 'track-group', g[1]));
+        rows.forEach(function (r) { nav.appendChild(r); });
+      });
+    }
+
+    function setFold(card, isOpen) {
+      card.classList.toggle('is-collapsed', !isOpen);
+      card.querySelector('.release-head').setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+
+    function picker(c) {
+      var s = el('select', isShipped(c) ? 'status-pick' : 'status-pick review');
+      s.setAttribute('aria-label', 'Status of ' + str(c.ver));
+      STATUS.forEach(function (o) {
+        var opt = el('option', '', o[1]);
+        opt.value = o[0];
+        if (o[0] === c.status) opt.selected = true;
+        s.appendChild(opt);
+      });
+      if (!LABEL[c.status]) { var cur = el('option', '', str(c.badge)); cur.value = ''; cur.selected = true; s.insertBefore(cur, s.firstChild); }
+      s.addEventListener('change', function () { setStatus(c, s.value, s); });
+      return s;
+    }
+
+    function setStatus(c, status, select) {
+      if (!LABEL[status] || !state.db) return;
+      // Keep the PR number when there is one ("Shipped · PR #80"); everything else is the plain label.
+      var pr = str(c.badge).match(/·\s*PR #\d+$/);
+      var badge = LABEL[status] + (pr ? ' ' + pr[0] : '');
+      select.disabled = true;
+      var ref = state.db.doc('cards/' + c.id);
+      writes[c.id] = (writes[c.id] || Promise.resolve()).then(function () {
+        return ref.update({ status: status, badge: badge, updated_at: new Date().toISOString() });
+      }).then(function () {
+        notice('');
+      }, function (e) {
+        if (e && e.code === 'invalid_argument') {
+          state.readOnly = true;
+          notice('Only Editors can change a status. The page is read-only for you.');
+        } else {
+          notice('Couldn’t save the status. Try again in a moment.');
+        }
+        render();
+      });
+    }
+
+    function drawCards() {
+      var sec = $('releases');
+      Array.prototype.slice.call(sec.querySelectorAll(':scope > article.release, :scope > .empty')).forEach(function (n) { n.remove(); });
+      if (!state.cards) return;
+      if (!state.cards.length) { sec.appendChild(el('p', 'empty', 'No cards yet.')); return; }
+      var edit = state.canEdit && !state.readOnly;
+      state.cards.forEach(function (c) {
+        var card = el('article', 'release' + (c.variant ? ' ' + c.variant : ''));
+        card.id = c.id;
+        var head = el('div', 'release-head');
+        var titles = el('div', 'titles');
+        titles.appendChild(el('span', 'ver', str(c.ver)));
+        titles.appendChild(el('h3', '', str(c.title)));
+        // A card with no badge (V3, V4) has no status to change.
+        if (c.badge && edit) titles.appendChild(picker(c));
+        else if (c.badge) titles.appendChild(el('span', isShipped(c) ? 'shipped' : 'shipped review', str(c.badge)));
+        head.appendChild(titles);
+        head.appendChild(effort(c.size_pips, c.size_text));
+        card.appendChild(head);
+        var body = document.createDocumentFragment();
+        body.appendChild(rich(c.pre_html));
+        if (c.why) body.appendChild(fill(el('p', 'why'), c.why));
+        body.appendChild(rich(c.body_html));
+        if (isShipped(c)) {
+          // Shipped cards fold to their head; the open ones are remembered per viewer.
+          var wrap = el('div', 'release-body');
+          wrap.appendChild(body);
+          card.appendChild(wrap);
+          var chev = el('span', 'chev', '▸');
+          chev.setAttribute('aria-hidden', 'true');
+          titles.insertBefore(chev, titles.firstChild);
+          head.setAttribute('role', 'button');
+          head.setAttribute('tabindex', '0');
+          card.classList.add('is-fold');
+          setFold(card, !!open[c.id]);
+          var toggle = function () {
+            var nowOpen = card.classList.contains('is-collapsed');
+            setFold(card, nowOpen);
+            if (nowOpen) open[c.id] = 1; else delete open[c.id];
+            save();
+          };
+          head.addEventListener('click', function (e) { if (e.target.closest('a, select')) return; toggle(); });
+          head.addEventListener('keydown', function (e) {
+            if (e.target !== head) return;
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+          });
+        } else {
+          card.appendChild(body);
+        }
+        sec.appendChild(card);
+      });
+    }
+
+    function drawSections() {
+      var box = $('sections');
+      box.textContent = '';
+      state.sections.forEach(function (s) {
+        var cls = str(s.class).replace(/[^a-z0-9 -]/gi, '');
+        var sec = el('section', cls);
+        var label = /^[a-z0-9-]+$/i.test(str(s.label_id)) ? s.label_id : 'section-' + s.id;
+        if (/^[a-z0-9-]+$/i.test(str(s.anchor))) sec.id = s.anchor;
+        sec.setAttribute('aria-labelledby', label);
+        var h = el('h2', 'section-title', str(s.heading));
+        h.id = label;
+        sec.appendChild(h);
+        sec.appendChild(rich(s.body_html));
+        box.appendChild(sec);
+      });
+    }
+
+    // Opening a release from a link (At a glance, or a hash in the address) unfolds it first.
+    function reveal(id) {
+      var card = id && document.getElementById(id);
+      if (!card) return;
+      if (card.classList.contains('is-collapsed')) { setFold(card, true); open[card.id] = 1; save(); }
+      card.scrollIntoView();
+    }
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('a[href^="#"]');
+      if (a) reveal(a.getAttribute('href').slice(1));
+      var btn = e.target.closest && e.target.closest('#copy-review');
+      if (btn) copyPrompt(btn);
+    });
+    window.addEventListener('hashchange', function () { reveal(location.hash.slice(1)); });
+
+    // The review prompt in the usage guidelines: copy, or select it when the clipboard is refused.
+    function copyPrompt(btn) {
+      var text = document.getElementById('review-prompt');
+      if (!text) return;
+      function selectText() {
+        var range = document.createRange();
+        range.selectNodeContents(text);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        btn.textContent = 'Selected: press Ctrl/Cmd+C';
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text.textContent).then(function () {
+          btn.textContent = 'Copied';
+          setTimeout(function () { btn.textContent = 'Copy prompt'; }, 2000);
+        }, selectText);
+      } else {
+        selectText();
+      }
+    }
+
+    function byOrder(a, b) { return (Number(a.order) || 0) - (Number(b.order) || 0) || (a.id < b.id ? -1 : 1); }
+    function failed(e) {
+      if (state.failed) return;
+      state.failed = true;
+      notice(e && e.code === 'revoked' ? 'The roadmap is no longer available in this view.' : 'The roadmap couldn’t load. Reload the page to try again.');
+    }
+
+    function start(db, user) {
+      if (!db) { notice('Sign in to claude.ai to see the roadmap.'); return; }
+      state.db = db;
+      if (user) user.canEdit().then(function (v) { state.canEdit = !!v; render(); });
+      db.doc('meta/page').onSnapshot(function (s) { state.meta = s.exists ? s.data() : null; state.metaLoaded = true; render(); }, failed);
+      db.doc('meta/archive').onSnapshot(function (s) {
+        var d = s.exists ? s.data() : null;
+        state.archiveLoaded = true;
+        state.archive = d && Array.isArray(d.rows) ? d.rows : [];
+        render();
+      }, failed);
+      db.collection('cards').onSnapshot(function (q) {
+        state.cards = q.docs.map(function (d) { var v = Object.assign({}, d.data()); v.id = d.id; return v; }).sort(byOrder);
+        if (!state.failed) notice('');
+        render();
+      }, failed);
+      db.collection('sections').onSnapshot(function (q) {
+        state.sections = q.docs.map(function (d) { var v = Object.assign({}, d.data()); v.id = d.id; return v; }).sort(byOrder);
+        render();
+      }, failed);
+    }
+
+    // Render the shell first; the data lights up when the capabilities resolve (null = signed out or not granted).
+    var c = window.claude;
+    if (!c || typeof c.use !== 'function') { start(null, null); return; }
+    Promise.all([c.use('db'), c.use('user').catch(function () { return null; })])
+      .then(function (r) { start(r[0], r[1]); }, function () { start(null, null); });
+  })();
+</script>
+</body>
+</html>

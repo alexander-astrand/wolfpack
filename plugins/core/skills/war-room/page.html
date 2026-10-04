@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>War Room</title>
+<!--
+  /war-room's page template. Published as a Claude artifact with
+  capabilities {db:{rules:[{path:"",read:"admin",write:"admin"}]}, user:{}}.
+  No rows live here: the repo is public, so every project and meter row
+  sits only in the artifact's db (written by the page or the ArtifactData tool).
+-->
+<style>
+:root {
+  --bg: #f5f5f7;
+  --card: #ffffff;
+  --card-2: #fbfbfd;
+  --ink: #1d1d1f;
+  --muted: #6e6e73;
+  --line: #e2e2e7;
+  --accent: #0a66d8;
+  --accent-ink: #ffffff;
+  --accent-soft: #e6f0fc;
+  --used: #8e8e93;
+  --planned: #0a66d8;
+  --over: #c77700;
+  --over-soft: #fff3e0;
+  --free: #e5e5ea;
+  --chip: #f0f0f3;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 14px rgba(0,0,0,.05);
+  --scrim: rgba(0,0,0,.32);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #000000;
+    --card: #1c1c1e;
+    --card-2: #232326;
+    --ink: #f5f5f7;
+    --muted: #a1a1a6;
+    --line: #333336;
+    --accent: #3d93ff;
+    --accent-ink: #ffffff;
+    --accent-soft: #10284a;
+    --used: #8e8e93;
+    --planned: #3d93ff;
+    --over: #ffb340;
+    --over-soft: #3a2a10;
+    --free: #2c2c2e;
+    --chip: #2c2c2e;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+    --scrim: rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #000000;
+  --card: #1c1c1e;
+  --card-2: #232326;
+  --ink: #f5f5f7;
+  --muted: #a1a1a6;
+  --line: #333336;
+  --accent: #3d93ff;
+  --accent-ink: #ffffff;
+  --accent-soft: #10284a;
+  --used: #8e8e93;
+  --planned: #3d93ff;
+  --over: #ffb340;
+  --over-soft: #3a2a10;
+  --free: #2c2c2e;
+  --chip: #2c2c2e;
+  --shadow: 0 1px 2px rgba(0,0,0,.4);
+  --scrim: rgba(0,0,0,.6);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:disabled { cursor: default; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 16px 16px calc(96px + env(safe-area-inset-bottom)); }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+h1 { font-size: 28px; line-height: 1.15; margin: 0; letter-spacing: -.02em; }
+.seg { display: inline-flex; background: var(--chip); border-radius: 10px; padding: 2px; }
+.seg button { min-height: 40px; min-width: 88px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-weight: 600; font-size: 15px; }
+.seg button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+.notice { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+.section-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 20px 4px 8px; }
+.cards { display: grid; gap: 10px; grid-template-columns: 1fr; }
+@media (min-width: 768px) { .cards { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1024px) { .cards { grid-template-columns: 1fr 1fr 1fr; } }
+.card { display: block; width: 100%; text-align: left; background: var(--card); border: 0; border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow); min-height: 44px; }
+.card.done { opacity: .6; }
+.card .next { font-size: 19px; font-weight: 650; line-height: 1.3; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.card .next.empty { color: var(--muted); font-weight: 500; }
+.card .meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.card .name { font-size: 15px; color: var(--muted); overflow-wrap: anywhere; }
+.chip { flex: none; border: 0; border-radius: 999px; background: var(--chip); color: var(--muted); font-size: 13px; font-weight: 500; min-height: 44px; padding: 0 12px; }
+.when { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.empty-state { background: var(--card); border-radius: 16px; padding: 28px 16px; text-align: center; box-shadow: var(--shadow); }
+.empty-state p { color: var(--muted); margin: 6px 0 16px; }
+.btn { min-height: 44px; padding: 0 18px; border: 0; border-radius: 12px; font-weight: 600; font-size: 16px; }
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-quiet { background: var(--chip); color: var(--ink); }
+.btn-danger { background: transparent; color: var(--over); padding: 0 8px; }
+.fab { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 5; min-height: 52px; padding: 0 22px; border-radius: 26px; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+/* Sheet: a bottom sheet on phones, a centred panel on desktop. */
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 10; display: flex; align-items: flex-end; justify-content: center; }
+.sheet { width: 100%; max-width: 520px; background: var(--card); border-radius: 18px 18px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); max-height: 90vh; overflow-y: auto; }
+@media (min-width: 1024px) { .scrim { align-items: center; } .sheet { border-radius: 18px; } }
+.sheet h2 { font-size: 20px; margin: 0 0 12px; }
+.field { display: block; margin-bottom: 12px; }
+.field span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.field input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card-2); color: var(--ink); font: inherit; font-size: 16px; }
+.field input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.status-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+.status-row button { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--card-2); font-size: 14px; }
+.status-row button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); font-weight: 600; }
+.sheet-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; }
+.sheet-actions .right { display: flex; gap: 8px; margin-left: auto; }
+.more { background: none; border: 0; color: var(--accent); min-height: 44px; padding: 0; font-size: 15px; }
+.err { color: var(--over); font-size: 14px; min-height: 20px; }
+/* Plan view */
+.meter { background: var(--card); border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.meter .head { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+.meter .head strong { color: var(--ink); font-weight: 600; }
+.bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--free); }
+.bar .used { background: var(--used); }
+.bar .planned { background: var(--planned); }
+.bar .planned.over { background: var(--over); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 13px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.legend .over-note { color: var(--over); font-weight: 600; }
+.plan-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.plan-bar .range { font-size: 15px; font-weight: 600; }
+.hint { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--accent-soft); color: var(--ink); border-radius: 12px; padding: 4px 6px 4px 14px; margin-bottom: 12px; font-size: 14px; }
+.blocks { display: grid; gap: 8px; grid-template-columns: 1fr; }
+@media (min-width: 1024px) { .blocks.week { grid-template-columns: repeat(7, 1fr); } .blocks.month { grid-template-columns: repeat(3, 1fr); } }
+.lanes { display: grid; gap: 8px; grid-template-columns: 1fr; margin-top: 8px; }
+@media (min-width: 1024px) { .lanes { grid-template-columns: 1fr 1fr 1fr; } }
+.block { background: var(--card); border: 2px solid transparent; border-radius: 14px; padding: 10px; min-height: 64px; box-shadow: var(--shadow); }
+.block.today { border-color: var(--line); }
+.block.target { cursor: pointer; border-color: var(--accent); border-style: dashed; }
+.block.drop { background: var(--accent-soft); }
+.block .label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+.block .label .count { font-weight: 500; }
+@media (min-width: 1024px) { .blocks.week .block { min-height: 140px; } }
+.pcard { display: block; width: 100%; text-align: left; background: var(--card-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-top: 6px; min-height: 44px; }
+.pcard.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.pcard .pn { font-size: 14px; font-weight: 600; overflow-wrap: break-word; }
+.pcard .ps { font-size: 13px; color: var(--muted); overflow-wrap: break-word; }
+.pcard[draggable="true"] { cursor: grab; }
+.tray-empty { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>War Room</h1>
+    <div class="seg" role="group" aria-label="View">
+      <button type="button" id="tab-projects" aria-pressed="true">Projects</button>
+      <button type="button" id="tab-plan" aria-pressed="false">Plan</button>
+    </div>
+  </header>
+  <div id="notice" class="notice" hidden></div>
+  <main id="view"></main>
+</div>
+<button type="button" id="fab" class="btn btn-primary fab" hidden>+ Project</button>
+<div id="sheet-root"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STATUSES = ["active", "next", "parked", "done"];
+  var STATUS_LABEL = { active: "Active", next: "Next", parked: "Parked", done: "Done" };
+  var DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+  var state = {
+    db: null,
+    loading: true,       // until claude.use("db") answers
+    readOnly: true,      // until we know this viewer may write
+    tab: "projects",
+    span: "week",        // Plan view: week | month
+    projects: [],        // [{id, data}]
+    meter: null,         // meter doc body for this week, or null
+    selected: null,      // Plan view: id of the card picked for tap-to-place
+    writeError: ""
+  };
+
+  // ---- small DOM helper: text always goes in as textContent (rows are shared data) ----
+  function el(tag, attrs, kids) {
+    var n = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      var v = attrs[k];
+      if (v == null || v === false) return;
+      if (k === "class") n.className = v;
+      else if (k === "text") n.textContent = v;
+      else if (k.slice(0, 2) === "on") n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v === true ? "" : v);
+    });
+    (kids || []).forEach(function (c) { if (c) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return n;
+  }
+
+  // ---- dates: the viewer's own calendar (a personal planner, not the app's Stockholm rule) ----
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function isoDate(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function monthKey(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1); }
+  function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  function monday(d) { var x = startOfDay(d); var wd = (x.getDay() + 6) % 7; return addDays(x, -wd); }
+  // ISO 8601 week: the week belongs to the year of its Thursday.
+  function isoWeek(d) {
+    var thu = addDays(monday(d), 3);
+    var jan4 = new Date(thu.getFullYear(), 0, 4);
+    var week = 1 + Math.round((thu - monday(jan4)) / (7 * 864e5));
+    return thu.getFullYear() + "-W" + pad(week);
+  }
+  function weekMonday(key) {
+    var m = /^(\d{4})-W(\d{2})$/.exec(key);
+    if (!m) return null;
+    return addDays(monday(new Date(+m[1], 0, 4)), (+m[2] - 1) * 7);
+  }
+  function parseDate(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+  }
+  function validPlanned(s) { return s === "" || /^\d{4}-\d{2}-\d{2}$/.test(s) || /^\d{4}-W\d{2}$/.test(s) || /^\d{4}-\d{2}$/.test(s); }
+  function shortDate(d) { return d.getDate() + " " + MONTHS[d.getMonth()].slice(0, 3); }
+  function describePlanned(s) {
+    if (!s) return "";
+    var d = parseDate(s);
+    if (d) return DAY_NAMES[(d.getDay() + 6) % 7] + " " + shortDate(d);
+    var w = weekMonday(s);
+    if (w) return "Week " + (+s.slice(6)) + " (from " + shortDate(w) + ")";
+    if (/^\d{4}-\d{2}$/.test(s)) return MONTHS[+s.slice(5) - 1] + " " + s.slice(0, 4);
+    return s;
+  }
+
+  // The weeks shown by the month view: every ISO week with a day in this month.
+  function weeksOfMonth(today) {
+    var first = new Date(today.getFullYear(), today.getMonth(), 1);
+    var last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    var out = [];
+    for (var d = monday(first); d <= last; d = addDays(d, 7)) out.push({ key: isoWeek(d), from: d });
+    return out;
+  }
+
+  // Which block a planned_for value lands in. "tray" = not placed (empty, or already past).
+  function bucket(planned, today, span) {
+    if (!planned) return "tray";
+    var mon = monday(today), sunEnd = addDays(mon, 7);
+    var thisMonth = monthKey(today);
+    var monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    var d = parseDate(planned);
+    if (d) {
+      if (d < mon) return "tray";
+      if (span === "week") {
+        if (d < sunEnd) return "day:" + isoDate(d);
+        return d < monthEnd ? "month" : "later";
+      }
+      return d < monthEnd ? "week:" + isoWeek(d) : "later";
+    }
+    var w = weekMonday(planned);
+    if (w) {
+      if (w < mon) return "tray";
+      if (span === "month") return w < monthEnd ? "week:" + planned : "later";
+      return w < monthEnd ? "month" : "later";
+    }
+    if (/^\d{4}-\d{2}$/.test(planned)) {
+      if (planned < thisMonth) return "tray";
+      return planned === thisMonth ? "month" : "later";
+    }
+    return "tray";
+  }
+
+  // ---- data ----
+  function sorted() {
+    return state.projects.slice().sort(function (a, b) {
+      var sa = STATUSES.indexOf(a.data.status), sb = STATUSES.indexOf(b.data.status);
+      if (sa < 0) sa = 9; if (sb < 0) sb = 9;
+      if (sa !== sb) return sa - sb;
+      return (Number(a.data.order) || 0) - (Number(b.data.order) || 0);
+    });
+  }
+  function byId(id) { for (var i = 0; i < state.projects.length; i++) if (state.projects[i].id === id) return state.projects[i]; return null; }
+  function slugify(name) {
+    var s = name.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
+    return s || "project";
+  }
+  function freshId(name) {
+    var base = slugify(name), id = base, n = 2;
+    while (byId(id)) id = base + "-" + n++;
+    return id;
+  }
+
+  // One write at a time per document (the db contract): chain writes per path.
+  var queues = {};
+  function write(path, fn) {
+    var prev = queues[path] || Promise.resolve();
+    var next = prev.catch(function () {}).then(fn);
+    queues[path] = next;
+    return next.catch(function (e) {
+      if (e && e.code === "invalid_argument") {
+        // A refused well-formed write means this viewer can't write here: go read-only.
+        state.readOnly = true;
+        state.writeError = "This board is read-only for you.";
+      } else if (e && e.code === "quota_exceeded") {
+        state.writeError = "The board is full. Delete a few done projects first.";
+      } else {
+        state.writeError = "Couldn't save just now. Try again.";
+      }
+      render();
+      throw e;
+    });
+  }
+  function saveProject(id, fields, isNew) {
+    var body = Object.assign({}, fields, { updated_at: new Date().toISOString() });
+    var ref = state.db.doc("projects/" + id);
+    return write(ref.path, function () { return isNew ? ref.set(body) : ref.update(body); });
+  }
+  function removeProject(id) {
+    var ref = state.db.doc("projects/" + id);
+    return write(ref.path, function () { return ref.delete(); });
+  }
+  function place(id, planned) {
+    var p = byId(id);
+    state.selected = null;
+    if (!p || state.readOnly || (p.data.planned_for || "") === planned) { render(); return; }
+    saveProject(id, { planned_for: planned }, false).catch(function () {});
+    render();
+  }
+  function cycleStatus(p) {
+    var i = STATUSES.indexOf(p.data.status);
+    var next = STATUSES[(i + 1) % STATUSES.length];
+    saveProject(p.id, { status: next }, false).catch(function () {});
+  }
+
+  // ---- views ----
+  function renderNotice() {
+    var n = document.getElementById("notice");
+    var msg = "";
+    if (state.loading) msg = "Connecting to the board…";
+    else if (!state.db) msg = "Read-only: sign in to Claude and open this board there to see and plan your projects.";
+    else if (state.writeError) msg = state.writeError;
+    else if (state.readOnly) msg = "Read-only: only the board's owner changes it.";
+    n.hidden = !msg;
+    n.textContent = msg;
+  }
+
+  function emptyState() {
+    return el("div", { class: "empty-state" }, [
+      el("strong", { text: "Add your first project" }),
+      el("p", { text: "One card per project, with the next step on top." }),
+      state.readOnly ? null : el("button", { type: "button", class: "btn btn-primary", text: "+ Project", onclick: function () { openSheet(null); } })
+    ]);
+  }
+
+  function projectCard(p) {
+    var d = p.data;
+    var status = STATUSES.indexOf(d.status) >= 0 ? d.status : "active";
+    var card = el("div", { class: "card" + (status === "done" ? " done" : ""), role: state.readOnly ? null : "button", tabindex: state.readOnly ? null : "0", style: state.readOnly ? null : "cursor:pointer" }, [
+      el("div", { class: "next" + (d.next_step ? "" : " empty"), text: d.next_step || "No next step yet" }),
+      d.planned_for ? el("div", { class: "when", text: describePlanned(String(d.planned_for)) }) : null,
+      el("div", { class: "meta" }, [
+        el("span", { class: "name", text: d.name || p.id }),
+        el("button", {
+          type: "button", class: "chip", text: STATUS_LABEL[status],
+          disabled: state.readOnly,
+          "aria-label": "Status " + STATUS_LABEL[status] + (state.readOnly ? "" : ", tap to change"),
+          onclick: function (e) { e.stopPropagation(); cycleStatus(p); }
+        })
+      ])
+    ]);
+    if (!state.readOnly) {
+      card.addEventListener("click", function () { openSheet(p); });
+      card.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSheet(p); } });
+    }
+    return card;
+  }
+
+  function renderProjects(view) {
+    var list = sorted();
+    if (!list.length) { view.appendChild(emptyState()); return; }
+    STATUSES.forEach(function (s) {
+      var group = list.filter(function (p) { return (STATUSES.indexOf(p.data.status) >= 0 ? p.data.status : "active") === s; });
+      if (!group.length) return;
+      view.appendChild(el("div", { class: "section-title", text: STATUS_LABEL[s] + " · " + group.length }));
+      view.appendChild(el("div", { class: "cards" }, group.map(projectCard)));
+    });
+  }
+
+  function renderMeter(view, today) {
+    var key = isoWeek(today);
+    var box = el("div", { class: "meter" });
+    var m = state.meter;
+    if (!m) {
+      box.appendChild(el("div", { class: "head" }, [el("span", { text: "Week " + (+key.slice(6)) + " meter" }), el("span", { text: "No meter row yet" })]));
+      view.appendChild(box);
+      return;
+    }
+    var used = Math.max(0, Number(m.used_pct) || 0);
+    var planned = (Array.isArray(m.planned) ? m.planned : []).reduce(function (s, r) { return s + Math.max(0, Number(r && r.share_pct) || 0); }, 0);
+    var total = used + planned;
+    var over = total > 100;
+    var scale = Math.max(100, total);
+    var free = Math.max(0, 100 - total);
+    function r1(x) { return Math.round(x * 10) / 10; }
+    box.appendChild(el("div", { class: "head" }, [
+      el("span", { text: "Week " + (+key.slice(6)) + " meter" }),
+      el("strong", { text: over ? r1(total) + "% booked" : r1(free) + "% free" })
+    ]));
+    box.appendChild(el("div", { class: "bar", role: "img", "aria-label": "Used " + r1(used) + "%, planned " + r1(planned) + "%, free " + r1(free) + "%" }, [
+      el("div", { class: "used", style: "width:" + (used / scale * 100) + "%" }),
+      el("div", { class: "planned" + (over ? " over" : ""), style: "width:" + (planned / scale * 100) + "%" })
+    ]));
+    var legend = el("div", { class: "legend" }, [
+      el("span", {}, [el("i", { style: "background:var(--used)" }), "Used " + r1(used) + "%"]),
+      el("span", {}, [el("i", { style: "background:var(" + (over ? "--over" : "--planned") + ")" }), "Planned " + r1(planned) + "%"]),
+      el("span", {}, [el("i", { style: "background:var(--free)" }), "Free " + r1(free) + "%"])
+    ]);
+    if (over) legend.appendChild(el("span", { class: "over-note", text: "Over by " + r1(total - 100) + "%" }));
+    (Array.isArray(m.planned) ? m.planned : []).forEach(function (r) {
+      if (r && r.release) legend.appendChild(el("span", { text: String(r.release) + " · " + r1(Number(r.share_pct) || 0) + "%" }));
+    });
+    box.appendChild(legend);
+    view.appendChild(box);
+  }
+
+  function canDrag() { try { return window.matchMedia("(min-width: 1024px) and (pointer: fine)").matches; } catch (e) { return false; } }
+
+  function planCard(p) {
+    var drag = !state.readOnly && canDrag();
+    var c = el("button", {
+      type: "button", class: "pcard" + (state.selected === p.id ? " selected" : ""),
+      draggable: drag ? "true" : null, disabled: state.readOnly,
+      "aria-pressed": state.selected === p.id ? "true" : "false",
+      onclick: function (e) {
+        e.stopPropagation();
+        state.selected = state.selected === p.id ? null : p.id;
+        render();
+      }
+    }, [
+      el("div", { class: "pn", text: p.data.name || p.id }),
+      p.data.next_step ? el("div", { class: "ps", text: p.data.next_step }) : null
+    ]);
+    if (drag) c.addEventListener("dragstart", function (e) { e.dataTransfer.setData("text/plain", p.id); e.dataTransfer.effectAllowed = "move"; });
+    return c;
+  }
+
+  function block(label, extra, key, value, items, cls) {
+    var targeting = !!state.selected;
+    var b = el("div", { class: "block" + (cls ? " " + cls : "") + (targeting ? " target" : ""), "data-key": key }, [
+      el("div", { class: "label" }, [el("span", { text: label }), el("span", { class: "count", text: extra || (items.length ? String(items.length) : "") })])
+    ]);
+    if (!items.length && key === "tray") b.appendChild(el("div", { class: "tray-empty", text: "Everything is placed." }));
+    items.forEach(function (p) { b.appendChild(planCard(p)); });
+    if (targeting) {
+      b.setAttribute("role", "button");
+      b.setAttribute("aria-label", "Place here: " + label);
+      b.addEventListener("click", function () { place(state.selected, value); });
+    }
+    if (!state.readOnly && canDrag()) {
+      b.addEventListener("dragover", function (e) { e.preventDefault(); b.classList.add("drop"); });
+      b.addEventListener("dragleave", function () { b.classList.remove("drop"); });
+      b.addEventListener("drop", function (e) { e.preventDefault(); b.classList.remove("drop"); place(e.dataTransfer.getData("text/plain"), value); });
+    }
+    return b;
+  }
+
+  function renderPlan(view) {
+    var today = startOfDay(new Date());
+    renderMeter(view, today);
+    var mon = monday(today);
+    var span = state.span;
+    var nextMonth = monthKey(new Date(today.getFullYear(), today.getMonth() + 1, 1));
+    var groups = {};
+    sorted().filter(function (p) { return p.data.status !== "done"; }).forEach(function (p) {
+      var k = bucket(String(p.data.planned_for || ""), today, span);
+      (groups[k] = groups[k] || []).push(p);
+    });
+    function items(k) { return groups[k] || []; }
+
+    var rangeText = span === "week"
+      ? "Week " + (+isoWeek(today).slice(6)) + " · " + shortDate(mon) + " – " + shortDate(addDays(mon, 6))
+      : MONTHS[today.getMonth()] + " " + today.getFullYear();
+    view.appendChild(el("div", { class: "plan-bar" }, [
+      el("span", { class: "range", text: rangeText }),
+      el("div", { class: "seg", role: "group", "aria-label": "Span" }, ["week", "month"].map(function (s) {
+        return el("button", { type: "button", "aria-pressed": span === s ? "true" : "false", text: s === "week" ? "Week" : "Month", onclick: function () { state.span = s; state.selected = null; render(); } });
+      }))
+    ]));
+
+    if (state.selected) {
+      var p = byId(state.selected);
+      view.appendChild(el("div", { class: "hint" }, [
+        el("span", { text: "Tap a block to place " + (p ? (p.data.name || p.id) : "it") }),
+        el("button", { type: "button", class: "btn btn-quiet", text: "Cancel", onclick: function () { state.selected = null; render(); } })
+      ]));
+    }
+
+    if (!state.projects.length) { view.appendChild(emptyState()); }
+
+    var blocks;
+    if (span === "week") {
+      blocks = el("div", { class: "blocks week" });
+      for (var i = 0; i < 7; i++) {
+        var d = addDays(mon, i), k = "day:" + isoDate(d);
+        blocks.appendChild(block(DAY_NAMES[i] + " " + d.getDate(), "", k, isoDate(d), items(k), isoDate(d) === isoDate(today) ? "today" : ""));
+      }
+    } else {
+      blocks = el("div", { class: "blocks month" });
+      weeksOfMonth(today).forEach(function (w) {
+        if (addDays(w.from, 7) <= mon) return; // weeks already over
+        var k = "week:" + w.key;
+        blocks.appendChild(block("Week " + (+w.key.slice(6)) + " · from " + shortDate(w.from), "", k, w.key, items(k), w.key === isoWeek(today) ? "today" : ""));
+      });
+    }
+    view.appendChild(blocks);
+
+    var lanes = el("div", { class: "lanes" });
+    if (span === "week") lanes.appendChild(block("This month", "", "month", monthKey(today), items("month")));
+    else if (items("month").length) lanes.appendChild(block("Sometime this month", "", "month", monthKey(today), items("month")));
+    lanes.appendChild(block("Later", "", "later", nextMonth, items("later")));
+    lanes.appendChild(block("Not placed", "", "tray", "", items("tray")));
+    view.appendChild(lanes);
+  }
+
+  // ---- the add/edit sheet ----
+  var sheetOpenFor = undefined; // undefined = closed, null = new, id = editing
+  // Snapshots don't re-render while the sheet is open (it would steal focus), so catch up on close.
+  function closeSheet() { sheetOpenFor = undefined; document.getElementById("sheet-root").textContent = ""; render(); }
+  function openSheet(p) {
+    if (state.readOnly) return;
+    sheetOpenFor = p ? p.id : null;
+    var d = p ? p.data : {};
+    var status = STATUSES.indexOf(d.status) >= 0 ? d.status : "active";
+    var showMore = !!p;
+    var nameIn = el("input", { type: "text", value: d.name || "", autocomplete: "off", enterkeyhint: "next", "aria-label": "Name" });
+    var stepIn = el("input", { type: "text", value: d.next_step || "", autocomplete: "off", enterkeyhint: "done", "aria-label": "Next step" });
+    var whenIn = el("input", { type: "text", value: d.planned_for || "", autocomplete: "off", inputmode: "text", placeholder: "2026-10-06, 2026-W41 or 2026-10", "aria-label": "Planned for" });
+    var err = el("div", { class: "err" });
+    var statusRow = el("div", { class: "status-row", role: "group", "aria-label": "Status" });
+    function drawStatus() {
+      statusRow.textContent = "";
+      STATUSES.forEach(function (s) {
+        statusRow.appendChild(el("button", { type: "button", "aria-pressed": s === status ? "true" : "false", text: STATUS_LABEL[s], onclick: function () { status = s; drawStatus(); } }));
+      });
+    }
+    drawStatus();
+    var more = el("div", { hidden: !showMore }, [
+      el("div", { class: "field" }, [el("span", { text: "Status" })]), statusRow,
+      el("label", { class: "field" }, [el("span", { text: "Planned for (optional)" }), whenIn])
+    ]);
+    var moreBtn = el("button", { type: "button", class: "more", text: "Status and date", hidden: showMore, onclick: function () { more.hidden = false; moreBtn.hidden = true; } });
+
+    var form = el("form", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": p ? "Edit project" : "New project" }, [
+      el("h2", { text: p ? "Edit project" : "New project" }),
+      el("label", { class: "field" }, [el("span", { text: "Name" }), nameIn]),
+      el("label", { class: "field" }, [el("span", { text: "Next step" }), stepIn]),
+      more, moreBtn, err,
+      el("div", { class: "sheet-actions" }, [
+        // A second tap instead of window.confirm: artifact sandboxes may block dialogs.
+        p ? (function () {
+          var armed = false, timer = null;
+          var btn = el("button", { type: "button", class: "btn btn-danger", text: "Delete", onclick: function () {
+            if (!armed) {
+              armed = true;
+              btn.textContent = "Tap again to delete";
+              timer = setTimeout(function () { armed = false; btn.textContent = "Delete"; }, 4000);
+              return;
+            }
+            clearTimeout(timer);
+            removeProject(p.id).catch(function () {});
+            closeSheet();
+          } });
+          return btn;
+        })() : null,
+        el("div", { class: "right" }, [
+          el("button", { type: "button", class: "btn btn-quiet", text: "Cancel", onclick: closeSheet }),
+          el("button", { type: "submit", class: "btn btn-primary", text: "Save" })
+        ])
+      ])
+    ]);
+    // Enter in any field submits the form: the 10-second add on a phone.
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var name = nameIn.value.trim(), step = stepIn.value.trim(), when = whenIn.value.trim();
+      if (!name) { err.textContent = "Give it a name."; nameIn.focus(); return; }
+      if (!validPlanned(when)) { err.textContent = "Use a date (2026-10-06), a week (2026-W41) or a month (2026-10)."; whenIn.focus(); return; }
+      var fields = { name: name, next_step: step, status: status, planned_for: when };
+      if (p) {
+        saveProject(p.id, fields, false).catch(function () {});
+      } else {
+        var maxOrder = state.projects.reduce(function (m, x) { return Math.max(m, Number(x.data.order) || 0); }, 0);
+        fields.order = maxOrder + 1;
+        saveProject(freshId(name), fields, true).catch(function () {});
+      }
+      closeSheet();
+    });
+    form.addEventListener("keydown", function (e) { if (e.key === "Escape") closeSheet(); });
+    var scrim = el("div", { class: "scrim", onclick: function (e) { if (e.target === scrim) closeSheet(); } }, [form]);
+    var root = document.getElementById("sheet-root");
+    root.textContent = "";
+    root.appendChild(scrim);
+    nameIn.focus();
+  }
+
+  // ---- render ----
+  function render() {
+    renderNotice();
+    document.getElementById("tab-projects").setAttribute("aria-pressed", state.tab === "projects" ? "true" : "false");
+    document.getElementById("tab-plan").setAttribute("aria-pressed", state.tab === "plan" ? "true" : "false");
+    document.getElementById("fab").hidden = state.readOnly || state.tab !== "projects";
+    var view = document.getElementById("view");
+    view.textContent = "";
+    if (state.tab === "projects") renderProjects(view); else renderPlan(view);
+  }
+
+  document.getElementById("tab-projects").addEventListener("click", function () { state.tab = "projects"; state.selected = null; render(); });
+  document.getElementById("tab-plan").addEventListener("click", function () { state.tab = "plan"; render(); });
+  document.getElementById("fab").addEventListener("click", function () { openSheet(null); });
+  try { var t = localStorage.getItem("war-room-tab"); if (t === "plan" || t === "projects") state.tab = t; } catch (e) {}
+  window.addEventListener("pagehide", function () { try { localStorage.setItem("war-room-tab", state.tab); } catch (e) {} });
+
+  render();
+
+  // ---- connect: render first, light up when the capabilities answer ----
+  var claudeApi = window.claude;
+  if (!claudeApi || typeof claudeApi.use !== "function") {
+    // A saved copy or a local preview: no runtime, so the empty read-only layout.
+    state.loading = false;
+    render();
+    return;
+  }
+  Promise.all([claudeApi.use("db"), claudeApi.use("user")]).then(function (res) {
+    var db = res[0], user = res[1];
+    state.db = db;
+    state.loading = false;
+    if (!db) { render(); return; }
+    var canWrite = user ? user.can("data.write") : Promise.resolve(null);
+    canWrite.then(function (ok) {
+      // null = the platform said nothing: keep inputs, a refused write decides.
+      state.readOnly = ok === false;
+      render();
+    });
+    db.collection("projects").onSnapshot(function (snap) {
+      state.projects = snap.docs.map(function (d) { return { id: d.id, data: d.data() || {} }; });
+      if (state.selected && !byId(state.selected)) state.selected = null;
+      if (sheetOpenFor === undefined) render();
+    }, function () { state.writeError = "The board stopped updating. Reload the page."; render(); });
+    db.doc("meter/" + isoWeek(new Date())).onSnapshot(function (snap) {
+      state.meter = snap.exists ? (snap.data() || null) : null;
+      if (sheetOpenFor === undefined) render();
+    }, function () {});
+  }, function () { state.loading = false; render(); });
+})();
+</script>
+</body>
+</html>
