@@ -36,6 +36,8 @@ Source of truth until Hutzup switches to the installed plugin: Hutzup's `.claude
    ```
 
 2. Run `/life-finds-a-way <name>` (add `small`, `medium` or `large` to skip the size pick; `adopt` brings an existing folder in). It asks for the idea in your words and three picks, shows a "Here's what I think you're building" card, then researches, plans V0.1 and writes the skeleton with its `.claude/kit.json`. The setup walkthrough asks one yes per step that touches anything outside your machine.
+
+   The skeleton is rendered by `templates/fill.mjs` from one values file, for a Node, Python or other stack: one `scripts/check.sh` (the npm scripts; `ruff` and `pytest` when installed; or a TODO to fill in), matching CI, Dependabot and allow lines. `adopt` detects the stack (`package.json`, `pyproject.toml` or `requirements.txt`, else other) and writes only the files that are missing.
 3. Add `design` (anything with a screen) and `database` (Supabase) after `.claude/kit.json` exists, when the card named them:
 
    ```
@@ -117,6 +119,20 @@ npx vitest run --config vitest.config.mjs
 `claude plugin validate .` is the final word on the manifests.
 
 Eval cases are only for skills the model may invoke (`[evals]`): a skill with `disable-model-invocation: true` gets no trigger case, since nothing but its slash command can start it.
+
+## Publish the kit
+
+The kit is built under `kit/` in its source repo and published to this marketplace with a subtree split, after the release that changed it is merged. One command at a time, from the source repo's root; `<release>` is the source repo's release, `<plugin>--v<x.y.z>` one tag per plugin whose version the release bumped.
+
+1. `git fetch origin main`
+2. `git subtree split --prefix kit origin/main -b wolfpack-<release>` (from the merged `main`, never the release branch: the squash merge is what the marketplace carries)
+3. `git tag <plugin>--v<x.y.z> wolfpack-<release>`, once per bumped plugin (tags go on the split branch, never on the source repo's own commits)
+4. `git push git@github.com:alexander-astrand/wolfpack.git wolfpack-<release>:main` (no force: if it isn't a fast-forward of the last publish, stop and say so)
+5. `git push git@github.com:alexander-astrand/wolfpack.git <every tag from step 3>`
+6. `claude plugin marketplace update wolfpack`
+7. In each folder that installed a bumped plugin: `claude plugin update <plugin>@wolfpack --scope <project|user>`. Step 6 only refreshes the marketplace; an installed plugin stays on its old version until this runs.
+
+A release that changes the kit copies these steps into its PR's "Human steps afterwards", filled in, one command per line (`carousel` does it).
 
 ## Not in 1.0.0
 

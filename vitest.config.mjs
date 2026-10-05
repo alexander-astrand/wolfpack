@@ -7,6 +7,11 @@ export default defineConfig({
   test: {
     root: new URL('.', import.meta.url).pathname,
     passWithNoTests: true,
-    include: ['plugins/*/hooks/**/*.test.mjs', 'plugins/*/scripts/**/*.test.mjs'],
+    // skills/ since 2.14.9: the starter's fill script ships with its own test.
+    include: [
+      'plugins/*/hooks/**/*.test.mjs',
+      'plugins/*/scripts/**/*.test.mjs',
+      'plugins/*/skills/**/*.test.mjs',
+    ],
   },
 })

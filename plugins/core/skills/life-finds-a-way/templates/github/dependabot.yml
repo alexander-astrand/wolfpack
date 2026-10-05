@@ -1,5 +1,6 @@
 version: 2
 updates:
+<!-- stack:node -->
   # Add the npm entry once package.json exists:
   #   - package-ecosystem: npm
   #     directory: /
@@ -8,6 +9,14 @@ updates:
   #     groups:
   #       dev-dependencies:
   #         dependency-type: development
+<!-- /stack -->
+<!-- stack:python -->
+  # Add the pip entry once requirements.txt or pyproject.toml exists:
+  #   - package-ecosystem: pip
+  #     directory: /
+  #     schedule:
+  #       interval: weekly
+<!-- /stack -->
   - package-ecosystem: github-actions
     directory: /
     schedule:

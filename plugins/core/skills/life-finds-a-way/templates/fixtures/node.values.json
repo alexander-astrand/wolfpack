@@ -1,0 +1,67 @@
+{
+  "stack": "node",
+  "packs": ["release", "design", "database"],
+  "project": {
+    "name": "toy-node",
+    "noun": "player",
+    "summary": "A toy web app that keeps a shared list of snacks for a weekly meetup.",
+    "devPort": 5180
+  },
+  "plans": "~/.claude/plans/",
+  "date": "2026-01-15",
+  "roadmap": "file",
+  "kit": { "version": "0.0.0-toy" },
+  "refs": { "dev": "abcdefghijklmnopqrst", "prod": "" },
+  "urls": { "prod": "" },
+  "deployer": "ranjit",
+  "keychain": { "dev": "toy-node-supabase-dev", "prod": "" },
+  "reviewer": "",
+  "brief": { "verbatim": "I want a list where everyone says what snack they bring, so we stop getting five bags of crisps." },
+  "release": {
+    "name": "First snacks",
+    "theme": "the shared snack list",
+    "size": "S",
+    "notin": "reminders by email, later on the roadmap"
+  },
+  "part": [
+    { "name": "the snack list page", "tag": "Code" },
+    { "name": "the weekly reminder text", "tag": "Chat" }
+  ],
+  "service": [
+    { "name": "Toy Host", "trigger": "over 100 visitors a day", "exit": "a static export on any free host" },
+    { "name": "Toy Database", "trigger": "over 500 MB of rows", "exit": "prune old meetups" }
+  ],
+  "money": { "ceiling": "0 per month" },
+  "data": { "what": "first names and snack picks", "whose": "the meetup's members" },
+  "park": [
+    { "trigger": "nobody opens it for a month" },
+    { "trigger": "the meetup stops" }
+  ],
+  "fire": { "stop": "the hosted app and the database", "keep": "the repo and the plans folder" },
+  "rhythm": "One evening a week, about two hours.",
+  "human": [
+    { "step": "Sign up for Toy Host" }
+  ],
+  "count": { "yours": "1", "mine": "5" },
+  "step": [
+    { "name": "Sign up for Toy Host", "who": "Yours" },
+    { "name": "Create the private repo", "who": "Mine" }
+  ],
+  "v01": { "steps": "| Step | Who builds | Files | Check | Budget |\n|---|---|---|---|---|\n| 1. The list page | builder | src/ | scripts/check.sh | 5M |" },
+  "first": { "commit": "The skeleton: CLAUDE.md, README, kit.json, checks and CI. Subject: \"Start toy-node\"." },
+  "adr": {
+    "context": "A meetup needs one place to say who brings what.",
+    "decision": "A small web app on free tiers.",
+    "where": "Toy Host for the app, Toy Database for the rows.",
+    "consequences": "Free until the triggers in V0.1.md; parked when they fire."
+  },
+  "theme": { "pick": "dark-first" },
+  "density": { "pick": "roomy" },
+  "copy": { "pick": "playful" },
+  "reason": ["easier at night", "big thumbs", "it's a party"],
+  "look": { "steal": "a calm notes app", "never": "a busy spreadsheet" },
+  "notyet": [
+    { "item": "sign-in" },
+    { "item": "reminders" }
+  ]
+}

@@ -34,6 +34,7 @@ The first word is the version (the branch is `V` plus the number, e.g. `V2.7`). 
 A ping is a push notification (the PushNotification tool, when it's there) plus a message from `maverick` saying exactly what's needed and which agent it's about. Ping **only** for:
 - a product or scope decision the roadmap entry and CLAUDE.md don't settle (ask with AskUserQuestion, with a recommended option first); it goes to the seniors first, per the `oceans-eleven` skill, and only reaches Alexander if they say it's his call (seniors asked for a decision never count against `stars=`, and the ping names each: `farbror-vattenmelon` said …, and `yoda` said … when this session runs on Opus)
 - something only a person can do: secrets, the Keychain, dashboard settings, anything on production
+  - **A live check handed to Alexander** (a toy run, a QA look, a `--plugin-dir` session) says in three lines what the other window runs, what it may touch outside this machine (or "nothing"), and what to look at and how to stop it (`[live-check]`; in 2.14.8 he had to ask "What exactly am I running in another window?").
 - a blocker `boba-fett` couldn't clear, or checks that still fail after a fix attempt
 - a must-fix review finding with more than one reasonable fix
 - the checkpoint, when asked for
@@ -93,7 +94,7 @@ Ping: "`maverick`: V<version> is built: <n> commits by <agents, e.g. `chris-de-k
 
 ## 5. Review and fix
 - **Before starting, check every qa feature's `bengt-johansson` result is already ticked and listed in the PR**.
-- `c-3po` has drafted the PR description by now (step 6's first item, moved before the review); `/its-a-trap` on the branch. Hand each must-fix finding to the agent that owns that code (by message when it's the one that built it), in one order with file:line, not relayed piecemeal; fix the cheap should-fixes too; answer the rest in the PR's "Notes for review".
+- `c-3po` has drafted the PR description by now (step 6's first item, moved before the review). **Under `/cattle-drive`, run the arm preview now, before the review** (`scripts/full-auto.sh preview <version>` as its own call, never chained with `gh pr edit`: the Slap Bet Commissioner refuses the chain whole) and fix what it flags in the PR body first: in 2.14.8 two of the review's three musts were PR-body lines the preview reads. Then `/its-a-trap` on the branch. Hand each must-fix finding to the agent that owns that code (by message when it's the one that built it), in one order with file:line, not relayed piecemeal; fix the cheap should-fixes too; answer the rest in the PR's "Notes for review".
 - **Tick each finding against its diff** before `c-3po` writes "all fixed": for every finding, `git show --stat <fix commit>` and a grep of that diff for the file or name the finding is about. A finding without a matching diff stays open in the PR (a fix listed but not in the diff reaches production).
 - At most two review rounds on the same code per release; what a third round would find is the next release's first job. Before any job on locked files (the PR template, hooks, settings), forecast it to Alexander in a line.
 - `scripts/check.sh all` once more.

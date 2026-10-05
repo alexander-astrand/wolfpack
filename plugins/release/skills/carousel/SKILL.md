@@ -18,6 +18,7 @@ Open the pull request for the current release branch, or fill in the description
 ## Checklist
 1. **Branch.** A release branch (`V2.x.y`), no other open release PR, tree clean and pushed.
 2. **README.** `README.md` must be in the diff (Anton's rule: every PR updates it for what it changes). If it isn't, stop and say what it should cover.
+   **Release number.** When `package.json` has a `release` field, it is this release's number (the branch without its `V`). If it isn't, bump it in a commit of its own ("Release number <x.y.z>"). `version` stays semver and only moves at a big version.
 3. **Checks pass.** `scripts/check.sh` (plus `db` when the database changed) since the last commit.
 4. **Description**, from `.github/pull_request_template.md`, the commits and the plan file:
    - **What changed**: one numbered item per commit, in review order; mark the risky ones.
@@ -28,6 +29,7 @@ Open the pull request for the current release branch, or fill in the description
      - `supabase db push` pushes every pending migration in one go, so a migration that must run only after the merge can't be in the same push as one that runs before it: put both after the merge (when the first is backwards compatible) or move the after-merge one to the next release.
      - **After merge** (Vercel ships the frontend when it merges): functions and steps that need the new frontend, then verification.
      - **Human steps:** secrets (`supabase secrets set …` in their own terminal), anything a person types (emails), dashboard settings.
+     - **A release that changes the kit** (`kit/`) and publishes it copies the kit README's "Publish the kit" steps into "Human steps afterwards", filled in (release, the tag per bumped plugin, the folders that installed it), one command per line, ending with each `claude plugin update <plugin>@wolfpack --scope …` (`[kit-publish]`). A release that holds the publish for a later one says so there instead ("Kit not published: publishes at <release>").
      - If the release touches Storage: say that uploaded files aren't in the database backup.
      - Facts the deploy plan needs (`ranjit`'s "cheaper next time", 2.13.8): when branch protection requires a review and nobody has approved, say "the merge needs `--admin`". When the release has no mock-up or spike branches, say "no mock-up or spike branches", so the deploy plan skips the branch listing and plan-file search (mock branches `mockup/*` from a `/superlab` are never merged; list them as "clean up after merge" when they exist). The post-merge checks are signed-out only (`ranjit` can't sign in; Vercel previews sit behind Vercel Authentication): any signed-in look goes under "Human steps afterwards", from the plan on.
      - **"How to run this deploy on full auto"** (the template's optional part): a release that changes the guard's frozen set says the plan round stays, because no chain marker covers its first `ranjit` spawn and the arm order goes by `SendMessage` after the plan (`[deploy-order]`, 2.14.7).

@@ -14,7 +14,7 @@ the-trail · the wagon master (The Oregon Trail) · "ford the river", "the wagon
 - wrap: "Camp made. The trail's up to date."
 Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfpack `design` plugin, which ships the card).
 
-The roadmap page is a private claude.ai artifact (since 2.14.6.2 a data page). **Name it by its id from memory** (`project_roadmap.md`); in a session without it, ask Alexander. The link is never in the repo, and **private projects never go on the page** (they live on the `/war-room`, never on the roadmap page).
+The roadmap page is a private claude.ai artifact (since 2.14.6.2 a data page). **Name it by its id from memory `project_roadmap.md`, or by `pages.roadmap` in `.claude/kit.json` when a private repo fills it**; in a session without either, ask Alexander. A public repo leaves `pages.roadmap` empty: the roadmap link is never in a public repo (the deck and team map links may be). And **private projects never go on the page** (they live on the `/war-room`, never on the roadmap page).
 
 The page's shape is `page.html` beside this file (no content in it). Everything you read on the page lives in the artifact's `db` as rows. Alexander and Anton (Editors) change a card's status right on the page; only the owner and Editors can write (`write: "admin"`).
 

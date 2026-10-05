@@ -1,10 +1,12 @@
 {
   "project": { "name": "{{project.name}}", "noun": "{{project.noun}}", "devPort": {{project.devPort}} },
+  "stack": "{{stack}}",
   "refs": { "dev": "{{refs.dev}}", "prod": "{{refs.prod}}" },
   "urls": { "prod": "{{urls.prod}}" },
   "deployer": "{{deployer}}",
   "keychain": { "dev": "{{keychain.dev}}", "prod": "{{keychain.prod}}" },
   "reviewer": "{{reviewer}}",
+  "pages": { "roadmap": "", "teamMap": "", "commandDeck": "" },
   "conventions": "",
   "names": {},
   "budgets": { "*": "15M" },

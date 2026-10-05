@@ -11,11 +11,8 @@
       "Bash(gh pr checks:*)",
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
-      "Bash(node scripts/check.mjs)",
       "Bash(scripts/check.sh)",
-      "Bash(npm run lint)",
-      "Bash(npm run test:*)",
-      "Bash(npm run build)"
+      "Bash(bash scripts/check.sh)"
     ]
   }
 }

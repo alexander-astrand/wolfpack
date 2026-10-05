@@ -52,6 +52,10 @@ The worst sendback is a repeat. When one page has solved something (a page's scr
 - A card stays lean; details live on the detail page.
 - A start page is a classic page, not a card in the middle of the art.
 - A notice row on a card shows at most two items, the soonest to close first, then a link to the rest.
+- Who's going shows as faces on an event card at every width, phones too.
+- Faces on a card overlap, at least 18px of each face showing, and "+N" reads in full to a screen reader.
+- A date-ordered list is an agenda on phones and tablets (Tonight, This week, Next week, then months) and a grid only at the widest width, where rows leave the width empty.
+- A detail page's hero doesn't leave the second stack short at the widest width: the related items move beside the About section.
 - A list's single column sits centred at every width.
 - Nothing added just to fill a space.
 
@@ -73,9 +77,10 @@ The worst sendback is a repeat. When one page has solved something (a page's scr
 ## Buttons
 - One look per button type on every page: a tab, a primary, a secondary, a chip and a text button each look the same wherever they appear.
 - Every button shows the pointer, and a selected tab doesn't react to hover.
-- The back link is one look everywhere.
+- The back link is one boxed text button everywhere: card fill with a hairline, fill on hover, no underline.
 - No button shape of its own on one page.
-- Secondary buttons stand out from the card.
+- Secondary buttons stand out from the card: a slightly raised fill and a soft shadow, in both themes.
+- The primary button carries the same soft shadow as the secondary: one family of buttons.
 - One selected look per control type.
 - A selected tab is plain to see in both themes.
 - Marks that say who someone is (You, Owner) never look tappable, but a person's face or name opens that person.
@@ -97,6 +102,7 @@ The worst sendback is a repeat. When one page has solved something (a page's scr
 - Our own drawn icons over emoji and stock pictures.
 - A figure shown big is drawn for that size, not a small icon scaled up.
 - A drawn thing handed to one designer still gets its options shown afterwards: taste changes on seeing them at real size.
+- Two-tone icons in dark use the logo's tones: a dark body, a bright line, one lit accent; never a bright line on a bright fill.
 - Faces are faces, props are big enough to see.
 - Kept as built against `heisenberg`'s lean: (each pick that overturned the lean goes here, with his words).
 - Taste picks are his: show options before building.

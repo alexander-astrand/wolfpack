@@ -27,8 +27,8 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 |---|---|---|
 | A decision (`adr`) | `docs/decisions/NNNN-*.md` + its row in `docs/decisions/README.md` | repo file, committed by path |
 | A how-to or pattern (`doc`): the dojo inbox pattern, a setup guide | `docs/<short-name>.md` | repo file, committed by path |
-| The Command Deck (`deck`) | claude.ai artifact, id in memory `reference_command_deck.md` | safe republish (below), same URL |
-| The team page (`team`) | claude.ai artifact, the "Team map" link in memory `project_roadmap.md` | safe republish (below), same URL |
+| The Command Deck (`deck`) | claude.ai artifact, link in `pages.commandDeck` in `.claude/kit.json` (older projects: memory `reference_command_deck.md`); the first time you publish it in a project, write its URL into `pages.commandDeck` | safe republish (below), same URL |
+| The team page (`team`) | claude.ai artifact, link in `pages.teamMap` in `.claude/kit.json` (older projects: the "Team map" link in memory `project_roadmap.md`); the first time you publish it in a project, write its URL into `pages.teamMap` | safe republish (below), same URL |
 | Something Alexander comments on (`page`): a plan to review, a `/memento` page, an `/inception` summary, an audit, wrap notes | Claude Docs (the docs connector) | a new doc, its link in the reply |
 | The roadmap | not here: `/badger`, `the-trail` | |
 | A PR's README section | not here: `c-3po` | |

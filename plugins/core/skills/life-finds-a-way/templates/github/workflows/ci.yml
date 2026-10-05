@@ -10,10 +10,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+<!-- stack:node -->
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       # A new skeleton has no package.json or lock file yet; npm ci waits for one.
       - run: npm ci
         if: hashFiles('package-lock.json') != ''
-      - run: node scripts/check.mjs
+<!-- /stack -->
+<!-- stack:python -->
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # check.sh skips a tool that isn't installed; CI installs both so they run here.
+      - run: pip install ruff pytest
+      # A new skeleton has neither file yet; each install waits for its own.
+      - run: pip install -r requirements.txt
+        if: hashFiles('requirements.txt') != ''
+      # Only a pyproject.toml with a [project] table is installable; one that holds
+      # only tool settings ([tool.ruff], [tool.pytest]) would fail `pip install -e .`.
+      - run: |
+          if [ -f pyproject.toml ] && grep -q '^\[project\]' pyproject.toml; then
+            pip install -e .
+          fi
+<!-- /stack -->
+      - run: bash scripts/check.sh

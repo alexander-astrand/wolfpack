@@ -23,8 +23,11 @@ Working notes for Claude Code sessions on {{project.name}}. The README says what
 ## Commands
 
 ```
-npm run dev          # http://localhost:{{project.devPort}} <!-- ui-only -->
-scripts/check.sh     # runs lint, tests and build where they exist; prints failures only
+npm run dev          # http://localhost:{{project.devPort}} <!-- ui-only --> <!-- stack:node -->
+scripts/check.sh     # runs lint, tests and build where they exist; prints failures only <!-- stack:node -->
+python3 -m venv .venv     # once; the check uses the venv's ruff and pytest first <!-- stack:python -->
+scripts/check.sh     # ruff and pytest where installed (a missing one says "skipped"); prints failures only <!-- stack:python -->
+scripts/check.sh     # no checks yet: add the project's own to scripts/check.sh <!-- stack:other -->
 ```
 
 CI runs the same check on every pull request.

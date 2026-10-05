@@ -1,5 +1,11 @@
-node_modules
-dist
+node_modules <!-- stack:node -->
+dist <!-- stack:node -->
+.venv/ <!-- stack:python -->
+__pycache__/ <!-- stack:python -->
+.pytest_cache/ <!-- stack:python -->
+.ruff_cache/ <!-- stack:python -->
+*.egg-info/ <!-- stack:python -->
+build/ <!-- stack:python -->
 .env*
 !.env.example
 .DS_Store

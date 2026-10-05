@@ -1,0 +1,64 @@
+{
+  "stack": "python",
+  "packs": ["release"],
+  "project": {
+    "name": "toy-python",
+    "noun": "reader",
+    "summary": "A toy script that turns a folder of notes into one weekly digest.",
+    "devPort": null
+  },
+  "plans": "~/.claude/plans/",
+  "date": "2026-01-15",
+  "roadmap": "file",
+  "kit": { "version": "0.0.0-toy" },
+  "refs": { "dev": "", "prod": "" },
+  "urls": { "prod": "" },
+  "deployer": "",
+  "keychain": { "dev": "", "prod": "" },
+  "reviewer": "",
+  "brief": { "verbatim": "Every Sunday I want one page with what I wrote down this week." },
+  "release": {
+    "name": "First digest",
+    "theme": "the weekly digest",
+    "size": "S",
+    "notin": "a web page for the digest, later on the roadmap"
+  },
+  "part": [
+    { "name": "the digest script", "tag": "Code" }
+  ],
+  "service": [
+    { "name": "Toy Runner", "trigger": "over 2000 minutes a month", "exit": "run it on the laptop" }
+  ],
+  "money": { "ceiling": "0 per month" },
+  "data": { "what": "personal notes", "whose": "the owner" },
+  "park": [
+    { "trigger": "no digest read for a month" },
+    { "trigger": "notes move to another app" }
+  ],
+  "fire": { "stop": "the scheduled run", "keep": "the repo" },
+  "rhythm": "Weekend mornings, an hour at a time.",
+  "human": [
+    { "step": "Pick the notes folder" }
+  ],
+  "count": { "yours": "1", "mine": "3" },
+  "step": [
+    { "name": "Pick the notes folder", "who": "Yours" },
+    { "name": "Create the private repo", "who": "Mine" }
+  ],
+  "v01": { "steps": "| Step | Who builds | Files | Check | Budget |\n|---|---|---|---|---|\n| 1. The digest | builder | digest/ | scripts/check.sh | 5M |" },
+  "first": { "commit": "The skeleton and its checks. Subject: \"Start toy-python\"." },
+  "adr": {
+    "context": "Notes pile up and nobody rereads them.",
+    "decision": "A small script, run once a week.",
+    "where": "The laptop first, Toy Runner later.",
+    "consequences": "No server to keep alive."
+  },
+  "theme": { "pick": "" },
+  "density": { "pick": "" },
+  "copy": { "pick": "" },
+  "reason": ["", "", ""],
+  "look": { "steal": "", "never": "" },
+  "notyet": [
+    { "item": "a web page" }
+  ]
+}

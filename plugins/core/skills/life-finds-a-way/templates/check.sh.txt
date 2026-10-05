@@ -1,2 +1,62 @@
 #!/bin/sh
+<!-- stack:node -->
+# The one check entry, for people and CI alike. The checks themselves live in
+# check.mjs (it runs the npm scripts that exist), so Node needs nothing else here.
 exec node "$(dirname "$0")/check.mjs" "$@"
+<!-- /stack -->
+<!-- stack:python -->
+# The one check entry, for people and CI alike: ruff, then pytest, each only when
+# installed. A tool that isn't there prints one "skipped" line and never fails the
+# run; install it (into .venv, or on PATH) and it runs from then on.
+cd "$(dirname "$0")/.." || exit 1
+failed=0
+
+# The project's venv first, so its pinned tools win over whatever is on PATH.
+py=python3
+if [ -x .venv/bin/python ]; then py=.venv/bin/python; fi
+
+if [ -x .venv/bin/python ] && .venv/bin/python -m ruff --version >/dev/null 2>&1; then
+  ruff_cmd=".venv/bin/python -m ruff"
+elif command -v ruff >/dev/null 2>&1; then
+  ruff_cmd="ruff"
+else
+  ruff_cmd=""
+fi
+if [ -z "$ruff_cmd" ]; then
+  echo "skipped: ruff not installed"
+elif ! out=$($ruff_cmd check . 2>&1); then
+  echo "FAIL: ruff check"
+  echo "$out"
+  failed=1
+fi
+
+# pytest only once there is something to collect: a test_*.py anywhere (app/tests/,
+# src/ too), outside the venv and other tools' folders.
+has_tests=$(find . \( -name .venv -o -name venv -o -name node_modules -o -name .git -o -name .tox \) -prune \
+  -o -type f -name 'test_*.py' -print 2>/dev/null | head -n 1)
+if [ -z "$has_tests" ]; then
+  echo "skipped: no tests yet (no test_*.py)"
+elif ! $py -m pytest --version >/dev/null 2>&1; then
+  echo "skipped: pytest not installed"
+else
+  out=$($py -m pytest -q 2>&1)
+  status=$?
+  # 5 is pytest's "nothing collected" (test files with no tests in them yet): a skip.
+  if [ "$status" -eq 5 ]; then
+    echo "skipped: pytest collected no tests"
+  elif [ "$status" -ne 0 ]; then
+    echo "FAIL: pytest"
+    echo "$out"
+    failed=1
+  fi
+fi
+
+exit $failed
+<!-- /stack -->
+<!-- stack:other -->
+# The one check entry, for people and CI alike. TODO: add this project's checks
+# below (lint, tests, build), each failing the script with a non-zero exit. CI
+# runs this file, so a check added here runs there too.
+echo "no checks yet: fill in scripts/check.sh"
+exit 0
+<!-- /stack -->

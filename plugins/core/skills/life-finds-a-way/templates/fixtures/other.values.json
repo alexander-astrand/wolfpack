@@ -1,0 +1,65 @@
+{
+  "stack": "other",
+  "packs": ["release"],
+  "project": {
+    "name": "toy-other",
+    "noun": "member",
+    "summary": "A toy chat project that drafts a monthly club newsletter.",
+    "devPort": null
+  },
+  "plans": "~/.claude/plans/",
+  "date": "2026-01-15",
+  "roadmap": "file",
+  "kit": { "version": "0.0.0-toy" },
+  "refs": { "dev": "", "prod": "" },
+  "urls": { "prod": "" },
+  "deployer": "",
+  "keychain": { "dev": "", "prod": "" },
+  "reviewer": "",
+  "brief": { "verbatim": "Help me write the club's newsletter each month without starting from a blank page." },
+  "release": {
+    "name": "First issue",
+    "theme": "one newsletter draft",
+    "size": "S",
+    "notin": "sending it, which stays by hand"
+  },
+  "part": [
+    { "name": "the draft prompt", "tag": "Chat" },
+    { "name": "the archive folder", "tag": "Cowork" }
+  ],
+  "service": [
+    { "name": "none", "trigger": "never", "exit": "nothing to leave" }
+  ],
+  "money": { "ceiling": "0 per month" },
+  "data": { "what": "member first names", "whose": "the club's members" },
+  "park": [
+    { "trigger": "the club stops meeting" },
+    { "trigger": "someone else takes over the newsletter" }
+  ],
+  "fire": { "stop": "the monthly draft", "keep": "the archive" },
+  "rhythm": "Once a month, half an hour.",
+  "human": [
+    { "step": "Collect last month's notes" }
+  ],
+  "count": { "yours": "1", "mine": "2" },
+  "step": [
+    { "name": "Collect last month's notes", "who": "Yours" },
+    { "name": "Create the private repo", "who": "Mine" }
+  ],
+  "v01": { "steps": "| Step | Who builds | Files | Check | Budget |\n|---|---|---|---|---|\n| 1. The draft prompt | builder | prompts/ | scripts/check.sh | 3M |" },
+  "first": { "commit": "The skeleton. Subject: \"Start toy-other\"." },
+  "adr": {
+    "context": "The newsletter takes an evening each month.",
+    "decision": "A chat project with a saved prompt and an archive.",
+    "where": "Chat, no hosting.",
+    "consequences": "Nothing runs on its own."
+  },
+  "theme": { "pick": "" },
+  "density": { "pick": "" },
+  "copy": { "pick": "" },
+  "reason": ["", "", ""],
+  "look": { "steal": "", "never": "" },
+  "notyet": [
+    { "item": "sending by email" }
+  ]
+}
