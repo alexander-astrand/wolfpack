@@ -65,6 +65,13 @@ After step 7. Every folder-bound row (`git init`, the first commit, `gh repo cre
 **Rows are listed in the order they must run, dependencies first** (the Supabase project before its Keychain key, the repo before Actions), not grouped by kind. Build it from `V0.1.md`'s "Human steps before build" and the packs, then check what's already true (`gh auth status`, `supabase projects list`, `vercel whoami`, `security find-generic-password -s <name>` without `-w`) so nothing done is asked twice. Typical rows:
 
 - **Mine** (his existing logins): merge the allow lists into `.claude/settings.json` (the one write the guard needs a person for; `node <templates>/fill.mjs --allow <plans><project>/values.json` prints the merged list for the packs and the stack); `git init` and the first commit (the skeleton, subject from "First commit"); `gh repo create <project> --private --source . --push` under his gh login; Actions and Dependabot on (`gh api`); the database pack: `supabase projects create` and `supabase link` under his login, after counting his active free projects against the limit in `free-tiers.md` (two; when full, the pick is pause one or use Pro, and the pick is his); the design pack: `vercel link`; the kit plugins installed at project scope; `.claude/kit.json`'s empty values filled from what the steps returned (refs, Keychain item names, reviewer, prod URL when there is one).
+- **Mine, database pack only:** copy the database plugin's production scripts into `scripts/` once (a person runs it; the guard refuses an agent's copy), one exact command from the project folder, then commit the three files:
+
+  ```bash
+  cp "$(ls -d ~/.claude/plugins/cache/wolfpack/database/*/ | sort -V | tail -1)"scripts/{prod-db.sh,full-auto.sh,chain-cover.mjs} scripts/
+  ```
+
+  `kit.json` carries `refs.prod`, `urls.prod` and `backupRoot` as empty strings until the walkthrough fills them (`backupRoot`: a folder outside the repo for production dumps); an empty `urls.prod` means no deploy wait and no smoke look in a drive.
 - **Yours:** a sign-up he doesn't have yet (a gh, Supabase or Vercel account), a key typed into a Keychain prompt, billing, a dashboard toggle no CLI reaches.
 
 Show it first, one message, counted: **"Yours: N · Mine: M"**, each of his rows saying what it unlocks ("The Supabase key: the database pack wakes."), the whole climb before the first step. The counts and rows go into `V0.1.md`'s "Yours / Mine" table.

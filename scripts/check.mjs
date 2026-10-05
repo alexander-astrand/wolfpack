@@ -27,6 +27,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { checkDrift } from './drift.mjs'
 
 // Built from parts so this file doesn't flag itself in the secrets grep.
 const SECRET_PATTERNS = [
@@ -261,6 +262,16 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const kitDir = resolve(process.argv[2] ?? join(dirname(fileURLToPath(import.meta.url)), '..'))
   const values = projectValues(join(process.cwd(), '.claude', 'kit.json'))
   const { problems, plugins } = checkKit(kitDir, { values })
+  // The project's guard against the kit's copy (drift.mjs); the repo is the
+  // folder above kit/, and a kit checked on its own skips with one line.
+  const drift = checkDrift(dirname(kitDir))
+  if (drift.skipped) console.log(drift.reason)
+  for (const p of drift.pairs) {
+    if (p.same) continue
+    const where = p.missing ? `${p.kit}:1` : `${p.first.file}:${p.first.line}`
+    const what = p.missing ? `${p.missing} is missing` : `${p.lines} lines differ`
+    problems.push(`${where}  drifted from ${p.hutzup}: ${what} (node kit/scripts/drift.mjs)`)
+  }
   for (const p of problems) console.log(p)
   if (problems.length) process.exit(1)
   console.log(plugins ? `kit ok: ${plugins} plugin${plugins === 1 ? '' : 's'}` : 'no plugins yet')

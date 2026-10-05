@@ -1,0 +1,20 @@
+{
+  "why": "Only the guard's source files must be the same code. Left out on purpose, because they differ by design: the hook tests and fixtures (the kit's use placeholder values, a kit-project fixture and skips for files only a person pastes), guard-entry.mjs (its error message names the project's path), budget-cap.mjs and its test (the release plugin reads kit.json budgets and scripts/ beside hooks/), and ranjit.md (the kit's names the project's people and refs through kit.json).",
+  "files": [
+    { "hutzup": ".claude/hooks/guard-production.mjs", "kit": "kit/plugins/database/hooks/guard-production.mjs" },
+    { "hutzup": ".claude/hooks/production-steps.mjs", "kit": "kit/plugins/database/hooks/production-steps.mjs" },
+    { "hutzup": ".claude/hooks/chain-arm.mjs", "kit": "kit/plugins/database/hooks/chain-arm.mjs" },
+    { "hutzup": ".claude/hooks/chain-exclusions.mjs", "kit": "kit/plugins/database/hooks/chain-exclusions.mjs" },
+    { "hutzup": ".claude/hooks/denied-log.mjs", "kit": "kit/plugins/database/hooks/denied-log.mjs" }
+  ],
+  "replacements": [
+    { "from": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/", "to": "\"${CLAUDE_PLUGIN_ROOT}/hooks/" },
+    { "from": "new URL('../settings.json', import.meta.url)", "to": "new URL('./hooks.json', import.meta.url)" },
+    { "from": "new URL('../../scripts/full-auto.sh', import.meta.url)", "to": "new URL('../scripts/full-auto.sh', import.meta.url)" },
+    { "from": "'../../scripts/usage.mjs'", "to": "'../scripts/usage.mjs'" },
+    { "kit": "refs.dev", "to": "devrefdevrefdevrefde" },
+    { "kit": "refs.prod", "to": "prodrefprodrefprodre" },
+    { "kit": "keychain.dev", "to": "example-dev-db-url" },
+    { "kit": "keychain.prod", "to": "example-prod-db-url" }
+  ]
+}

@@ -1,5 +1,5 @@
 // The tests' project: a temp folder whose .claude/kit.json is the fixture,
-// so the guard reads placeholder values (the kit is public) and a hook run as
+// so the guard reads the fixture's values (placeholders in the public kit) and a hook run as
 // a process finds the same file through CLAUDE_PROJECT_DIR. Imported first by
 // each test file that needs the project's values.
 import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'

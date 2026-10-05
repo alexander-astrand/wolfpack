@@ -1,4 +1,4 @@
-// First: the tests' project and its kit.json (placeholder values).
+// First: the tests' project and its kit.json (the fixture's values).
 import './fixtures/kit-project.mjs'
 // C1 (2.12.2): the arm takes a merge-only release, but only when its
 // Production steps say None in words and its diff has no migration or

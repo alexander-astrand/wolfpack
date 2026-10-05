@@ -26,6 +26,8 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 - CLI linked to: !`cat supabase/.temp/project-ref 2>/dev/null || echo "not linked"`
 - Branch: !`git branch --show-current`
 
+The production scripts (`scripts/prod-db.sh`, `scripts/full-auto.sh`, `scripts/chain-cover.mjs`) must be in the project's `scripts/`: they ship in the database plugin and a person copies them once (the plugin's README, "Install the scripts"). If `scripts/prod-db.sh` is missing, stop and say so. The guard hooks are the database plugin's and read `.claude/kit.json`; `urls.prod` there is the one production URL, and empty means no smoke look.
+
 The CLI must be linked to dev (`refs.dev` in `.claude/kit.json`); the deployer reaches production with `--project-ref` and `scripts/prod-db.sh`, never through the link. If it's linked elsewhere, stop and ask for `supabase link --project-ref <refs.dev>`.
 
 **Permission mode first.** It's a parameter of the run: **manual (`default`) unless `/cattle-drive` started it.** In Auto mode the classifier judges production commands itself and refused the deployer's read-only `prod-db.sh` calls in 2.7 before the guard hook ran. Switch with `mcp__ccd_session_mgmt__set_session_permission_mode` (`session_id: "self"`, `mode: "default"`) and tell the person why; in a terminal session, ask them to switch. The deployer's reads then run through the allow rules in `.claude/settings.json`, and each change to production asks through the hook. **Auto** only under `/cattle-drive`, which has a person arm the full-auto marker before any change (see "Under `/cattle-drive`" below).

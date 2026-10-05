@@ -117,9 +117,9 @@ import { appendFileSync, existsSync, lstatSync, readFileSync, readdirSync, realp
 import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, normalize, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { fileURLToPath, pathToFileURL } from 'node:url'
-import { CI_JOBS, CI_WORKFLOW, DEPLOYER, DEV_KEYCHAIN_ITEM, DEV_REF, GH_FILES_MS, PROD_KEYCHAIN_ITEM, PROD_URL, allowedCommands, armList, changesDatabase, checksNotGreen, completeFiles, ghFetchFiles, prFacts } from './production-steps.mjs'
-import { CHAIN_USAGE, FROZEN, FROZEN_RE, RELEASE_PR_FIELDS, chainArgs, chainWhyNot, frozenHash, oneTapDecision, oneTapVerdict, readFrozen } from './chain-arm.mjs'
+import { pathToFileURL } from 'node:url'
+import { CI_JOBS, CI_WORKFLOW, DEPLOYER, DEV_KEYCHAIN_ITEM, DEV_REF, GH_FILES_MS, HOOKS_DIR, PROD_KEYCHAIN_ITEM, PROD_URL, allowedCommands, armList, changesDatabase, checksNotGreen, completeFiles, ghFetchFiles, pluginMode, prFacts } from './production-steps.mjs'
+import { CHAIN_USAGE, FROZEN, FROZEN_RE, RELEASE_PR_FIELDS, chainArgs, chainWhyNot, frozenOnDisk, oneTapDecision, oneTapVerdict, projectRoot } from './chain-arm.mjs'
 
 // The project's values come from its .claude/kit.json (production-steps.mjs
 // reads it; a missing key fails closed): DEV_REF, DEPLOYER, PROD_URL (the one
@@ -127,15 +127,23 @@ import { CHAIN_USAGE, FROZEN, FROZEN_RE, RELEASE_PR_FIELDS, chainArgs, chainWhyN
 // Keychain items (the dev twin is for testing scripts/prod-db.sh on dev; the
 // script itself refuses a URL for any other project under that name).
 export { DEPLOYER, DEV_REF, PROD_URL }
+// The project: CLAUDE_PROJECT_DIR, else two up from the hooks (projectRoot),
+// never the shell's cwd, which an agent can change. Markers, logs and git
+// calls all use it. As a plugin the hooks sit in Claude Code's install
+// folder, outside the project (2.14.9.1).
+const REPO_ROOT = projectRoot()
+const AS_PLUGIN = pluginMode(REPO_ROOT)
 // A plugin's agent arrives as `<plugin>:<name>` in agent_type and
-// subagent_type (Claude Code's plugin docs), so the deployer is matched both
-// bare and as this plugin's.
+// subagent_type (Claude Code's plugin docs), so as a plugin the deployer is
+// matched both bare and as this plugin's; a project's own hooks match it bare.
 const PLUGIN_NAME = 'database'
-export const isDeployer = (name) => name === DEPLOYER || name === `${PLUGIN_NAME}:${DEPLOYER}`
-// This plugin's own folder: its files decide what reaches production, so
-// they join the frozen set beside the project's paths (namesProtected).
+export const isDeployer = (name) => name === DEPLOYER || (AS_PLUGIN && name === `${PLUGIN_NAME}:${DEPLOYER}`)
+// As a plugin, its own folder: its files decide what reaches production, so
+// they join the frozen set beside the project's paths (namesProtected). A
+// project's own hooks are .claude/hooks/, in FROZEN already.
 const PLUGIN_DIRS = (() => {
-  const dir = normalize(join(dirname(fileURLToPath(import.meta.url)), '..'))
+  if (!AS_PLUGIN) return []
+  const dir = normalize(join(HOOKS_DIR, '..'))
   let real = dir
   try { real = realpathSync(dir) } catch { /* the path as given */ }
   return [...new Set([dir, real])]
@@ -172,9 +180,8 @@ const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash'])
 const TEMP_DIR = 'supabase/.temp'
 const ASSIGNMENT_RE = /^[A-Za-z_][A-Za-z0-9_]*=/
 
-// Beside the hook's own .claude folder, not the shell's cwd, which an agent
-// can change.
-const CLAUDE_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
+// In the project's .claude folder (REPO_ROOT, above).
+const CLAUDE_DIR = join(REPO_ROOT, '.claude')
 export const MARKER = join(CLAUDE_DIR, 'full-auto.json')
 const LOG = join(CLAUDE_DIR, 'full-auto.log')
 export const CHAIN_MARKER = join(CLAUDE_DIR, 'full-auto-chain.json')
@@ -208,8 +215,6 @@ const WRITE_METHOD_RE = /(?:^|\s)(?:-X\s*|--method[=\s]|--request[=\s])(?:PUT|DE
 // A word the shell rewrites before the command sees it: a variable, a
 // substitution or a glob. What it becomes can't be read here.
 const DYNAMIC_RE = /[$`*?[]/
-// Where the repo's own .claude folder sits; the full-auto calls must run here.
-const REPO_ROOT = join(CLAUDE_DIR, '..')
 
 /**
  * @param {object} input  the hook's stdin JSON
@@ -251,7 +256,7 @@ export function decide(input, env = {}) {
     chainLog: env.chainLog ?? ((line) => { try { appendFileSync(CHAIN_LOG, line + '\n') } catch { /* as the release log */ } }),
     // The frozen set's hash on disk, read only when asked: the one-tap arm
     // compares it with the tap's.
-    frozen: env.frozen ?? (() => frozenHash(readFrozen(REPO_ROOT))),
+    frozen: env.frozen ?? (() => frozenOnDisk(REPO_ROOT)),
     // The checkout whose guard files a hard link is compared with.
     root: env.root ?? REPO_ROOT,
     source: tool === 'Bash' ? String(args.command ?? '') : '',
@@ -840,7 +845,7 @@ function checkMcp(tool, args, ctx) {
 
 // The drive's read-only calls (2.12.3, settled at its inception): allowed in
 // every session, marker or not, since an allow skips Auto mode's classifier,
-// which stopped 2.12.2's drive after its merge (lesson 7). Fixed on purpose;
+// which stopped 2.12.2's drive after its merge. Fixed on purpose;
 // don't widen it. `git log --output` writes a file, so it isn't a read.
 const READ_MCP = new Set(['query_logs', 'get_advisors', 'get_deployment', 'list_deployments'])
 const SUPABASE_READ_MCP = new Set(['query_logs', 'get_advisors'])
@@ -875,6 +880,9 @@ const CHROME_PREFIX = 'mcp__claude-in-chrome__'
 const CHROME_READS = new Set(['tabs_create_mcp', 'tabs_context_mcp', 'navigate', 'read_page', 'get_page_text', 'find', 'read_console_messages', 'resize_window'])
 function smokeAllowed(tool, args, ctx) {
   if (!ctx.deployer || !tool.startsWith(CHROME_PREFIX)) return null
+  // No urls.prod in kit.json, no smoke allow at all: a look without a url
+  // reads whatever tab is open (fails closed, 2.14.9.1).
+  if (!/^https?:\/\//.test(PROD_URL)) return null
   const name = tool.slice(CHROME_PREFIX.length)
   const look = CHROME_READS.has(name) || (name === 'computer' && args.action === 'screenshot')
   if (!look) return null
@@ -973,13 +981,16 @@ function checkShell(src, ctx, where = { dir: ctx.cwd, built: false }) {
   try {
     if (ctx.depth > MAX_DEPTH) return deny(`The command nests more than ${MAX_DEPTH} levels deep, too deep for the guard to read.`)
     const results = []
-    let last = null
-    for (const seg of parseShell(src)) {
+    const segs = parseShell(src)
+    segs.forEach((seg, k) => {
+      // A cd that ran only if what came before it succeeded (`a && cd x`)
+      // holds while the call goes on by &&; after a ; a newline or a ||, the
+      // call may go on where it was, so the folder is unknown (2.14.9.1, B2).
+      if (where.iffy && seg.opBefore && seg.opBefore !== '&&') where = { dir: undefined, built: true }
       seg.where = where
       results.push(checkSegment(seg, ctx))
-      where = afterCd(seg, where, last)
-      last = seg
-    }
+      where = afterCd(seg, where, segs[k - 1] ?? null, segs.slice(k + 1).find((s) => !s.subshell) ?? null)
+    })
     return strictest(results)
   } finally {
     ctx.depth--
@@ -987,13 +998,25 @@ function checkShell(src, ctx, where = { dir: ctx.cwd, built: false }) {
 }
 const MAX_DEPTH = 64
 
-function afterCd(seg, where, last = null) {
+function afterCd(seg, where, last = null, next = null) {
   const words = stripPrefix(seg.words)
   if (seg.subshell || !['cd', 'pushd'].includes(words[0])) return where
   // A cd in a pipeline runs in a subshell, and one after || or & may not run
   // (or not before what follows): where the call goes on is unknown, so it
   // counts as built at run time (2.14.6 review round 1, should 2).
   if (['|', '||', '&'].includes(seg.opBefore) || ['|', '&'].includes(seg.opAfter)) return { dir: undefined, built: true }
+  // `cd /x || cp …` runs the cp exactly when the cd failed, and `cd /x ||
+  // true; cp …` either way (2.14.9.1, B2). Only `cd /x || exit` (or return)
+  // stops the call when the cd fails, and with it a failed `a &&` before it.
+  const stops = seg.opAfter === '||' && next && ['exit', 'return'].includes(stripPrefix(next.words)[0]) && !['||', '|', '&'].includes(next.opAfter)
+  if (seg.opAfter === '||' && !stops) return { dir: undefined, built: true }
+  const landed = afterCdTo(seg, words, where, last)
+  // After `a && cd x` the cd ran only if a succeeded: checkShell drops the
+  // folder at the next ; or newline.
+  return seg.opBefore === '&&' && !stops && !landed.built ? { ...landed, iffy: true } : landed
+}
+
+function afterCdTo(seg, words, where, last) {
   let to = words.slice(1).find((w) => !w.startsWith('-') || w === '-')
   // `mkdir -p <folder> && cd $_`: $_ is mkdir's last word, so when that word
   // is plain text the cd lands there (2.14.6: c-3po's scratch copies were
@@ -1015,8 +1038,11 @@ function afterCd(seg, where, last = null) {
 // Every segment gets each check, and the strictest answer stands: a write to
 // the guard's files asks, but never softens a deny found for the same words.
 function checkSegment(seg, ctx) {
+  // A shell's heredoc script runs in a shell of its own, from this folder.
+  const script = seg.where?.code ? null : shellHeredoc(seg)
+  const here = seg.where ?? { dir: ctx.cwd, built: false }
   const result = strictest([checkSegmentFor(seg, ctx), protectedWrite(seg, ctx), gitConfigEnv(seg, ctx), ...laterCommands(seg, ctx), ...assignedCommands(seg, ctx),
-    ...codeShells(seg, ctx)])
+    ...codeShells(seg, ctx), script === null ? null : checkShell(script, ctx, { dir: here.dir, built: here.built })])
   // An awk or sed script that runs a program or writes a file (2.13.6.1)
   // keeps any answer the other checks give it (`sed '1e gh pr merge …'`
   // asks, as gh pr merge does), and is refused when they have none.
@@ -1199,6 +1225,16 @@ function laterCommands(seg, ctx) {
     if (/\s/.test(line)) results.push(checkShell(line, ctx, where))
     else if (j > 0 && runs) results.push(checkSegment({ words: words.slice(j), writes: [], where: seg.where }, ctx))
   })
+  // `node <<'EOF'`, `python3 - <<EOF`: with no script named, the heredoc is
+  // the program, read like an -e or -c word (2.14.9.1, B2: an execSync of gh
+  // pr merge passed in a heredoc and was refused in -e). awk's program is its
+  // first word, so its heredoc is data.
+  const cmd = commandName(words[0])
+  if (where.code && seg.heredoc !== undefined && cmd !== 'awk' && cmd !== 'gawk' && words.slice(1).every((w) => w.startsWith('-'))) {
+    const opened = openCodeQuotes(seg.heredoc)
+    for (const body of opened.shells) results.push(checkShell(body, ctx, { ...where, code: false }))
+    results.push(checkShell(opened.line, ctx, where))
+  }
   return results
 }
 
@@ -1690,7 +1726,7 @@ function interpreterWrites(cmd, rest, seg, prot = namesProtected) {
   return PROTECTED_TEXT_RE.test(code) || code.split(/[\s;&|<>()'"=,`]+/).some(namesProtected) ? `${cmd} code naming the guard's files` : undefined
 }
 
-// Text in interpreter code (2.12.4, lesson 10). python or node code the guard
+// Text in interpreter code (2.12.4). python or node code the guard
 // reads whole (-c/-e's word, or a heredoc on stdin) that runs no program and
 // copies, moves or links nothing can't run the arm script, so a name in a
 // string with a space in it is prose: a skill's or README's line being
@@ -2326,7 +2362,7 @@ function fedShell(seg, ctx) {
     const c = rest.findIndex((w) => /^-[a-z]*c[a-z]*$/.test(w))
     if (c >= 0) {
       if (SUBSTITUTION_RE.test(rest[c + 1] ?? '')) how = `${cmd} -c runs a substitution's output`
-    } else if (!rest.some((w) => /^-[a-z]*n[a-z]*$/.test(w) || w === '--version' || w === '--help') &&
+    } else if (shellHeredoc(seg) === null && !rest.some((w) => /^-[a-z]*n[a-z]*$/.test(w) || w === '--version' || w === '--help') &&
       (rest.every((w) => w.startsWith('-')) || PROCESS_SUB_RE.test(rest.find((w) => !w.startsWith('-')) ?? '') || rest.some((w) => /^-[a-z]*s[a-z]*$/.test(w)))) {
       how = `${cmd} reads its script from a pipe or stdin`
     }
@@ -2336,6 +2372,20 @@ function fedShell(seg, ctx) {
   if (!how) return null
   if (anyMarker(ctx)) return prodCall(ctx, deny(`${how}, which the guard can't read, so none runs while full auto is armed.`))
   return ask(ctx, `${how}, which the guard can't read, so a person decides: ${seg.words.join(' ')}`)
+}
+
+// A shell whose script is a heredoc the guard reads as the shell will:
+// quoted (`bash <<'EOF'`) or holding nothing the shell expands, with no
+// script file or -c beside it, and no `exec` that could swap the shell's
+// stdin for a file mid-script. checkSegment reads that script as a command
+// line, as it reads `bash -c`'s (2.14.9.1, B2); anything else still asks.
+function shellHeredoc(seg) {
+  if (seg.subshell || seg.heredoc === undefined || seg.heredocExpands) return null
+  const words = stripPrefix(seg.words)
+  if (!SHELLS.has(commandName(words[0] ?? ''))) return null
+  const rest = words.slice(1)
+  if (!rest.every((w) => w.startsWith('-')) || rest.some((w) => /^-[a-z]*[cn][a-z]*$/.test(w) || w.startsWith('--'))) return null
+  return /\bexec\b/.test(seg.heredoc) ? null : seg.heredoc
 }
 
 // A nested claude could run as another agent or without this guard, so it
@@ -3206,11 +3256,13 @@ export function parseShell(src) {
       if (src[i] === '-') i++
       while (src[i] === ' ' || src[i] === '\t') i++
       let delim = ''
+      let quoted = false
       while (i < src.length && !/[\s;&|<>()]/.test(src[i])) {
         if (src[i] !== "'" && src[i] !== '"' && src[i] !== '\\') delim += src[i]
+        else quoted = true
         i++
       }
-      heredocs.push({ delim, seg: null })
+      heredocs.push({ delim, seg: null, quoted })
       continue
     }
     if (c === '\n') {
@@ -3218,7 +3270,7 @@ export function parseShell(src) {
       i++
       // Skip the bodies of heredocs opened on the line just ended.
       while (heredocs.length) {
-        const { delim, seg } = heredocs.shift()
+        const { delim, seg, quoted } = heredocs.shift()
         const start = i
         let end = src.length
         while (i < src.length) {
@@ -3228,6 +3280,14 @@ export function parseShell(src) {
           i = nl < 0 ? src.length : nl + 1
         }
         if (seg && end > start) seg.heredoc = (seg.heredoc ?? '') + src.slice(start, end)
+        // An unquoted body (`<<EOF`) is expanded by this shell before the
+        // command reads it: its $(…) and `…` run here, so each is a subshell
+        // like one on the line (2.14.9.1, B2: `cat <<EOF` with $(gh pr merge)
+        // passed), and a shell fed the body can't read what it gets.
+        if (!quoted) {
+          if (seg) Object.defineProperty(seg, 'heredocExpands', { value: !!seg.heredocExpands || /[$`\\]/.test(src.slice(start, end)), configurable: true })
+          segments.push(...heredocSubstitutions(src, start, end))
+        }
       }
       continue
     }
@@ -3275,6 +3335,28 @@ function withoutHeredocBodies(src) {
     }
   }
   walk(src)
+  return out
+}
+
+// The $(…) and `…` in an unquoted heredoc body (src from start to end), as
+// the subshell segments parseShell makes of them on a line. A backslash
+// escapes what follows, as in double quotes; $(( … )) is a number.
+function heredocSubstitutions(src, start, end) {
+  const out = []
+  for (let i = start; i < end; i++) {
+    if (src[i] === '\\') { i++; continue }
+    if (src[i] === '$' && src[i + 1] === '(') {
+      const close = Math.min(matchParen(src, i + 1), end)
+      const body = src.slice(i + 2, close)
+      if (!body.startsWith('(') || /\$\(|`/.test(body.slice(1))) out.push({ subshell: body, words: [], writes: [] })
+      i = close
+    } else if (src[i] === '`') {
+      const close = src.indexOf('`', i + 1)
+      const stop = close < 0 || close > end ? end : close
+      out.push({ subshell: src.slice(i + 1, stop), words: [], writes: [] })
+      i = stop
+    }
+  }
   return out
 }
 

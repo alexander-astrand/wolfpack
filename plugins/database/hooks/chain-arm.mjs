@@ -20,9 +20,9 @@
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
-import { PROD_REF, armList, backupFirstWhyNot, checksNotGreen, ghFetchFiles, migrationsWhyNot, prFacts, withCompleteFiles } from './production-steps.mjs'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { HOOKS_DIR, PROD_REF, pluginMode, projectRoot, armList, backupFirstWhyNot, checksNotGreen, ghFetchFiles, migrationsWhyNot, prFacts, withCompleteFiles } from './production-steps.mjs'
 
 // A folder ends in '/'. Repo-relative, as git ls-files prints them.
 export const FROZEN = [
@@ -68,14 +68,33 @@ const sha256 = (data) => createHash('sha256').update(data).digest('hex')
  * The frozen set's hash: sha256 over the sorted `path\0sha256(content)`
  * lines of the files given that are in the set. A file outside the set
  * never changes it; a missing one (content null) counts as missing.
+ * `plugin` (pluginLine) adds one line when the hooks run as a plugin, whose
+ * files aren't in the project's git; without it the hash is as before.
  * @param {{ path: string, content: string | Buffer | null }[]} files
+ * @param {string | null} [plugin]
  */
-export function frozenHash(files) {
+export function frozenHash(files, plugin = null) {
   const lines = files
     .filter((f) => FROZEN_PATH_RE.test(f.path))
     .map((f) => `${f.path}\0${f.content == null ? 'missing' : sha256(f.content)}`)
-    .sort()
+  if (plugin !== null) lines.push(`plugin\0${plugin}`)
+  lines.sort()
   return sha256(lines.join('\n'))
+}
+
+/**
+ * The plugin's line for the hash: `<name>@<version>` (database@1.1.0) from
+ * the plugin's .claude-plugin/plugin.json beside hooks/, or `missing`; null
+ * when the hooks are the project's own .claude/hooks, which git hashes.
+ */
+export function pluginLine(root = projectRoot(), hooksDir = HOOKS_DIR) {
+  if (!pluginMode(root, hooksDir)) return null
+  try {
+    const { name, version } = JSON.parse(readFileSync(join(hooksDir, '..', '.claude-plugin', 'plugin.json'), 'utf8'))
+    return typeof name === 'string' && name && typeof version === 'string' && version ? `${name}@${version}` : 'missing'
+  } catch {
+    return 'missing'
+  }
 }
 
 /**
@@ -356,8 +375,15 @@ export function doneLine(pr, marker, functionsJson) {
 
 // ---------------------------------------------------------------- facts
 
-const CLAUDE_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
-const REPO_ROOT = join(CLAUDE_DIR, '..')
+// The project (projectRoot, production-steps.mjs): CLAUDE_PROJECT_DIR, which
+// Claude Code sets for hooks and the production scripts export, else the
+// folder two up from the hooks. Re-exported: the guard resolves it here.
+export { projectRoot }
+const REPO_ROOT = projectRoot()
+const CLAUDE_DIR = join(REPO_ROOT, '.claude')
+
+/** The frozen set's hash on disk now, as the tap and the arm compare it. */
+export const frozenOnDisk = (root = REPO_ROOT) => frozenHash(readFrozen(root), pluginLine(root))
 
 /** The frozen set as it is on disk: git's tracked files, plus the local settings. */
 export function readFrozen(root = REPO_ROOT) {
@@ -425,7 +451,7 @@ function main() {
     // Past 100 files gh's list is short; page it as the guard does at the arm.
     if (pr) pr = withCompleteFiles(pr, (n) => ghFetchFiles(n, REPO_ROOT))
     let hash = null
-    try { hash = frozenHash(readFrozen()) } catch { /* unread: differs from any tap */ }
+    try { hash = frozenOnDisk() } catch { /* unread: differs from any tap */ }
     const rows = oneTapVerdict({ version, chain: readJson(join(CLAUDE_DIR, 'full-auto-chain.json')), now: Date.now(), hash, pr })
     process.stdout.write(oneTapText(rows, version))
     return
@@ -434,7 +460,7 @@ function main() {
     const [mainSha, ...words] = args
     const parsed = chainArgs(words)
     if (parsed.refuse) fail(parsed.refuse)
-    const out = newChain(parsed.versions, Date.now(), mainSha, frozenHash(readFrozen()))
+    const out = newChain(parsed.versions, Date.now(), mainSha, frozenOnDisk())
     if (out.refuse) fail(out.refuse)
     process.stdout.write(JSON.stringify(out.chain, null, 2) + '\n')
     return

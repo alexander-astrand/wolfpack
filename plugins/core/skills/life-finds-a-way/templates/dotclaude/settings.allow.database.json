@@ -10,7 +10,10 @@
       "Bash(supabase projects list)",
       "Bash(supabase functions list)",
       "Bash(supabase db diff:*)",
-      "Bash(supabase status)"
+      "Bash(supabase status)",
+      "Bash(scripts/full-auto.sh preview *)",
+      "Bash(scripts/full-auto.sh check-plan *)",
+      "Bash(node scripts/chain-cover.mjs *)"
     ]
   }
 }

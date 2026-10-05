@@ -17,14 +17,45 @@
 // merge-only, but only when its steps say so in words; see armList.
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { readFileSync, realpathSync, statSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
-// The project's own values (the kit is public, so none are written here):
-// read from ${CLAUDE_PROJECT_DIR}/.claude/kit.json, which the guard keeps in
-// its frozen set, since an agent that could edit refs.dev could make
-// production look like dev. A missing file or key fails closed: the value
+// The folder these hooks run from: the project's .claude/hooks, or a
+// plugin's hooks/ in Claude Code's install folder (2.14.9.1).
+export const HOOKS_DIR = dirname(fileURLToPath(import.meta.url))
+
+/**
+ * The project the hooks guard: CLAUDE_PROJECT_DIR when it names a folder
+ * (Claude Code sets it for every hook, and the production scripts export
+ * their git top level before they run chain-arm.mjs), else the folder two up
+ * from the hooks, as a project's own .claude/hooks always resolved it. Never
+ * the shell's cwd, which an agent can change. Defined here, the module every
+ * hook imports first, and re-exported by chain-arm.mjs.
+ */
+export function projectRoot(env = process.env, hooksDir = HOOKS_DIR) {
+  const dir = env.CLAUDE_PROJECT_DIR
+  if (typeof dir === 'string' && dir) {
+    try { if (statSync(dir).isDirectory()) return resolve(dir) } catch { /* not a folder: the hook's own */ }
+  }
+  return join(hooksDir, '..', '..')
+}
+
+const real = (p) => { try { return realpathSync(p) } catch { return resolve(p) } }
+/**
+ * Whether the hooks run from outside <root>/.claude/hooks (a plugin): then
+ * they aren't in the project's git, so the frozen hash adds the plugin's
+ * version, the guard freezes the plugin's own folder, and the deployer also
+ * arrives as `<plugin>:<name>`.
+ */
+export function pluginMode(root = projectRoot(), hooksDir = HOOKS_DIR) {
+  return real(hooksDir).toLowerCase() !== real(join(root, '.claude', 'hooks')).toLowerCase()
+}
+
+// The project's own values (none are written here: the kit is public, and
+// the project's copy is the same code): read from <root>/.claude/kit.json,
+// which the guard keeps in its frozen set, since an agent that could edit
+// refs.dev could make production look like dev. A missing file or key fails closed: the value
 // becomes a text that names the missing key and matches no ref, agent or
 // Keychain item, so no project counts as dev, nobody is the deployer and
 // every database call is treated as production. `let`, so the guard and the
@@ -39,17 +70,21 @@ export let DEV_KEYCHAIN_ITEM = missing('keychain.dev')
 export let PROD_KEYCHAIN_ITEM = missing('keychain.prod')
 
 /** Loads the project's values; a test passes its fixture's path. */
-export function loadKitConfig(file = process.env.CLAUDE_PROJECT_DIR ? join(process.env.CLAUDE_PROJECT_DIR, '.claude', 'kit.json') : '') {
+export function loadKitConfig(file = join(projectRoot(), '.claude', 'kit.json')) {
   let kit = {}
   try { kit = JSON.parse(readFileSync(file, 'utf8')) ?? {} } catch { /* missing or unreadable: every key is missing */ }
   const str = (v) => (typeof v === 'string' && v ? v : null)
   const ref = (v) => (typeof v === 'string' && REF_SHAPE.test(v) ? v : null)
+  const origin = (v) => {
+    try { const u = new URL(str(v)); return /^https?:$/.test(u.protocol) && !u.username && !u.password ? u.origin : null } catch { return null }
+  }
   DEV_REF = ref(kit.refs?.dev) ?? missing('refs.dev')
   PROD_REF = ref(kit.refs?.prod) ?? missing('refs.prod')
   // The same ref for both would make production pass as dev.
   if (DEV_REF === PROD_REF) DEV_REF = missing('refs.dev')
   DEPLOYER = str(kit.deployer) ?? missing('deployer')
-  PROD_URL = str(kit.urls?.prod) ?? missing('urls.prod')
+  // An origin or nothing: empty or not a web origin means no smoke allow.
+  PROD_URL = origin(kit.urls?.prod) ?? missing('urls.prod')
   DEV_KEYCHAIN_ITEM = str(kit.keychain?.dev) ?? missing('keychain.dev')
   PROD_KEYCHAIN_ITEM = str(kit.keychain?.prod) ?? missing('keychain.prod')
 }

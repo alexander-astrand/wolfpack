@@ -1,17 +1,18 @@
-// First: the tests' project and its kit.json (placeholder values).
+// First: the tests' project and its kit.json (the fixture's values).
 import './fixtures/kit-project.mjs'
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   FROZEN, FROZEN_RE, chainArgs, chainWhyNot, doneLine, doneWhyNot, finishChain, frozenHash, localSettingsForHash, markDone, newChain, nextVersion,
-  oneTapText, oneTapVerdict, readFrozen,
+  oneTapText, oneTapVerdict, pluginLine, projectRoot, readFrozen,
 } from './chain-arm.mjs'
 import { decide } from './guard-production.mjs'
-import { CI_JOBS, CI_WORKFLOW, PROD_REF, withCompleteFiles } from './production-steps.mjs'
+import { CI_JOBS, CI_WORKFLOW, PROD_REF, pluginMode, withCompleteFiles } from './production-steps.mjs'
 
 // The plugin's own copy of the arm script (scripts/ beside hooks/).
 const SCRIPT = fileURLToPath(new URL('../scripts/full-auto.sh', import.meta.url))
@@ -236,7 +237,7 @@ describe('C8: the chain arm module', () => {
         }
         const done = (v) => {
           try {
-            return { code: 0, out: execFileSync('bash', [join(dir, 'scripts/full-auto.sh'), 'done', v], { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, PATH: `${join(dir, 'bin')}:${process.env.PATH}` } }) }
+            return { code: 0, out: execFileSync('bash', [join(dir, 'scripts/full-auto.sh'), 'done', v], { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, CLAUDE_PROJECT_DIR: dir, PATH: `${join(dir, 'bin')}:${process.env.PATH}` } }) }
           } catch (err) {
             return { code: err.status, out: `${err.stdout}${err.stderr}` }
           }
@@ -284,7 +285,7 @@ describe('C8: the chain arm module', () => {
         put('bin/functions.json', FUNCTIONS)
         const sh = (...args) => {
           try {
-            return { code: 0, out: execFileSync('bash', [join(dir, 'scripts/full-auto.sh'), ...args], { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, PATH: `${join(dir, 'bin')}:${process.env.PATH}` } }) }
+            return { code: 0, out: execFileSync('bash', [join(dir, 'scripts/full-auto.sh'), ...args], { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, CLAUDE_PROJECT_DIR: dir, PATH: `${join(dir, 'bin')}:${process.env.PATH}` } }) }
           } catch (err) {
             return { code: err.status, out: `${err.stdout}${err.stderr}` }
           }
@@ -476,7 +477,7 @@ case "$*" in
   *) exit 1 ;;
 esac
 `, 0o755)
-      const armed = execFileSync('bash', [join(dir, 'scripts/full-auto.sh'), 'arm', '2.13'], { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, PATH: `${join(dir, 'bin')}:${process.env.PATH}` } })
+      const armed = execFileSync('bash', [join(dir, 'scripts/full-auto.sh'), 'arm', '2.13'], { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, CLAUDE_PROJECT_DIR: dir, PATH: `${join(dir, 'bin')}:${process.env.PATH}` } })
       expect(armed).toContain('Full auto armed for V2.13 (PR #50')
 
       // The release log was started afresh (the rotation)...
@@ -487,6 +488,78 @@ esac
       expect(lines[1][2]).toBe('scripts/full-auto.sh arm 2.13')
       expect(lines[1][3]).toMatch(/^one-tap arm: .*the release changes the guard's frozen files \(\.claude\/hooks\/guard-production\.mjs\), so it taps at its arm/)
       expect(lines[1][4]).toBe('ranjit')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+// 2.14.9.1: the hooks find the project through CLAUDE_PROJECT_DIR, so they
+// work from a plugin's install folder; a plugin's hash adds its version.
+describe('2.14.9.1: the project root and the plugin line', () => {
+  const tmp = () => realpathSync(mkdtempSync(join(tmpdir(), 'root-')))
+
+  it('projectRoot is CLAUDE_PROJECT_DIR when it names a folder, else two up from the hooks', () => {
+    const dir = tmp()
+    try {
+      expect(projectRoot({ CLAUDE_PROJECT_DIR: dir }, '/x/p/hooks')).toBe(dir)
+      expect(projectRoot({}, '/repo/.claude/hooks')).toBe('/repo')
+      expect(projectRoot({ CLAUDE_PROJECT_DIR: '' }, '/repo/.claude/hooks')).toBe('/repo')
+      expect(projectRoot({ CLAUDE_PROJECT_DIR: join(dir, 'nope') }, '/repo/.claude/hooks')).toBe('/repo')
+      writeFileSync(join(dir, 'file'), '')
+      expect(projectRoot({ CLAUDE_PROJECT_DIR: join(dir, 'file') }, '/repo/.claude/hooks')).toBe('/repo')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("the project's own .claude/hooks hash exactly as before; a plugin adds database@<version>, or missing", () => {
+    const dir = tmp()
+    try {
+      const own = join(dir, '.claude', 'hooks')
+      mkdirSync(own, { recursive: true })
+      const plugin = join(dir, 'cache', 'database', 'hooks')
+      mkdirSync(plugin, { recursive: true })
+      expect(pluginMode(dir, own)).toBe(false)
+      expect(pluginLine(dir, own)).toBeNull()
+      expect(pluginMode(dir, plugin)).toBe(true)
+      expect(pluginLine(dir, plugin)).toBe('missing')
+      mkdirSync(join(plugin, '..', '.claude-plugin'))
+      writeFileSync(join(plugin, '..', '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'database', version: '1.2.0' }))
+      expect(pluginLine(dir, plugin)).toBe('database@1.2.0')
+
+      // A fixed file set: the hash 2.14.9 computed (the old code, inlined),
+      // and pinned, so a project's own tap stays valid across this change.
+      const files = [
+        { path: '.claude/hooks/guard-production.mjs', content: 'guard' },
+        { path: 'scripts/prod-db.sh', content: 'db' },
+        { path: '.github/workflows/ci.yml', content: null },
+        { path: 'src/App.tsx', content: 'outside' },
+      ]
+      const sha = (d) => createHash('sha256').update(d).digest('hex')
+      const old = sha(files.filter((f) => f.path !== 'src/App.tsx').map((f) => `${f.path}\0${f.content == null ? 'missing' : sha(f.content)}`).sort().join('\n'))
+      expect(frozenHash(files)).toBe(old)
+      expect(frozenHash(files, pluginLine(dir, own))).toBe(old)
+      expect(old).toBe('bd559d7d93e6988f0734dd6320002cfa39084747f1e1a793115bf916a0523aad')
+      const asPlugin = frozenHash(files, pluginLine(dir, plugin))
+      expect(asPlugin).not.toBe(old)
+      expect(frozenHash(files, 'database@1.2.1')).not.toBe(asPlugin)
+      expect(frozenHash(files, 'missing')).not.toBe(asPlugin)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it("the CLI honours CLAUDE_PROJECT_DIR: it reads that project's chain marker", () => {
+    const dir = tmp()
+    try {
+      mkdirSync(join(dir, '.claude'))
+      writeFileSync(join(dir, '.claude', 'full-auto-chain.json'), JSON.stringify(newChain(['9.9'], Date.now(), MAIN, HASH).chain))
+      const cli = fileURLToPath(new URL('./chain-arm.mjs', import.meta.url))
+      const run = (env) => execFileSync(process.execPath, [cli, 'one-tap', '9.9'], { cwd: tmpdir(), encoding: 'utf8', env: { ...process.env, ...env, PATH: '/nonexistent' } })
+      // No gh on PATH: no PR, but the arm row reads the marker it was pointed at.
+      expect(run({ CLAUDE_PROJECT_DIR: dir })).toMatch(/ok {2}in the arm given at the start/)
+      expect(run({ CLAUDE_PROJECT_DIR: join(dir, 'nope') })).toMatch(/no {2}in the arm given at the start/)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

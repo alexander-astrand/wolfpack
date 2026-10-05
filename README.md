@@ -134,7 +134,7 @@ The kit is built under `kit/` in its source repo and published to this marketpla
 
 A release that changes the kit copies these steps into its PR's "Human steps afterwards", filled in, one command per line (`carousel` does it).
 
-## Not in 1.0.0
+## Full auto from the installed kit (database 1.1.0)
 
-- **The database plugin's full-auto scripts.** `prod-db.sh`, `full-auto.sh` and `chain-cover.mjs` stay in each project's own `scripts/`; the skills point there.
-- **Full auto from the plugin.** The guard looks for its `.claude` folder next to its hooks, so `/cattle-drive`'s armed run isn't wired up from an installed plugin yet. Parked for a later version.
+- **The database plugin's scripts are copied, not run in place.** `prod-db.sh`, `full-auto.sh` and `chain-cover.mjs` ship in the plugin and a person copies them into the project's `scripts/` once; the plugin's README ("Install the scripts") has the line and the `kit.json` keys they read. The guard finds the project through `CLAUDE_PROJECT_DIR`, so `/cattle-drive`'s armed run works from an installed plugin.
+- **Known gap: the arm's CI job names are fixed.** "CI green by job name" checks a workflow `CI` with the jobs `Type-check, lint, test, knip and build` and `Database: migrations from scratch + SQL tests` (`CI_JOBS` in `hooks/production-steps.mjs`); the starter's CI doesn't name them so. Until the names come from `kit.json` (a guard change with its own tap, next release), a project that wants the one-tap arm names its CI jobs exactly that way.
