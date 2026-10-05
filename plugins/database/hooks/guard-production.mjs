@@ -987,8 +987,14 @@ function checkShell(src, ctx, where = { dir: ctx.cwd, built: false }) {
       // holds while the call goes on by &&; after a ; a newline or a ||, the
       // call may go on where it was, so the folder is unknown (2.14.9.1, B2).
       if (where.iffy && seg.opBefore && seg.opBefore !== '&&') where = { dir: undefined, built: true }
-      seg.where = where
-      results.push(checkSegment(seg, ctx))
+      // A segment after a plain `cd /x;` may run in /x or, if the cd failed,
+      // where the call was: it is judged in each folder it could run in.
+      const { others = [], ...here } = where
+      for (const at of [here, ...others]) {
+        seg.where = { ...here, ...at }
+        results.push(checkSegment(seg, ctx))
+      }
+      seg.where = here
       where = afterCd(seg, where, segs[k - 1] ?? null, segs.slice(k + 1).find((s) => !s.subshell) ?? null)
     })
     return strictest(results)
@@ -1010,11 +1016,30 @@ function afterCd(seg, where, last = null, next = null) {
   // stops the call when the cd fails, and with it a failed `a &&` before it.
   const stops = seg.opAfter === '||' && next && ['exit', 'return'].includes(stripPrefix(next.words)[0]) && !['||', '|', '&'].includes(next.opAfter)
   if (seg.opAfter === '||' && !stops) return { dir: undefined, built: true }
-  const landed = afterCdTo(seg, words, where, last)
+  const { others = [], ...here } = where
+  const { made, ...landed } = afterCdTo(seg, words, here, last)
+  if (landed.built) return landed
   // After `a && cd x` the cd ran only if a succeeded: checkShell drops the
   // folder at the next ; or newline.
-  return seg.opBefore === '&&' && !stops && !landed.built ? { ...landed, iffy: true } : landed
+  const iffy = seg.opBefore === '&&' && !stops
+  // A cd that ran in any folder the call might be in moves from each of them;
+  // after a plain `cd /x;` (or a newline) the call goes on even when the cd
+  // failed, so the folders it was in stay possible too (2.14.9.2, S4: `cd
+  // /nope; cp x .claude/settings.json` was judged as if it ran in /nope).
+  const moved = others.map((o) => afterCdTo(seg, words, o, last))
+  // A `cd $_` into the folder mkdir just made lands, as it did before: c-3po's
+  // scratch copies (2.14.6) shouldn't ask again over a mkdir that failed.
+  const failed = !iffy && !made && [';', '\n'].includes(seg.opAfter) ? [here, ...others] : []
+  const alts = []
+  for (const at of [...moved, ...failed]) {
+    if (![landed, ...alts].some((a) => a.dir === at.dir && a.built === at.built)) alts.push({ dir: at.dir, built: at.built })
+  }
+  // A long run of cds that could each fail leaves too many folders to keep:
+  // the folder counts as built at run time.
+  if (alts.length > MAX_CD_FOLDERS) return { dir: undefined, built: true }
+  return { ...landed, ...(iffy && { iffy }), ...(alts.length && { others: alts }) }
 }
+const MAX_CD_FOLDERS = 4
 
 function afterCdTo(seg, words, where, last) {
   let to = words.slice(1).find((w) => !w.startsWith('-') || w === '-')
@@ -1027,7 +1052,7 @@ function afterCdTo(seg, words, where, last) {
     const made = stripPrefix(last.words)
     const dir = made.at(-1)
     const plain = (k) => !(last.marks?.[k + last.words.length - made.length] ?? []).length && !/[$`*?[{~]/.test(made[k])
-    if (made[0] === 'mkdir' && made.length > 1 && !dir.startsWith('-') && made.every((_, k) => plain(k))) to = dir
+    if (made[0] === 'mkdir' && made.length > 1 && !dir.startsWith('-') && made.every((_, k) => plain(k))) return { ...afterCdTo(seg, [words[0], dir], where, null), made: true }
   }
   if (to === undefined || to === '~' || to.startsWith('~/')) return { dir: join(homedir(), (to ?? '').slice(2)), built: false }
   if (/[$`*?[{~]/.test(to) || to === '-') return { dir: undefined, built: true }
@@ -1038,17 +1063,32 @@ function afterCdTo(seg, words, where, last) {
 // Every segment gets each check, and the strictest answer stands: a write to
 // the guard's files asks, but never softens a deny found for the same words.
 function checkSegment(seg, ctx) {
+  // Each segment is judged in every folder a failed cd leaves possible, and
+  // again inside each heredoc shell: text built to multiply that work past
+  // the hook's timeout is refused, not read (2.14.9.2 review, must 1).
+  ctx.work = (ctx.work ?? 0) + 1
+  if (ctx.work > MAX_WORK) return deny(`The command takes more than ${MAX_WORK} checks to read, too much for the guard to read.`)
   // A shell's heredoc script runs in a shell of its own, from this folder.
   const script = seg.where?.code ? null : shellHeredoc(seg)
   const here = seg.where ?? { dir: ctx.cwd, built: false }
   const result = strictest([checkSegmentFor(seg, ctx), protectedWrite(seg, ctx), gitConfigEnv(seg, ctx), ...laterCommands(seg, ctx), ...assignedCommands(seg, ctx),
-    ...codeShells(seg, ctx), script === null ? null : checkShell(script, ctx, { dir: here.dir, built: here.built })])
+    ...codeShells(seg, ctx), script === null ? null : heredocShell(script, ctx, here)])
   // An awk or sed script that runs a program or writes a file (2.13.6.1)
   // keeps any answer the other checks give it (`sed '1e gh pr merge …'`
   // asks, as gh pr merge does), and is refused when they have none.
   const tool = seg.where?.code ? null : textTool(seg)
   if (tool?.verdict !== 'runs' || (result && result.decision !== 'allow')) return result
   return deny(`${tool.why}: ${seg.words.join(' ')}. Read with a plain script, and write with a shell redirect the guard can see.`)
+}
+const MAX_WORK = 20000
+
+// The same heredoc script, in the same folder at the same depth, reads the
+// same: a shell judged in several possible folders reads each one once.
+function heredocShell(script, ctx, here) {
+  const key = `${ctx.depth}|${here.dir}|${here.built}|${script}`
+  ctx.heredocs ??= new Map()
+  if (!ctx.heredocs.has(key)) ctx.heredocs.set(key, checkShell(script, ctx, { dir: here.dir, built: here.built }))
+  return ctx.heredocs.get(key)
 }
 
 // perl's and ruby's own shell quotes: backticks, perl's qx{…} and ruby's
@@ -2363,7 +2403,7 @@ function fedShell(seg, ctx) {
     if (c >= 0) {
       if (SUBSTITUTION_RE.test(rest[c + 1] ?? '')) how = `${cmd} -c runs a substitution's output`
     } else if (shellHeredoc(seg) === null && !rest.some((w) => /^-[a-z]*n[a-z]*$/.test(w) || w === '--version' || w === '--help') &&
-      (rest.every((w) => w.startsWith('-')) || PROCESS_SUB_RE.test(rest.find((w) => !w.startsWith('-')) ?? '') || rest.some((w) => /^-[a-z]*s[a-z]*$/.test(w)))) {
+      (rest.every((w) => w.startsWith('-')) || shellOptions(rest, false) || PROCESS_SUB_RE.test(rest.find((w) => !w.startsWith('-')) ?? '') || rest.some((w) => /^-[a-z]*s[a-z]*$/.test(w)))) {
       how = `${cmd} reads its script from a pipe or stdin`
     }
   } else if (cmd === 'eval' || cmd === 'source' || cmd === '.') {
@@ -2383,10 +2423,29 @@ function shellHeredoc(seg) {
   if (seg.subshell || seg.heredoc === undefined || seg.heredocExpands) return null
   const words = stripPrefix(seg.words)
   if (!SHELLS.has(commandName(words[0] ?? ''))) return null
-  const rest = words.slice(1)
-  if (!rest.every((w) => w.startsWith('-')) || rest.some((w) => /^-[a-z]*[cn][a-z]*$/.test(w) || w.startsWith('--'))) return null
+  if (!shellOptions(words.slice(1), true)) return null
   return /\bexec\b/.test(seg.heredoc) ? null : seg.heredoc
 }
+
+// Whether a shell's words are all options: short flags with neither c (runs
+// a string) nor n (only reads), and an -o's one argument (`bash -euo
+// pipefail <<'EOF'` asked in 2.14.9.1, S4). `named` keeps that argument to
+// the options known to change nothing about what runs; without it, any
+// -o or -O argument counts (fedShell: `… | bash -o pipefail` reads stdin).
+function shellOptions(rest, named) {
+  for (let k = 0; k < rest.length; k++) {
+    const w = rest[k]
+    if (w === '-') continue
+    if (!(named ? /^-[a-z]+$/ : /^-[a-zA-Z]+$/).test(w) || /[cn]/.test(w)) return false
+    const takes = (w.match(/[oO]/g) ?? []).length
+    if (!takes) continue
+    if (takes > 1 || rest[k + 1] === undefined) return false
+    if (named && !SAFE_SHELL_OPTIONS.has(rest[k + 1])) return false
+    k++
+  }
+  return true
+}
+const SAFE_SHELL_OPTIONS = new Set(['pipefail', 'errexit', 'nounset'])
 
 // A nested claude could run as another agent or without this guard, so it
 // asks in every session (denied while armed, below); its version and help

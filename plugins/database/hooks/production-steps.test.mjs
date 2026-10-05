@@ -10,8 +10,8 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
-  GH_FILES_MS, PLAN_TITLE, allowedCommands, armList, completeFiles, gitFacts, mergeOnlyWhyNot, migrationsWhyNot, parseGitFacts, parseProductionSteps,
-  planCalls, planCheck, planCheckText, planLines, prFacts, previewText, withCompleteFiles,
+  CI_JOBS, CI_WORKFLOW, CI_WORKFLOW_FILE, GH_FILES_MS, PLAN_TITLE, allowedCommands, armList, checksNotGreen, completeFiles, gitFacts, mergeOnlyWhyNot, migrationsWhyNot, parseGitFacts, parseProductionSteps,
+  loadKitConfig, planCalls, planCheck, planCheckText, planLines, prFacts, previewText, withCompleteFiles,
 } from './production-steps.mjs'
 
 const fixture = (name) => readFileSync(fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url)), 'utf8')
@@ -447,5 +447,50 @@ esac
     // No version (the guard's prompt) or a refusal: no plan.
     expect(previewText(steps(), 46, frontend)).not.toContain(PLAN_TITLE)
     expect(previewText(steps(), 46, {}, '2.14.6')).not.toContain(PLAN_TITLE)
+  })
+})
+
+describe('2.14.9.2: CI job names come from kit.json', () => {
+  const unquote = (s) => s.trim().replace(/^(["'])(.*)\1$/, '$2')
+  // The workflow's own name, and each job's `name:` (four spaces in, under jobs:).
+  const workflowName = (yml) => unquote(/^name:(.*)$/m.exec(yml)[1])
+  const jobNames = (yml) => (yml.slice(yml.indexOf('\njobs:')).match(/^ {4}name:.*$/gm) ?? []).map((l) => unquote(l.replace(/^ {4}name:/, '')))
+  const GREEN = (jobs) => jobs.map((name) => ({ __typename: 'CheckRun', name, workflowName: CI_WORKFLOW, status: 'COMPLETED', conclusion: 'SUCCESS' }))
+
+  it("the starter's kit.json names exactly the jobs its ci.yml defines", () => {
+    const template = (p) => readFileSync(fileURLToPath(new URL(`../../core/skills/life-finds-a-way/templates/${p}`, import.meta.url)), 'utf8')
+    // Placeholders (one unquoted) become 0 so the template parses as JSON.
+    const kit = JSON.parse(template('dotclaude/kit.json').replace(/\{\{[^}]+\}\}/g, '0'))
+    expect(kit.ci.workflow).toBe('.github/workflows/ci.yml')
+    const yml = template('github/workflows/ci.yml')
+    expect(workflowName(yml)).toBe(CI_WORKFLOW)
+    expect(jobNames(yml)).toEqual(kit.ci.jobs)
+  })
+
+  // Two jobs, so the guard's tests can drop the second one.
+  const FIXTURE_JOBS = ['Type-check, lint, test, knip and build', 'Database: migrations from scratch + SQL tests']
+  it('the fixture loads, and a green rollup of its jobs passes', () => {
+    expect(CI_JOBS).toEqual(FIXTURE_JOBS)
+    expect(CI_WORKFLOW_FILE).toBe('.github/workflows/ci.yml')
+    expect(checksNotGreen(GREEN(CI_JOBS))).toBe('')
+    expect(checksNotGreen(GREEN(CI_JOBS.slice(0, 1)))).toMatch(/CI's "Database: .*" hasn't reported/)
+  })
+
+  it('missing or malformed ci.jobs fails closed: the jobs never report', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ci-jobs-'))
+    const base = JSON.parse(fixture('kit.json'))
+    try {
+      for (const ci of [undefined, {}, { jobs: 'Checks' }, { jobs: [] }, { jobs: [''] }, { jobs: ['Checks', 7] }, { jobs: ['Checks', 'Checks'] }]) {
+        const file = join(dir, 'kit.json')
+        writeFileSync(file, JSON.stringify({ ...base, ci }))
+        loadKitConfig(file)
+        expect(CI_JOBS, JSON.stringify(ci)).toEqual(['<ci.jobs missing from .claude/kit.json>'])
+        expect(checksNotGreen(GREEN(FIXTURE_JOBS))).toMatch(/CI's "<ci\.jobs missing from \.claude\/kit\.json>" hasn't reported/)
+      }
+    } finally {
+      loadKitConfig()
+      rmSync(dir, { recursive: true, force: true })
+    }
+    expect(CI_JOBS).toEqual(FIXTURE_JOBS)
   })
 })

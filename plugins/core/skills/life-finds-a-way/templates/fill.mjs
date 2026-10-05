@@ -7,6 +7,7 @@
 // --force is for a scratch folder only: it overwrites project files. Plans files
 // (roadmap.md, V0.1.md) live outside git, so nothing can bring them back: an existing
 // one is never overwritten, by any flag.
+//   node fill.mjs <values.json> <target dir> --proto [--plans <dir>] [--force]   (an agent's render, see PROTO)
 //   node fill.mjs --allow <values.json>   (the merged allow list for the settings row)
 //   node fill.mjs --detect <dir>          (adopt's stack: node, python or other)
 //
@@ -62,6 +63,24 @@ export const MAP = [
   { from: 'roadmap.md', to: 'plans:roadmap.md' },
   { from: 'V0.1.md', to: 'plans:V0.1.md' },
 ]
+
+// PROTO. The database plugin's guard refuses an agent's write to its frozen names at
+// any depth (`.github/`, `.claude/kit.json`, `scripts/check.sh`, …), so a toy an agent
+// prepares can't hold them. Under --proto those targets keep the template's renamed
+// path (`github/workflows/ci.yml`, `dotclaude/kit.json`, `check.sh.txt`) and fill
+// prints one line for a person to run that moves them into place, instead of a
+// custom script per toy (2.14.9.1's captain-toy-setup.sh).
+const GUARDED = /^(\.github\/|\.claude\/(kit\.json|settings[^/]*\.json|hooks\/)|scripts\/check\.sh$)/
+export const isGuarded = (to) => GUARDED.test(to)
+
+// The one line that moves a --proto render's renamed files to their real names.
+// mv, not cp: a copy would leave the renamed files in the project for git to pick up.
+const quote = (p) => `'${p.replaceAll("'", `'\\''`)}'`
+export function protoMap(moves) {
+  if (!moves.length) return ''
+  const dirs = [...new Set(moves.map((m) => dirname(m.to)))]
+  return [`mkdir -p ${dirs.map(quote).join(' ')}`, ...moves.map((m) => `mv ${quote(m.from)} ${quote(m.to)}`)].join(' && ')
+}
 
 // The allow lists: core always, one per pack that's on, one per stack that has
 // any (Other has none). Plain JSON, never rendered: the walkthrough's Mine row merges
@@ -233,7 +252,7 @@ function expandHome(p) {
   return p.startsWith('~/') ? join(homedir(), p.slice(2)) : p
 }
 
-export function fill(values, target, { plansDir, force = false, adopt = false } = {}) {
+export function fill(values, target, { plansDir, force = false, adopt = false, proto = false } = {}) {
   const errors = []
   const packs = values.packs
   if (!Array.isArray(packs)) errors.push('values: "packs" must be an array (release, design, database)')
@@ -257,6 +276,7 @@ export function fill(values, target, { plansDir, force = false, adopt = false } 
 
   const writes = []
   const skipped = []
+  const moves = [] // --proto: renamed path → real name, for the printed map
   for (const m of MAP) {
     if (m.pack && !(packs ?? []).includes(m.pack)) continue
     if (m.stack && !m.stack.includes(values.stack)) continue
@@ -266,26 +286,30 @@ export function fill(values, target, { plansDir, force = false, adopt = false } 
       errors.push(`${m.from}: no plans folder (values.plans and project.name, or --plans)`)
       continue
     }
-    const dest = plans ? join(plansRoot, m.to.slice('plans:'.length)) : join(target, m.to)
+    const real = plans ? join(plansRoot, m.to.slice('plans:'.length)) : join(target, m.to)
     // Plans files that exist are steps 5 and 6's (Hammond's roadmap, the V0.1 draft):
     // skipped, and their values not needed. Outside git, so --force doesn't touch them.
-    if ((plans || (adopt && !force)) && existsSync(dest)) {
-      skipped.push(dest)
+    // Adopt asks about the real name, under --proto too: that's what the project has.
+    if ((plans || (adopt && !force)) && existsSync(real)) {
+      skipped.push(real)
       continue
     }
+    const renamed = proto && !plans && isGuarded(m.to)
+    const dest = renamed ? join(target, m.from) : real
+    if (renamed) moves.push({ from: dest, to: real })
     const text = readFileSync(join(HERE, m.from), 'utf8')
     const r = renderText(text, values, { file: 'templates/' + m.from, json: m.from.endsWith('.json'), ui })
     errors.push(...r.errors)
     writes.push({ dest, out: r.out, exec: m.exec })
   }
-  if (errors.length) return { errors, written: [], skipped: [] }
+  if (errors.length) return { errors, written: [], skipped: [], moves: [] }
 
   for (const w of writes) {
     mkdirSync(dirname(w.dest), { recursive: true })
     writeFileSync(w.dest, w.out)
     if (w.exec) chmodSync(w.dest, 0o755)
   }
-  return { errors: [], written: writes.map((w) => w.dest), skipped }
+  return { errors: [], written: writes.map((w) => w.dest), skipped, moves }
 }
 
 function main(argv) {
@@ -313,16 +337,18 @@ function main(argv) {
   }
   const force = argv.includes('--force')
   const adopt = argv.includes('--adopt')
+  const proto = argv.includes('--proto')
   const pi = argv.indexOf('--plans')
   const plansDir = pi >= 0 ? resolve(argv[pi + 1] ?? '') : undefined
-  const rest = argv.filter((a, i) => a !== '--force' && a !== '--adopt' && i !== pi && i !== pi + 1)
+  const flags = new Set(['--force', '--adopt', '--proto'])
+  const rest = argv.filter((a, i) => !flags.has(a) && i !== pi && i !== pi + 1)
   if (rest.length !== 2 || (pi >= 0 && !argv[pi + 1])) {
-    console.error('usage: node fill.mjs <values.json> <target dir> [--plans <dir>] [--force | --adopt]')
+    console.error('usage: node fill.mjs <values.json> <target dir> [--plans <dir>] [--force | --adopt] [--proto]')
     return 2
   }
   const values = JSON.parse(readFileSync(rest[0], 'utf8'))
   const target = resolve(rest[1])
-  const { errors, written, skipped } = fill(values, target, { plansDir, force, adopt })
+  const { errors, written, skipped, moves } = fill(values, target, { plansDir, force, adopt, proto })
   if (errors.length) {
     for (const e of errors) console.error('fill: ' + e)
     return 1
@@ -334,6 +360,7 @@ function main(argv) {
   }
   for (const w of written) console.log('written: ' + show(w))
   for (const w of skipped) console.log('skipped: exists ' + show(w))
+  if (moves.length) console.log('a person runs, to put the guarded files in place:\n' + protoMap(moves))
   return 0
 }
 

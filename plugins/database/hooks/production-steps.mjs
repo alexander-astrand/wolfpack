@@ -68,6 +68,12 @@ export let DEPLOYER = missing('deployer')
 export let PROD_URL = missing('urls.prod')
 export let DEV_KEYCHAIN_ITEM = missing('keychain.dev')
 export let PROD_KEYCHAIN_ITEM = missing('keychain.prod')
+// CI's own jobs by name (see checksNotGreen) and the workflow file that
+// defines them, which a test reads so the two can't drift. Missing or
+// malformed jobs leave one placeholder job that never reports, so the arm
+// and the merge refuse instead of passing on Vercel's checks alone.
+export let CI_JOBS = [missing('ci.jobs')]
+export let CI_WORKFLOW_FILE = missing('ci.workflow')
 
 /** Loads the project's values; a test passes its fixture's path. */
 export function loadKitConfig(file = join(projectRoot(), '.claude', 'kit.json')) {
@@ -87,6 +93,11 @@ export function loadKitConfig(file = join(projectRoot(), '.claude', 'kit.json'))
   PROD_URL = origin(kit.urls?.prod) ?? missing('urls.prod')
   DEV_KEYCHAIN_ITEM = str(kit.keychain?.dev) ?? missing('keychain.dev')
   PROD_KEYCHAIN_ITEM = str(kit.keychain?.prod) ?? missing('keychain.prod')
+  // Every name a non-empty string and none twice; anything else is malformed.
+  const jobs = kit.ci?.jobs
+  const jobsOk = Array.isArray(jobs) && jobs.length > 0 && jobs.every((j) => str(j)) && new Set(jobs).size === jobs.length
+  CI_JOBS = jobsOk ? [...jobs] : [missing('ci.jobs')]
+  CI_WORKFLOW_FILE = str(kit.ci?.workflow) ?? missing('ci.workflow')
 }
 loadKitConfig()
 
@@ -442,14 +453,13 @@ function classify(cmd, pr) {
 
 // ---------------------------------------------------------------- the one-tap arm
 
-// CI's own jobs (.github/workflows/ci.yml), by name. Vercel and the Supabase
-// preview report on every PR too, so "every check green" alone is met by a
-// `[skip ci]` head commit or a ci.yml the release broke (must 2, round 2).
-// The second job is the SQL tests on a fresh migrated db. A test keeps this
-// list in step with ci.yml. Here, not in the guard, since the one-tap arm
+// CI's own jobs, by name (CI_JOBS, from kit.json's `ci.jobs`, loaded above).
+// Vercel and the Supabase preview report on every PR too, so "every check
+// green" alone is met by a `[skip ci]` head commit or a ci.yml the release
+// broke (must 2, round 2). A test keeps `ci.jobs` in step with the workflow
+// file `ci.workflow` names. Here, not in the guard, since the one-tap arm
 // (chain-arm.mjs) reads it too.
 export const CI_WORKFLOW = 'CI'
-export const CI_JOBS = ['Type-check, lint, test, knip and build', 'Database: migrations from scratch + SQL tests']
 
 /**
  * '' when every check passed (skipped and neutral count) and each CI job

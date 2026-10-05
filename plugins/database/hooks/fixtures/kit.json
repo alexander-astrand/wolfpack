@@ -7,6 +7,10 @@
     "prod": "https://app.example.com"
   },
   "deployer": "ranjit",
+  "ci": {
+    "workflow": ".github/workflows/ci.yml",
+    "jobs": ["Type-check, lint, test, knip and build", "Database: migrations from scratch + SQL tests"]
+  },
   "keychain": {
     "dev": "example-dev-db-url",
     "prod": "example-prod-db-url"

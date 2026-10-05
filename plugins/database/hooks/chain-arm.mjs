@@ -31,7 +31,8 @@ export const FROZEN = [
   '.claude/settings.local.json',
   // The project's values (dev ref, deployer, Keychain items): the guard
   // trusts them, so an agent that could edit refs.dev could make production
-  // look like dev (the kit, 2.14.7).
+  // look like dev (the kit, 2.14.7). Hashed by its trusted keys only
+  // (kitJsonForHash).
   '.claude/kit.json',
   'scripts/full-auto.sh',
   'scripts/prod-db.sh',
@@ -64,6 +65,30 @@ export const CHAIN_USAGE = 'Usage: scripts/full-auto.sh arm-chain <version> [<ve
 
 const sha256 = (data) => createHash('sha256').update(data).digest('hex')
 
+// kit.json also holds keys the guard never reads (budgets, pages, names…),
+// and a budgets edit mid-chain broke the chain's cover (2.14.9.1 review,
+// nit 1). So only the keys the guard and the production scripts trust
+// count toward the hash: refs, keychain, urls, deployer, backupRoot, ci.
+export const KIT_TRUSTED_KEYS = ['refs', 'keychain', 'urls', 'deployer', 'backupRoot', 'ci']
+const KIT_JSON_RE = /^\.claude\/kit\.json$/i
+const canonical = (v) => (Array.isArray(v) ? v.map(canonical)
+  : v !== null && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canonical(v[k])])) : v)
+
+/**
+ * kit.json as the hash reads it: canonical JSON (keys sorted at every depth)
+ * of the trusted keys only, so key order and the other keys don't count.
+ * Anything that isn't a JSON object is hashed as it is: a broken file still
+ * moves the hash.
+ * @param {string | Buffer} content
+ */
+export function kitJsonForHash(content) {
+  let json
+  try { json = JSON.parse(content.toString('utf8')) } catch { return content }
+  if (json === null || typeof json !== 'object' || Array.isArray(json)) return content
+  const trusted = Object.fromEntries(KIT_TRUSTED_KEYS.filter((k) => Object.hasOwn(json, k)).map((k) => [k, json[k]]))
+  return JSON.stringify(canonical(trusted))
+}
+
 /**
  * The frozen set's hash: sha256 over the sorted `path\0sha256(content)`
  * lines of the files given that are in the set. A file outside the set
@@ -76,7 +101,7 @@ const sha256 = (data) => createHash('sha256').update(data).digest('hex')
 export function frozenHash(files, plugin = null) {
   const lines = files
     .filter((f) => FROZEN_PATH_RE.test(f.path))
-    .map((f) => `${f.path}\0${f.content == null ? 'missing' : sha256(f.content)}`)
+    .map((f) => `${f.path}\0${f.content == null ? 'missing' : sha256(KIT_JSON_RE.test(f.path) ? kitJsonForHash(f.content) : f.content)}`)
   if (plugin !== null) lines.push(`plugin\0${plugin}`)
   lines.sort()
   return sha256(lines.join('\n'))

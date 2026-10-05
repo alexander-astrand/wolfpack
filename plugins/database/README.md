@@ -20,6 +20,7 @@ Required for production work:
 - `keychain.dev`, `keychain.prod`: the Keychain items holding the two database URLs (item names, never values).
 - `deployer`: the deployer agent's name (`ranjit`).
 - `backupRoot`: the folder outside the repo where `prod-db.sh backup` writes dumps.
+- `ci.workflow`, `ci.jobs`: the CI workflow file and the names of its jobs. The arm waits for exactly these jobs; without them it refuses ("ci.jobs missing"). The starter sets `ci.jobs: ["Checks"]` to match its `ci.yml`.
 
 Optional:
 

@@ -117,6 +117,41 @@ describe('C8: the chain arm module', () => {
     }
   })
 
+  it("kit.json counts by its trusted keys only: budgets and pages don't move the hash, refs and ci do (2.14.9.2)", () => {
+    const KIT = {
+      refs: { dev: 'devrefdevrefdevrefde', prod: 'prodrefprodrefprodre' }, urls: { prod: 'https://app.example.com' }, deployer: 'ranjit',
+      keychain: { dev: 'example-dev-db-url', prod: 'example-prod-db-url' }, backupRoot: '', ci: { workflow: '.github/workflows/ci.yml', jobs: ['Checks'] },
+      budgets: { '*': '15M' }, pages: { roadmap: '' }, names: {},
+    }
+    const hashOf = (kit, path = '.claude/kit.json') => frozenHash([
+      { path: '.claude/settings.json', content: '{}' },
+      { path, content: typeof kit === 'string' ? kit : JSON.stringify(kit, null, 2) },
+    ])
+    const base = hashOf(KIT)
+    expect(hashOf({ ...KIT, budgets: { '*': '25M', 'jeff-winger': '30M' } })).toBe(base)
+    expect(hashOf({ ...KIT, pages: { roadmap: 'https://claude.ai/artifact/x' } })).toBe(base)
+    expect(hashOf({ ...KIT, reviewer: 'someone', names: { a: 'b' } })).toBe(base)
+    // Key order, at any depth, and whitespace don't count.
+    const reversed = Object.fromEntries(Object.entries(KIT).reverse().map(([k, v]) => [k, v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).reverse()) : v]))
+    expect(hashOf(JSON.stringify(reversed))).toBe(base)
+    // A trusted key moves it: changed, added or removed.
+    expect(hashOf({ ...KIT, refs: { ...KIT.refs, dev: 'prodrefprodrefprodre' } })).not.toBe(base)
+    expect(hashOf({ ...KIT, ci: { ...KIT.ci, jobs: ['Checks', 'More'] } })).not.toBe(base)
+    expect(hashOf({ ...KIT, ci: { ...KIT.ci, workflow: '.github/workflows/other.yml' } })).not.toBe(base)
+    for (const key of ['refs', 'keychain', 'urls', 'deployer', 'backupRoot', 'ci']) {
+      const { [key]: _, ...without } = KIT
+      expect(hashOf(without), `${key} removed`).not.toBe(base)
+    }
+    expect(hashOf({ ...KIT, deployer: 'someone-else' })).not.toBe(base)
+    // A file that isn't a JSON object is hashed as it is.
+    expect(hashOf('{ broken')).not.toBe(base)
+    expect(hashOf('{ broken')).not.toBe(hashOf('{ broken too'))
+    expect(hashOf('[]')).not.toBe(hashOf('[ ]'))
+    // Missing still counts as missing; any case of the path is the same file.
+    expect(frozenHash([{ path: '.claude/settings.json', content: '{}' }, { path: '.claude/kit.json', content: null }])).not.toBe(base)
+    expect(hashOf({ ...KIT, budgets: {} }, '.Claude/Kit.json')).toBe(hashOf(KIT, '.Claude/Kit.json'))
+  })
+
   it('newChain refuses five versions, a repeat, a bad version', () => {
     const usage = /^Usage: scripts\/full-auto\.sh arm-chain <version> \[<version> …\] \(at most 4, each like 2\.13\.1\)$/
     expect(newChain(['2.13', '2.13.1', '2.13.2', '2.13.3', '2.13.4'], NOW, MAIN, HASH).refuse).toMatch(usage)

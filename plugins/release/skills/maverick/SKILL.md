@@ -56,6 +56,7 @@ When a `CHAIN … ORDER` from the conductor starts you (`/cattle-drive <version>
 - At most one open release PR: another release's open PR stops the run.
 - **The dev tab is signed in:** before the first builder, probe the :<project.devPort> tab in the browser pane with the javascript tool: the app's own auth client, `(await supabase.auth.getUser()).data.user` (the project's CLAUDE.md names its module). Not signed in: ask Alexander to sign in on that tab before any builder starts (a release whose QA can't run is only found at the end). With `away`, `/night-watch` or a full-auto run and nobody to answer, stop before the first builder rather than build without QA. A qa feature whose QA never ran blocks the merge; say so in the PR's QA section. Logins never come from memory.
 - `git fetch`, and `main` is up to date with `origin/main`. Uncommitted changes stop the run.
+- **Bump the release field first:** `[release-bump]` the first commit of every release sets the project's version field, when it has one (the footer or about page reads it), to the version. Push it before any step starts.
 - If the release needs the database: the CLI is linked to dev (`refs.dev` in `.claude/kit.json`) and this is a local session (`cloud-city` skill: the cloud has no CLI or database).
 
 ## 2. Plan

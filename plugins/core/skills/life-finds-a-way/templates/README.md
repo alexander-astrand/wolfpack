@@ -1,6 +1,6 @@
 # Templates for /life-finds-a-way
 
-`fill.mjs` renders these into a project from one values file (`node fill.mjs <values.json> <project dir> --plans <plans><project>/`, or `--adopt` for an existing project: only missing files). Its `MAP` is the authority on targets; this table says the same in words. `fixtures/*.values.json` are complete value sets for a toy Node, Python and Other project. Names inside this folder are renamed on purpose (the production guard refuses certain real paths at any depth), so each file goes to its real target:
+`fill.mjs` renders these into a project from one values file (`node fill.mjs <values.json> <project dir> --plans <plans><project>/`, or `--adopt` for an existing project: only missing files). Its `MAP` is the authority on targets; this table says the same in words. `fixtures/*.values.json` are complete value sets for a toy Node, Python and Other project. An agent preparing a toy adds `--proto`: the guarded targets (`.github/`, `.claude/kit.json`, `scripts/check.sh`) stay under their renamed paths here, and fill prints one `mkdir -p … && mv …` line for a person to run that puts them in place. Names inside this folder are renamed on purpose (the production guard refuses certain real paths at any depth), so each file goes to its real target:
 
 | Template | Written to |
 |---|---|

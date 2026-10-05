@@ -6,6 +6,7 @@
   "deployer": "{{deployer}}",
   "keychain": { "dev": "{{keychain.dev}}", "prod": "{{keychain.prod}}" },
   "backupRoot": "",
+  "ci": { "workflow": ".github/workflows/ci.yml", "jobs": ["Checks"] },
   "reviewer": "{{reviewer}}",
   "pages": { "roadmap": "", "teamMap": "", "commandDeck": "" },
   "conventions": "",

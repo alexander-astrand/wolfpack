@@ -51,7 +51,7 @@ Source of truth until Hutzup switches to the installed plugin: Hutzup's `.claude
 The shared crew and the habits every project follows: planning before a big release, the wrap-up afterwards, web research, docs, the roadmap and the daily routines. `norms.md` (how questions, human steps and session names work) and `lessons.md` (tuning numbers) are read by the skills.
 
 - Agents: `boba-fett`, `doc-brown`, `dr-house`, `farbror-vattenmelon`, `john-hammond`, `lorenzo-von-matterhorn`, `marty-mcfly`, `romeo-olsson`, `yoda`
-- Skills: `88-mph`, `badger`, `beam-me-up`, `car-wash`, `cloud-city`, `dependabot-report`, `don-draper`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `oracle`, `previously-on`, `skyler`, `tesseract`, `the-trail`, `war-room`, `watson`
+- Skills: `88-mph`, `badger`, `beam-me-up`, `car-wash`, `cloud-city`, `dependabot-report`, `don-draper`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `oracle`, `previously-on`, `skyler`, `tesseract`, `the-trail`, `war-room`, `watson`, `wilson`
 
 ### release
 A release end to end: `/maverick <version>` (or `/captain-call` for the big ones) plans it, spawns the builders, reviews, opens the draft PR and pings you. The deploy skills take it to production, and `/cattle-drive` runs release and deploy on one yes. Hank (`hooks/budget-cap.mjs`) holds every agent to the budget in its task description; Skyler (`scripts/usage.mjs`) counts the tokens.
@@ -82,6 +82,7 @@ The plugins carry placeholders; your values live in your project's `.claude/kit.
   "urls": { "prod": "https://myapp.example.com" },
   "deployer": "ranjit",
   "keychain": { "dev": "<keychain item, dev db url>", "prod": "<keychain item, prod db url>" },
+  "ci": { "workflow": ".github/workflows/ci.yml", "jobs": ["Checks"] },
   "reviewer": "<github handle to tag on release PRs>",
   "conventions": "scripts/conventions.sh",
   "names": { "<old skill name>": "<new skill name>" },
@@ -93,7 +94,8 @@ The plugins carry placeholders; your values live in your project's `.claude/kit.
 ```
 
 - `project`: the name (session titles, notes), the word for a member, and the dev server's port.
-- `refs`, `urls.prod`, `deployer`, `keychain`: read by the production guard. A missing file or key fails closed (everything counts as production, nobody is the deployer). The guard also treats `kit.json` as frozen: a change to it asks a person.
+- `refs`, `urls.prod`, `deployer`, `keychain`: read by the production guard. A missing file or key fails closed (everything counts as production, nobody is the deployer). The guard also treats `kit.json` as frozen: a change to it asks a person. A chain's tap hashes only its trusted keys (`refs`, `keychain`, `urls`, `deployer`, `backupRoot`, `ci`, key order ignored), so a `budgets` or `pages` edit mid-chain keeps the chain covered.
+- `ci`: the workflow file (named `CI`) and its jobs' `name:`s, which the one-tap arm and the guarded merge wait for, each green by name (Vercel's checks alone don't count). Missing or malformed `jobs` fails closed: the arm refuses. A hook test keeps `jobs` in step with the workflow file.
 - `reviewer`: who gets tagged on release PRs (a notification, nothing waits for them).
 - `conventions`: your conventions script, which the builders and the review run through `npm run lint`.
 - `names`: the project's old command names mapped to the kit's (e.g. a project's own `/check` to `you-shall-not-pass`). A record for people and project tooling; no plugin file in 1.0.0 reads it.
@@ -137,4 +139,4 @@ A release that changes the kit copies these steps into its PR's "Human steps aft
 ## Full auto from the installed kit (database 1.1.0)
 
 - **The database plugin's scripts are copied, not run in place.** `prod-db.sh`, `full-auto.sh` and `chain-cover.mjs` ship in the plugin and a person copies them into the project's `scripts/` once; the plugin's README ("Install the scripts") has the line and the `kit.json` keys they read. The guard finds the project through `CLAUDE_PROJECT_DIR`, so `/cattle-drive`'s armed run works from an installed plugin.
-- **Known gap: the arm's CI job names are fixed.** "CI green by job name" checks a workflow `CI` with the jobs `Type-check, lint, test, knip and build` and `Database: migrations from scratch + SQL tests` (`CI_JOBS` in `hooks/production-steps.mjs`); the starter's CI doesn't name them so. Until the names come from `kit.json` (a guard change with its own tap, next release), a project that wants the one-tap arm names its CI jobs exactly that way.
+- **The arm's CI job names come from `kit.json`** (`ci.jobs`, since 2.14.9.2): the starter's CI names its one job `Checks` and its `kit.json` says so.

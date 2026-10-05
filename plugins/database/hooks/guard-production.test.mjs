@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { CI_JOBS, CI_WORKFLOW, DEV_REF, PROD_URL, WORST_CASE_MS, decide as guardDecide, maskSecrets, namesProtected, parseShell, readJsonMarker, readRepoState, releasePrFrom } from './guard-production.mjs'
-import { allowedCommands, explainSteps, loadKitConfig, parseProductionSteps, prFacts, previewText } from './production-steps.mjs'
+import { CI_WORKFLOW, DEV_REF, PROD_URL, WORST_CASE_MS, decide as guardDecide, maskSecrets, namesProtected, parseShell, readJsonMarker, readRepoState, releasePrFrom } from './guard-production.mjs'
+import { CI_JOBS, allowedCommands, explainSteps, loadKitConfig, parseProductionSteps, prFacts, previewText } from './production-steps.mjs'
 
 const PROD = 'prodrefprodrefprodre'
 const OTHER = 'abcdefghijabcdefghij'
@@ -588,7 +588,7 @@ describe('full auto: the marker', () => {
     expect(armed(MERGE, { pr: openPr({ statusCheckRollup: real }) }).decision).toBe('allow')
     const cases = [
       // [skip ci] on the head commit, or a ci.yml the release broke: only the others report.
-      [real.filter((c) => c.workflowName !== CI_WORKFLOW), /CI's "Type-check, lint, test, knip and build" hasn't reported/],
+      [real.filter((c) => c.workflowName !== CI_WORKFLOW), new RegExp(`CI's "${CI_JOBS[0].replace(/[.*+?^$()|[\]\\{}]/g, '\\$&')}" hasn't reported`)],
       // A rollup of only skipped checks.
       [real.filter((c) => c.conclusion === 'SKIPPED'), /hasn't reported/],
       [real.map((c) => (c.__typename === 'CheckRun' ? { ...c, conclusion: 'SKIPPED' } : c)), /CI's "Type-check.*": SKIPPED/],
@@ -1675,6 +1675,67 @@ describe("round 3: yoda's shoulds", () => {
       "bash <<'EOF'\nls\nEOF"]) {
       expect(d(cmd), cmd).toBe('pass')
     }
+  })
+
+  // 2.14.9.2, S4: `set -o pipefail` and friends are read like any quoted
+  // heredoc; before, the word pipefail left the script unread, so a merge
+  // inside it went through.
+  it('reads a heredoc shell with -o pipefail, errexit or nounset, and asks for any other -o or a -c/-n', () => {
+    for (const cmd of ["bash -euo pipefail <<'EOF'\nls\nEOF", "bash -e -o errexit -u <<'EOF'\nls\nEOF", "sh -eu -o nounset <<'EOF'\nls\nEOF"]) {
+      expect(d(cmd), cmd).toBe('pass')
+      expect(d(cmd, { m: ARMED }), cmd).toBe('pass')
+    }
+    const merge = "bash -euo pipefail <<'EOF'\ngh pr merge 45\nEOF"
+    expect(d(merge)).toBe('deny')
+    expect(d(merge, { m: ARMED })).toBe('deny')
+    // An option the guard doesn't know, or a pipe into one, is a script it can't read.
+    for (const cmd of ["bash -o xtrace <<'EOF'\nls\nEOF", 'git log -1 --format=%B | bash -o pipefail', 'cat /tmp/x | bash -O extglob']) {
+      expect(d(cmd), cmd).toBe('ask')
+      expect(d(cmd, { m: ARMED }), cmd).toBe('deny')
+    }
+    // -c runs its own string and -n only reads: neither heredoc is taken for the script.
+    for (const cmd of ["bash -euo pipefail -c <<'EOF'\ngh pr merge 45\nEOF", "bash -euno pipefail <<'EOF'\ngh pr merge 45\nEOF"]) {
+      expect(d(cmd), cmd).not.toBe('deny')
+    }
+  })
+
+  // 2.14.9.2, S4: after a plain `cd /x;` the call goes on even when the cd
+  // failed, so what follows is judged in both folders.
+  it('judges what follows a plain cd both where it lands and where the call was', () => {
+    const hooks = join(root, '.claude', 'hooks')
+    for (const cmd of ['cd /nope; cp a guard-production.mjs', 'cd /nope\ncp a guard-production.mjs', 'cd /a; cd /b; cp a guard-production.mjs']) {
+      expect(d(cmd, { cwd: hooks }), cmd).toBe('ask')
+      expect(d(cmd, { cwd: hooks, m: ARMED }), cmd).toBe('deny')
+    }
+    for (const cmd of ['cd /tmp; ls', 'cd /tmp && cp a guard-production.mjs', 'cd /tmp || exit 1; cp a guard-production.mjs',
+      'mkdir -p /tmp/x; cd $_; cp a guard-production.mjs', 'cd /a; true && cd /b && cp a guard-production.mjs']) {
+      expect(d(cmd, { cwd: hooks }), cmd).toBe('pass')
+    }
+    expect(d('cd /nope; cp x settings.json', { cwd: join(root, '.claude') })).toBe('ask')
+    // Both folders are harmless here: nothing to ask.
+    expect(d('cd /tmp; cp a b')).toBe('pass')
+    // Deliberate soft spot: `cd $_` right after `mkdir -p` counts as landed,
+    // even though a failed mkdir would leave the cp in the hooks folder.
+    expect(d('mkdir -p /tmp/x; cd $_; cp a guard-production.mjs', { cwd: hooks })).toBe('pass')
+  })
+
+  // 2.14.9.2 review, must 1: every possible folder times every nested heredoc
+  // shell multiplied the work (8 cds in 7 nested shells took 34.8 s, past the
+  // hook's timeout). The folder cap, the heredoc memo and the work cap keep it
+  // quick, and the merge inside is still found.
+  it('reads plain cds inside nested heredoc shells quickly, and refuses a call too big to read', () => {
+    for (const n of [4, 8]) {
+      const cds = Array.from({ length: n }, (_, i) => `cd /d${i}`).join('; ')
+      let body = 'gh pr merge 45'
+      for (let k = 0; k < 7; k++) body = `bash <<'EOF${k}'\n${cds}; ${body}\nEOF${k}`
+      const t = Date.now()
+      expect(d(body), `${n} cds`).toBe('deny')
+      expect(Date.now() - t, `${n} cds`).toBeLessThan(500)
+    }
+    const flat = decide({ tool_name: 'Bash', tool_input: { command: 'true; '.repeat(20001) }, cwd: root, permission_mode: 'default' },
+      { linkedRef: () => DEV_REF, releasePr: () => null, root })
+    expect(flat.decision).toBe('deny')
+    expect(flat.reason).toMatch(/too much for the guard to read/)
   })
 
   it('lets three-eyed-raven write nothing but appends to its chain log', () => {

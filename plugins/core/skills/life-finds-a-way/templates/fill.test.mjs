@@ -4,7 +4,7 @@ import { join, dirname } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { MAP, renderText } from './fill.mjs'
+import { MAP, renderText, isGuarded, protoMap } from './fill.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const FILL = join(HERE, 'fill.mjs')
@@ -222,6 +222,47 @@ describe('fill.mjs', () => {
     expect(py).toContain('Bash(.venv/bin/python -m pytest:*)')
     expect(py.join()).not.toContain('npm')
     expect(allow('other', ['release']).join()).not.toMatch(/npm|python|pytest|ruff/)
+  })
+
+  it('--proto keeps the guarded targets renamed and prints the line that moves them', () => {
+    const r = run(fixture('node'), '--proto')
+    expect(r.stderr).toBe('')
+    expect(r.status).toBe(0)
+    const proj = join(tmp, 'proj')
+    const guarded = MAP.filter((m) => !m.to.startsWith('plans:') && isGuarded(m.to))
+    // The templates' four guarded names, so a new one in MAP is a choice, not a slip.
+    expect(guarded.map((m) => m.to).sort()).toEqual(
+      ['.claude/kit.json', '.github/dependabot.yml', '.github/workflows/ci.yml', 'scripts/check.sh'],
+    )
+    for (const m of guarded) {
+      expect(existsSync(join(proj, m.from)), m.from).toBe(true)
+      expect(existsSync(join(proj, m.to)), m.to).toBe(false)
+    }
+    // Everything else lands under its real name as before.
+    expect(existsSync(join(proj, '.claude', 'lessons.md'))).toBe(true)
+    expect(existsSync(join(proj, 'CLAUDE.md'))).toBe(true)
+
+    const line = r.stdout.split('\n').at(-2)
+    expect(line).toBe(protoMap(guarded.map((m) => ({ from: join(proj, m.from), to: join(proj, m.to) }))))
+    expect(line.startsWith('mkdir -p ')).toBe(true)
+    // The printed line, run as a person would, leaves the plain render's layout.
+    expect(spawnSync('sh', ['-c', line]).status).toBe(0)
+    for (const m of guarded) {
+      expect(existsSync(join(proj, m.to)), m.to).toBe(true)
+      expect(existsSync(join(proj, m.from)), m.from).toBe(false)
+    }
+    expect(statSync(join(proj, 'scripts', 'check.sh')).mode & 0o111).not.toBe(0)
+  })
+
+  it('protoMap quotes paths with spaces and quotes', () => {
+    expect(protoMap([{ from: "/a b/it's", to: '/c/d/e' }])).toBe(`mkdir -p '/c/d' && mv '/a b/it'\\''s' '/c/d/e'`)
+    expect(protoMap([])).toBe('')
+  })
+
+  it('without --proto nothing is renamed and no map is printed', () => {
+    const r = run(fixture('node'))
+    expect(r.stdout).not.toContain('mkdir -p')
+    expect(existsSync(join(tmp, 'proj', 'dotclaude'))).toBe(false)
   })
 
   it('refuses a non-empty target unless --force', () => {

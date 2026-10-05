@@ -54,6 +54,7 @@ Run in the mode Alexander started it in; **never switch to manual** (Alexander, 
 6. **Agents:** only the ones the plan names. No planner inside the release; the adviser is `farbror-vattenmelon` under `captain-call` (`yoda` only for an Opus `maverick`); code review is `kissochbajslowski`'s. Any agent Alexander removed from a role stays removed.
 7. **A bug has its repro path:** an item called a bug names how a member (`project.noun` in `.claude/kit.json`) reaches it before it gets a step (2.12.5 step 4 cost 11.5M on a "Still in?" on a second table that can't be reached: an event with tables can't switch kind). Not reachable means not a step.
 8. **Chains only:** every release in the chain is stamped, its taste picks are settled, its migrations are listed, and the arm is one tap at the start. Any edit to the chain's own skills (`cattle-drive`, `chain.md`, `maverick`, `future-ted`) lands in a commit to `main` before the arm, never in a link's step 0: the conductor has already read them (`[roadmap-page]`, chain 2.14.5).
+9. **A live run Alexander must do** (a signed-in look, a real device, a send to his phone) is listed as a human step afterwards, before any publish it gates, never a step a link waits on (`[live-check]`).
 
 ## `/inception horizon <from>–<to>` (no version)
 Long-range planning: the order and size of the releases in a range, e.g. `2.13–2.14`. Nothing is built, and **no "Ready to build" stamp**: each release still gets its own `/inception <version>`. Budget **20M in all**.
