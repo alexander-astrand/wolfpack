@@ -26,13 +26,30 @@ Six agents run on `model: fable` (`farbror-vattenmelon`, `heisenberg`, `barney-s
 
 Source of truth until Hutzup switches to the installed plugin: Hutzup's `.claude/`; the kit copies are synced by hand (the guard copy differs by the kit.json reads).
 
+## Start a project
+
+1. In a new, empty folder, install the two base plugins at project scope:
+
+   ```
+   claude plugin install core@wolfpack --scope project
+   claude plugin install release@wolfpack --scope project
+   ```
+
+2. Run `/life-finds-a-way <name>` (add `small`, `medium` or `large` to skip the size pick; `adopt` brings an existing folder in). It asks for the idea in your words and three picks, shows a "Here's what I think you're building" card, then researches, plans V0.1 and writes the skeleton with its `.claude/kit.json`. The setup walkthrough asks one yes per step that touches anything outside your machine.
+3. Add `design` (anything with a screen) and `database` (Supabase) after `.claude/kit.json` exists, when the card named them:
+
+   ```
+   claude plugin install design@wolfpack --scope project
+   claude plugin install database@wolfpack --scope project
+   ```
+
 ## The plugins
 
 ### core
 The shared crew and the habits every project follows: planning before a big release, the wrap-up afterwards, web research, docs, the roadmap and the daily routines. `norms.md` (how questions, human steps and session names work) and `lessons.md` (tuning numbers) are read by the skills.
 
-- Agents: `boba-fett`, `doc-brown`, `farbror-vattenmelon`, `lorenzo-von-matterhorn`, `marty-mcfly`, `romeo-olsson`, `yoda`
-- Skills: `88-mph`, `badger`, `beam-me-up`, `car-wash`, `cloud-city`, `dependabot-report`, `don-draper`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `memento`, `oracle`, `previously-on`, `skyler`, `tesseract`, `the-trail`, `war-room`, `watson`
+- Agents: `boba-fett`, `doc-brown`, `dr-house`, `farbror-vattenmelon`, `john-hammond`, `lorenzo-von-matterhorn`, `marty-mcfly`, `romeo-olsson`, `yoda`
+- Skills: `88-mph`, `badger`, `beam-me-up`, `car-wash`, `cloud-city`, `dependabot-report`, `don-draper`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `oracle`, `previously-on`, `skyler`, `tesseract`, `the-trail`, `war-room`, `watson`
 
 ### release
 A release end to end: `/maverick <version>` (or `/captain-call` for the big ones) plans it, spawns the builders, reviews, opens the draft PR and pings you. The deploy skills take it to production, and `/cattle-drive` runs release and deploy on one yes. Hank (`hooks/budget-cap.mjs`) holds every agent to the budget in its task description; Skyler (`scripts/usage.mjs`) counts the tokens.
@@ -66,7 +83,10 @@ The plugins carry placeholders; your values live in your project's `.claude/kit.
   "reviewer": "<github handle to tag on release PRs>",
   "conventions": "scripts/conventions.sh",
   "names": { "<old skill name>": "<new skill name>" },
-  "budgets": { "chris-de-kok": "25M", "*": "15M" }
+  "budgets": { "chris-de-kok": "25M", "*": "15M" },
+  "plans": "~/.claude/plans/myapp/",
+  "roadmap": "file",
+  "kit": { "version": "1.1.0" }
 }
 ```
 
@@ -76,6 +96,9 @@ The plugins carry placeholders; your values live in your project's `.claude/kit.
 - `conventions`: your conventions script, which the builders and the review run through `npm run lint`.
 - `names`: the project's old command names mapped to the kit's (e.g. a project's own `/check` to `you-shall-not-pass`). A record for people and project tooling; no plugin file in 1.0.0 reads it.
 - `budgets`: Hank's default budget per agent, `"*"` for the rest. Without the file Hank falls back to its own table.
+- `plans`: the folder for release plans (`<plans>V<version>.md`) and their notes. Default `~/.claude/plans/`; a project made by `/life-finds-a-way` sets `~/.claude/plans/<project>/`, so two projects' `V0.1.md` never collide. In 1.1.0 only `maverick`, `captain-call`, `inception`, `future-ted`, `its-a-trap`, `c-3po` and `badger` read it; the other readers and the guard still assume `~/.claude/plans/` (they follow in the next kit release).
+- `roadmap`: `page` (the default) keeps the roadmap on a shared page, edited through `the-trail`; `file` keeps it in `<plans>roadmap.md`, edited in place.
+- `kit.version`: the kit release the project was set up with, written by `/life-finds-a-way`; its hand-off shows it next to `claude plugin marketplace update wolfpack`, the line that fetches a newer one.
 
 Never put keys, passwords or tokens in it: `keychain` names Keychain items, it doesn't hold their values.
 
@@ -92,6 +115,8 @@ npx vitest run --config vitest.config.mjs
 ```
 
 `claude plugin validate .` is the final word on the manifests.
+
+Eval cases are only for skills the model may invoke (`[evals]`): a skill with `disable-model-invocation: true` gets no trigger case, since nothing but its slash command can start it.
 
 ## Not in 1.0.0
 

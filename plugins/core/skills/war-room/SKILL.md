@@ -27,7 +27,7 @@ Board: its URL lives in memory, never in the repo; in a session without it, ask 
 
 ## The data (the page reads exactly these fields)
 
-- `projects/<slug>`: `name`, `next_step`, `status` (`active` | `next` | `parked` | `done`), `planned_for` (`yyyy-mm-dd` day, `yyyy-Www` ISO week, `yyyy-mm` month, or `""` for not placed), `order` (number; lower shows first within a status), `updated_at` (ISO timestamp). The slug is the name lower-cased, non-letters to `-` (`Garden shed` → `garden-shed`); the page makes new slugs the same way.
+- `projects/<slug>`: `name`, `next_step`, `status` (`active` | `next` | `parked` | `done`), `planned_for` (`yyyy-mm-dd` day, `yyyy-Www` ISO week, `yyyy-mm` month, or `""` for not placed), `park_when` (optional: 2–3 short "when to park it" triggers in one string, split by `;`, e.g. `"No users by December; costs more than it saves"`; the card shows them as a quiet "Park when:" line and the edit sheet edits them; written by the new project starter's hand-off through `/mr-miyagi rhythm <project>`, from V0.1.md's "When to park it", or by a person; missing or `""` shows nothing), `order` (number; lower shows first within a status), `updated_at` (ISO timestamp). The slug is the name lower-cased, non-letters to `-` (`Garden shed` → `garden-shed`); the page makes new slugs the same way.
 - `meter/<yyyy-Www>` (the ISO week, e.g. `meter/2026-W41`): `used_pct` (the weekly all-models meter, from `get_usage`), `planned` (a list of `{release, share_pct}`). Planned past 100% shows amber on the page.
 - Only the owner and editors read or write (the rule `{path:"", read:"admin", write:"admin"}`); Alexander is the owner.
 

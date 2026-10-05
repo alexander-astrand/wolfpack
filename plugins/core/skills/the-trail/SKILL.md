@@ -38,7 +38,7 @@ The page's shape is `page.html` beside this file (no content in it). Everything 
 2. **Add a card:** `get` the two neighbours' `order`, then `set` `cards/<new-anchor>` with every field above (`order` = the midpoint). Copy a neighbour's shape for `body_html` (`<h4>What's in it</h4><ul><li>…</li></ul>`, notes as `<p class="note">`, facts as `<div class="tech">`).
 3. **Edit a card's text:** `get` it, change the one field in your copy, `update` only that field (`body_html` is replaced whole, so start from the text you just read).
 4. **Edit a section** (an Open question, a Parked idea, a guideline): `get` `sections/<id>`, change `body_html`, `update` it.
-5. **The header:** `update` `meta/page` with `revised_html` (and `status_html` or `lede_html` when they change). The "Revised:" word is the page's own.
+5. **The header:** `update` `meta/page` with `revised_html` (and `status_html` or `lede_html` when they change). The "Revised:" word is the page's own. **Change `revised_html` and `status_html` with `str_replace`, never by resending the field:** it edits one string in place, while a resent field replaces the whole log (`[roadmap-page]`: 2.14.7's first `meta/page` write cut the revision log to one entry, restored by retyping). The log keeps its newest ten entries; older ones go to the archive page.
 6. **Several changes at once** (a wrap-up, the conductor's end publish): one `batch` of these writes. The conductor's end publish is now a few row updates.
 7. **Check:** `get` what you wrote back, or `list` `cards` for a count.
 8. **Keep memory in step:** the same change goes into `project_roadmap.md`.

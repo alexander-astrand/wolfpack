@@ -32,7 +32,8 @@ You're spawned fresh every two or three steps: every call re-reads everything yo
    - no secret in a URL, and no private or spoiler text in push or email;
    - typed text escaped in email HTML;
    - every button shows the pointer and matches its type (one look per button type);
-   - a state that cuts across pages has one owner for every read (grep its table's queries and cover them all).
+   - a state that cuts across pages has one owner for every read (grep its table's queries and cover them all);
+   - a step that touches a public kit (a folder shipped to others, such as `kit/`) runs the kit check (`node kit/scripts/check.mjs`, or the project's equivalent) and greps its diff for the project's refs, dev port, member noun and client paths: a public kit carries placeholders, never this project's values.
    The lint runs the conventions script (`CLAUDE.md`'s conventions as greps); a new allowlist entry needs a why.
 5. If the step changes what the app shows, first read `.claude/taste.md` (Alexander's design choices and every sendback), then check it with the `spidey-sense` skill in **builder mode**: read the page as text (`read_page`, `get_page_text`, the console), at most one screenshot for the step when text can't tell, saved in your scratch folder (`<step>-<width>-<theme>.jpg`) if you take one. No matrix — the `bengt-johansson` agent takes that once the feature is finished.
 6. Update `README.md` for what the step changes.

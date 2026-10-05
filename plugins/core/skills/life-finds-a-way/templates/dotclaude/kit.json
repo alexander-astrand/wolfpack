@@ -1,0 +1,14 @@
+{
+  "project": { "name": "{{project.name}}", "noun": "{{project.noun}}", "devPort": {{project.devPort}} },
+  "refs": { "dev": "{{refs.dev}}", "prod": "{{refs.prod}}" },
+  "urls": { "prod": "{{urls.prod}}" },
+  "deployer": "{{deployer}}",
+  "keychain": { "dev": "{{keychain.dev}}", "prod": "{{keychain.prod}}" },
+  "reviewer": "{{reviewer}}",
+  "conventions": "",
+  "names": {},
+  "budgets": { "*": "15M" },
+  "plans": "{{plans}}{{project.name}}/",
+  "roadmap": "{{roadmap}}",
+  "kit": { "version": "{{kit.version}}" }
+}

@@ -12,7 +12,7 @@ Review release **$ARGUMENTS** before it is merged. If no version was given, revi
 
 Open PR, if any: !`gh pr view --json number,title,url --jq '"#\(.number) \(.title) \(.url)"' 2>/dev/null || echo "none yet"`
 
-**Read QA first, before looking at the code:** the plan's `## qa` lines in `~/.claude/plans/V<version>.md` and the findings each `bengt-johansson` run reported (in the plan's notes, the PR body or its comments, and the screenshot folders it names). Start from what they found and checked, and spend your look on what they didn't cover (2.10.1: `kissochbajslowski` re-derived QA's findings from scratch).
+**Read QA first, before looking at the code:** the plan's `## qa` lines in `<plans>V<version>.md`, `<plans>` (kit.json `plans`, default `~/.claude/plans/`), and the findings each `bengt-johansson` run reported (in the plan's notes, the PR body or its comments, and the screenshot folders it names). Start from what they found and checked, and spend your look on what they didn't cover (2.10.1: `kissochbajslowski` re-derived QA's findings from scratch).
 
 The second reviewer, for design and accessibility, is `daredevil` (Sonnet, read-only), started by the navigator beside this one in every release with UI; its must/should findings come back in its own report. Leave tap targets, live regions, grouped inputs and focus to it.
 

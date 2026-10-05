@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(node scripts/check.mjs)",
+      "Bash(scripts/check.sh)",
+      "Bash(supabase --version)",
+      "Bash(supabase migration list)",
+      "Bash(supabase projects list)",
+      "Bash(supabase functions list)",
+      "Bash(supabase db diff:*)",
+      "Bash(supabase status)"
+    ]
+  }
+}

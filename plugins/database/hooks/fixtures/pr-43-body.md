@@ -1,4 +1,4 @@
-Built overnight by `gus-fring` (`/night 2.12 designer=fable stars=2`: slow speed, away, zero pings). 2.12 gives the Dahans push notifications and a home-screen app, repeating nights with auto-cancel and a "Still in?" question after a convert, shop links and Log a cost, a map pin for places, Jedi rank icons in colour, and the 2.11 fixes (profile page, date picker, host line, co-owned games). Plan: `~/.claude/plans/V2.12.md`.
+Built overnight by `gus-fring` (`/night 2.12 designer=fable stars=2`: slow speed, away, zero pings). 2.12 gives the members push notifications and a home-screen app, repeating nights with auto-cancel and a "Still in?" question after a convert, shop links and Log a cost, a map pin for places, Jedi rank icons in colour, and the 2.11 fixes (profile page, date picker, host line, co-owned games). Plan: `~/.claude/plans/V2.12.md`.
 
 **No browser check ran tonight** (see Notes for review): the QA lanes are a checklist for tomorrow.
 
@@ -37,7 +37,7 @@ Risky ones are marked **RISKY**.
 - Edge Functions called on dev: `shop-links` boots, 401 signed out, CORS, matcher run on dev's library (Spelexperten 18/20, Playoteket 15/20); `push` GET returns the key that matches, 401 signed out; `notify` 401 on a wrong secret, 400 on an unknown kind; end to end: a settlement insert goes through `pg_net` to `notify`, 1 of 3 fake devices delivered, the 410 and bad ones deleted. Push encryption uses WebCrypto, RFC 8291 test vectors match. The `shop-links` and `push` member paths were not called end to end as a signed-in member.
 - Scheduler: cron job `run-scheduled-jobs` live on dev, first run `succeeded`.
 - Dev cleanup (by id, never a whole table): all test rows were deleted by id by the agents; nothing left on dev.
-- Browser, 375 / 1024 / 1440px, light and dark: **not run** (the pane's dev tab at :5173 wasn't signed in, and test logins never come from memory). The service worker didn't register in the pane (probably the pane; needs real Chrome or Safari). Leaflet chunk 151 kB (44 kB gz), not in the main bundle.
+- Browser, 375 / 1024 / 1440px, light and dark: **not run** (the pane's dev tab at :3000 wasn't signed in, and test logins never come from memory). The service worker didn't register in the pane (probably the pane; needs real Chrome or Safari). Leaflet chunk 151 kB (44 kB gz), not in the main bundle.
 - `npx tsc -b`, `npm run lint`, `npm test` (537), `npm run knip`, `npm run build`: green.
 
 ## Production steps
@@ -69,8 +69,8 @@ Vercel ships the frontend.
 ### Human steps
 - The VAPID pair (Before merge, step 4).
 - On his phone: add to home screen, turn on notifications, Send me a test.
-- The QA checklist below (on dev once the :5173 tab is signed in, or on production after the deploy).
-- The 2.10.2 and 2.11 signed-in checks: a past night, a Dahan's stats and head to head, Root Smart pick at 4, an Uprising team play; the Buying page, a saved place, an event card.
+- The QA checklist below (on dev once the :3000 tab is signed in, or on production after the deploy).
+- The 2.10.2 and 2.11 signed-in checks: a past night, a member's stats and head to head, Root Smart pick at 4, an Uprising team play; the Buying page, a saved place, an event card.
 - Look at the Jedi gallery and keep or overturn C; see which shop links look right on a few games.
 
 ## Notes for review
@@ -91,7 +91,7 @@ Escalations: none. Pings: none (overnight, away). Stars used: 2/2 (`heisenberg` 
 
 ### Set aside, not verified
 - **No browser check at all tonight:** no `bengt-johansson` QA (A profile, notifications and footer; B repeat and auto-cancel; C reconfirm flow; D date picker in Plan a purchase, pin and Log a cost), no screenshots, and the `shop-links` and `push` member paths weren't called end to end.
-- Known small gaps (on the roadmap): no notice to a Dahan who lost their seat at the reconfirm deadline; no day-before reminder for events made under 24h ahead; no closing push for polls open 3h or less; the activity log records one cancel per stopped night; the auto-cancel email is the usual cancellation email (the push says why); `notification_log` grows without pruning; a second table's own attendance fetch doesn't read `reconfirm_by` (the question shows once in the header); `theme-color` is dark-only; Escape in the date picker also closes a surrounding sheet (as before). `NamesPopover` isn't portalled but is only used on event cards, never in a sheet.
+- Known small gaps (on the roadmap): no notice to a member who lost their seat at the reconfirm deadline; no day-before reminder for events made under 24h ahead; no closing push for polls open 3h or less; the activity log records one cancel per stopped night; the auto-cancel email is the usual cancellation email (the push says why); `notification_log` grows without pruning; a second table's own attendance fetch doesn't read `reconfirm_by` (the question shows once in the header); `theme-color` is dark-only; Escape in the date picker also closes a surrounding sheet (as before). `NamesPopover` isn't portalled but is only used on event cards, never in a sheet.
 - Every review finding was ticked against its fix diff by `gus-fring`; all matched.
 
 ### QA checklist for tomorrow
@@ -153,7 +153,7 @@ From `node scripts/usage.mjs --commits 23 --timeline 00000000-0000-0000-0000-000
 - **Weekly meter** (from `gus-fring`): start 64% all models / 46% Fable, at the draft 68% all / 48% Fable, so +4% all and +2% Fable, inside the 5% target before the deploy; pace target ~14%/day.
 - **Rework loops:** `the-playbook` edited 0051 in place once after review (`fea1b1c`) and the review fixes ran across several agents; nothing needed `boba-fett`. The `the-playbook` step-1 job (31.6M) was the single biggest agent row.
 - **Slow vs normal, and the Fable trial:** slow was cheaper per commit than 2.11's normal run, but this isn't a clean comparison: QA couldn't run tonight, so slow's extra checking was only the second design reviewer and `heisenberg`'s review. Keep as is; ask for a usage comparison of this run against 2.11 once QA and the deploy are in (it's on the roadmap page).
-- **For `/future-ted`:** `/night`'s preflight should check that the :5173 dev tab is signed in, or list it as a person-only need before starting.
+- **For `/future-ted`:** `/night`'s preflight should check that the :3000 dev tab is signed in, or list it as a person-only need before starting.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 

@@ -103,6 +103,7 @@ h1 { font-size: 28px; line-height: 1.15; margin: 0; letter-spacing: -.02em; }
 .card .name { font-size: 15px; color: var(--muted); overflow-wrap: anywhere; }
 .chip { flex: none; border: 0; border-radius: 999px; background: var(--chip); color: var(--muted); font-size: 13px; font-weight: 500; min-height: 44px; padding: 0 12px; }
 .when { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.park { font-size: 13px; color: var(--muted); margin-top: 4px; line-height: 1.4; overflow-wrap: anywhere; }
 .empty-state { background: var(--card); border-radius: 16px; padding: 28px 16px; text-align: center; box-shadow: var(--shadow); }
 .empty-state p { color: var(--muted); margin: 6px 0 16px; }
 .btn { min-height: 44px; padding: 0 18px; border: 0; border-radius: 12px; font-weight: 600; font-size: 16px; }
@@ -364,12 +365,21 @@ h1 { font-size: 28px; line-height: 1.15; margin: 0; letter-spacing: -.02em; }
     ]);
   }
 
+  // park_when is one string of triggers split by ";" (what the starter's hand-off writes);
+  // an array is read too, so a hand-written row never breaks the card.
+  function parkTriggers(v) {
+    var list = Array.isArray(v) ? v : (typeof v === "string" ? v.split(";") : []);
+    return list.map(function (t) { return String(t).trim(); }).filter(Boolean);
+  }
+
   function projectCard(p) {
     var d = p.data;
+    var park = parkTriggers(d.park_when);
     var status = STATUSES.indexOf(d.status) >= 0 ? d.status : "active";
     var card = el("div", { class: "card" + (status === "done" ? " done" : ""), role: state.readOnly ? null : "button", tabindex: state.readOnly ? null : "0", style: state.readOnly ? null : "cursor:pointer" }, [
       el("div", { class: "next" + (d.next_step ? "" : " empty"), text: d.next_step || "No next step yet" }),
       d.planned_for ? el("div", { class: "when", text: describePlanned(String(d.planned_for)) }) : null,
+      park.length ? el("div", { class: "park", text: "Park when: " + park.join(" · ") }) : null,
       el("div", { class: "meta" }, [
         el("span", { class: "name", text: d.name || p.id }),
         el("button", {
@@ -547,6 +557,7 @@ h1 { font-size: 28px; line-height: 1.15; margin: 0; letter-spacing: -.02em; }
     var nameIn = el("input", { type: "text", value: d.name || "", autocomplete: "off", enterkeyhint: "next", "aria-label": "Name" });
     var stepIn = el("input", { type: "text", value: d.next_step || "", autocomplete: "off", enterkeyhint: "done", "aria-label": "Next step" });
     var whenIn = el("input", { type: "text", value: d.planned_for || "", autocomplete: "off", inputmode: "text", placeholder: "2026-10-06, 2026-W41 or 2026-10", "aria-label": "Planned for" });
+    var parkIn = el("input", { type: "text", value: parkTriggers(d.park_when).join("; "), autocomplete: "off", placeholder: "No users by December; costs more than it saves", "aria-label": "Park when" });
     var err = el("div", { class: "err" });
     var statusRow = el("div", { class: "status-row", role: "group", "aria-label": "Status" });
     function drawStatus() {
@@ -558,7 +569,8 @@ h1 { font-size: 28px; line-height: 1.15; margin: 0; letter-spacing: -.02em; }
     drawStatus();
     var more = el("div", { hidden: !showMore }, [
       el("div", { class: "field" }, [el("span", { text: "Status" })]), statusRow,
-      el("label", { class: "field" }, [el("span", { text: "Planned for (optional)" }), whenIn])
+      el("label", { class: "field" }, [el("span", { text: "Planned for (optional)" }), whenIn]),
+      el("label", { class: "field" }, [el("span", { text: "Park when (optional, split by ;)" }), parkIn])
     ]);
     var moreBtn = el("button", { type: "button", class: "more", text: "Status and date", hidden: showMore, onclick: function () { more.hidden = false; moreBtn.hidden = true; } });
 
@@ -596,7 +608,7 @@ h1 { font-size: 28px; line-height: 1.15; margin: 0; letter-spacing: -.02em; }
       var name = nameIn.value.trim(), step = stepIn.value.trim(), when = whenIn.value.trim();
       if (!name) { err.textContent = "Give it a name."; nameIn.focus(); return; }
       if (!validPlanned(when)) { err.textContent = "Use a date (2026-10-06), a week (2026-W41) or a month (2026-10)."; whenIn.focus(); return; }
-      var fields = { name: name, next_step: step, status: status, planned_for: when };
+      var fields = { name: name, next_step: step, status: status, planned_for: when, park_when: parkTriggers(parkIn.value).join("; ") };
       if (p) {
         saveProject(p.id, fields, false).catch(function () {});
       } else {

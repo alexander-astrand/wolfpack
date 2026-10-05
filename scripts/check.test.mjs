@@ -98,3 +98,36 @@ test('manifest and frontmatter gaps are named', () => {
   assert.ok(problems.some((p) => p.includes('no frontmatter')))
   assert.ok(problems.some((p) => p.includes('0.1.0 here but 0.2.0')))
 })
+
+// Fixture values are made up (not this project's) so the test file stays clean.
+const valuesKit = (project, urls) => kit({ '.claude/kit.json': { project, refs: {}, ...(urls ? { urls } : {}) } })
+const flagged = (values, line) => {
+  const root = kit({ ...good, 'plugins/demo/skills/hello/SKILL.md': `---\nname: hello\ndescription: x\n---\n${line}\n` })
+  return checkKit(root, { base: root, values }).problems.length
+}
+
+test('the dev port is a project value only as a whole number', () => {
+  const values = projectValues(join(valuesKit({ devPort: 4321 }), '.claude', 'kit.json'))
+  assert.equal(values.length, 1)
+  assert.equal(flagged(values, 'open http://localhost:4321/events'), 1)
+  assert.equal(flagged(values, 'port 4321.'), 1)
+  // near misses: inside a longer number, a hash, a version
+  assert.equal(flagged(values, 'id 143217 and 43210'), 0)
+  assert.equal(flagged(values, 'commit a4321f0'), 0)
+  assert.equal(flagged(values, 'version 1.4321'), 0)
+})
+
+test('the member noun is a project value as a whole word, any case, plural too', () => {
+  const values = projectValues(join(valuesKit({ noun: 'Wombat' }), '.claude', 'kit.json'))
+  assert.equal(flagged(values, 'Ask the Wombats first'), 1)
+  assert.equal(flagged(values, 'keychain wombat-dev-db-url'), 1)
+  assert.equal(flagged(values, 'the wombatesque look'), 0)
+  // a noun too short to be a word of its own is left to the grep in review
+  assert.deepEqual(projectValues(join(valuesKit({ noun: 'Ox' }), '.claude', 'kit.json')), [])
+})
+
+test("production's URL and its bare host are project values", () => {
+  const values = projectValues(join(valuesKit({}, { prod: 'https://wombat-nights.example' }), '.claude', 'kit.json'))
+  assert.deepEqual(values, ['https://wombat-nights.example', 'wombat-nights.example'])
+  assert.equal(flagged(values, 'see wombat-nights.example/events'), 1)
+})

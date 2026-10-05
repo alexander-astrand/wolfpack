@@ -177,11 +177,39 @@ function checkMarketplace(kitDir, versions, problems, rel) {
 // The kit is public: it carries placeholders, and each project's own values
 // sit in its `.claude/kit.json`. Those values are read from there (never
 // written here), so this file stays generic too.
+//
+// Two kinds of value come back. Long strings (refs, keychain names, the
+// production URL and its host) are matched as plain substrings: they are
+// distinctive enough that any hit is a leak. Short ones (the dev port, the
+// member noun) would hit everywhere as substrings, so they come back as
+// word-bounded patterns: the port only as a whole number (`:<port>`, not
+// inside a longer number or a hash), the noun as a whole word with an optional
+// plural, case-insensitive, because a project's noun leaks just as much in a
+// lower-case slug or host (`<noun>-dev-db-url`) as in a sentence.
+const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 export function projectValues(kitJsonPath) {
   let values = []
+  const patterns = []
   try {
     const kit = JSON.parse(readFileSync(kitJsonPath, 'utf8'))
     values = [...Object.values(kit.refs ?? {}), ...Object.values(kit.keychain ?? {})]
+    const prod = kit.urls?.prod
+    if (typeof prod === 'string' && prod) {
+      values.push(prod)
+      // The bare host leaks too (in prose, with no scheme).
+      try {
+        values.push(new URL(prod).host)
+      } catch {
+        // not a full URL: the string itself is enough
+      }
+    }
+    const noun = kit.project?.noun
+    if (typeof noun === 'string' && noun.trim().length >= 3) {
+      patterns.push(new RegExp(`\\b${escape(noun.trim())}s?\\b`, 'i'))
+    }
+    const port = kit.project?.devPort
+    if (/^\d{2,5}$/.test(String(port ?? ''))) patterns.push(new RegExp(`(?<![\\w.])${port}(?![\\w])`))
   } catch {
     // no kit.json: fall through to the hook's constant
   }
@@ -195,8 +223,11 @@ export function projectValues(kitJsonPath) {
   } catch {
     // the project has no such hook
   }
-  return [...new Set(values)].filter((v) => typeof v === 'string' && v.length >= 6)
+  return [...[...new Set(values)].filter((v) => typeof v === 'string' && v.length >= 6), ...patterns]
 }
+
+// A value is a plain string (substring match) or a RegExp (word-bounded).
+const hits = (text, v) => (v instanceof RegExp ? v.test(text) : text.includes(v))
 
 function checkSecrets(kitDir, values, problems, rel) {
   for (const file of walk(kitDir)) {
@@ -204,7 +235,7 @@ function checkSecrets(kitDir, values, problems, rel) {
     const lines = readFileSync(file, 'utf8').split('\n')
     lines.forEach((text, i) => {
       for (const [re, why] of SECRET_PATTERNS) if (re.test(text)) problems.push(`${rel(file)}:${i + 1}  ${why}`)
-      for (const v of values) if (text.includes(v)) problems.push(`${rel(file)}:${i + 1}  a project value (from .claude/kit.json): use a placeholder`)
+      for (const v of values) if (hits(text, v)) problems.push(`${rel(file)}:${i + 1}  a project value (from .claude/kit.json): use a placeholder`)
     })
   }
 }

@@ -28,4 +28,6 @@ Report, in this order:
 
 If the decision would change the release's scope, say so: new ideas go on the roadmap, not into the open PR.
 
+**First plan of a new project** (V0.1, after `/life-finds-a-way`): start from `<plans><project>/brief.md` (his words verbatim, the picks, the card), the starter planner's `roadmap.md` and the critic's findings, not from code there isn't yet. V0.1 is one theme: the smallest thing that runs end to end. The plan's first commit holds the skeleton only, no app code, and every human step is one exact command.
+
 End your report with one line: `Cheaper next time: <one idea>`.

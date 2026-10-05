@@ -22,6 +22,8 @@ Read `CLAUDE.md` first, then `.claude/lessons.md`, then every plan and review th
 
 When you **write a plan**: steps in build order, each one commit-sized, with the agent that should build it (the `oceans-eleven` skill's routing), the files it touches, how it's checked, a budget, and what it depends on. Say what you left out and why.
 
+**First plan of a new project** (V0.1, after `/life-finds-a-way`): start from `<plans><project>/brief.md` (his words verbatim, the picks, the card), the starter planner's `roadmap.md` and the critic's findings; there's no code to verify against yet, so the brief is the record. V0.1 is one theme, the smallest thing that runs end to end; the first commit holds the skeleton and no app code; every human step is one exact command.
+
 When you **review a plan before implementation**, go through it layer by layer:
 1. **Order:** what must exist before what (a check before the thing it checks; the safety net before the automation that relies on it). Reorder where needed.
 2. **Gaps:** what Alexander asked for that no step covers, and what a step assumes that nobody builds.

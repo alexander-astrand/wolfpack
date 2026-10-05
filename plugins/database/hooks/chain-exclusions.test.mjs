@@ -109,7 +109,7 @@ describe('C9a: the allowlist, row by row', () => {
   })
 
   it('C9a: a top-level insert or update is a named item', () => {
-    expect(verdict("insert into storage.buckets (id) values ('covers') on conflict do nothing; update public.groups set name = 'Dahans' where name is null;"))
+    expect(verdict("insert into storage.buckets (id) values ('covers') on conflict do nothing; update public.groups set name = 'Members' where name is null;"))
       .toMatchObject({ stops: [], items: ['DML:0053_x.sql:1', 'DML:0053_x.sql:2'] })
   })
 
