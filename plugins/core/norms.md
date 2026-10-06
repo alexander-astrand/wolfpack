@@ -8,6 +8,9 @@ Every question to Alexander is a pick-one of up to four options (AskUserQuestion
 ## One step at a time
 A human step (terminal commands, a dashboard click, a `cp` line, production steps, setting up a side session) is handed over one at a time: one line on what the step does, exactly one command in its own `bash` block, then wait until he says it ran (or pastes its output) before the next. Never a numbered list of commands to run in a row: he'd have to track where he is and could copy the wrong one. Each step ends with a pick-one: "Done" (hand the next), "Got an error" (he pastes it; fix before moving on), "Stop here". PR descriptions keep their full step lists (that's the record); the chat hands them out one by one.
 
+## Start the next skill yourself
+When the next step is a cheap skill or agent (`/badger`, `/88-mph small`, a read-only look), Claude starts it itself and says where it landed, instead of handing over the line to type (Alexander, 6 Oct: "You can start badger yourself"). Anything that starts a release, a chain, a deploy or production, merges, or spends a lot still asks, through its own gate.
+
 ## Session names
 In its first minute every session titles itself `project · kind · subject` (`set_session_title` on `self`), lowercase project, e.g. `<project> · release · <version> <theme>`. Kinds: release, chain, inception, legendary, memento, deploy, wrap, side, research, oracle, wilson, miyagi. One sidebar group per project. Any skill or prompt that finds this session's title not parsing as `project · kind · subject` titles it first, before its own work: load the tools with ToolSearch (`set_session_title`, `get_session`), read `get_session` with `self`, and set it. A skill that otherwise "keeps that session's title" (it runs inside another session) still does this when typed as a session's first prompt, as `<project> · side · <skill> <subject>`; otherwise the app makes up a name ("Claude code mods exploration" was a `/88-mph`, 2.14.9.2.1). Each such skill's Title line carries that "unless" clause, and the project's conventions check looks for it. A session knows itself only by `get_session` on `self`, never by an id guessed from a list.
 
@@ -17,6 +20,11 @@ In its first minute every session titles itself `project · kind · subject` (`s
 - Live asks go by message; FYI and async notes go into `~/dojo/inbox/`. Cross-project only through `~/dojo` (the switchboard).
 - Never secrets, never production, and never ask another session to do what this one may not.
 - A side job in a git repo is handed over as a task chip (`spawn_task`, the full order inside, one click); for `~/dojo` (not a git repo) message an existing dojo session, or give one prompt when none exists.
+
+## Notes file
+Alexander's notes live in `~/dojo/notes/<project>.md` (`<project>` is `project.name` in `.claude/kit.json`), written by the notes pane and Miyagi's Telegram "Note:" lines. Seven sections, in this order: `## Bigger features`, `## Smaller features`, `## Bugs`, `## Ideas`, `## Release notes`, `## Questions`, `## Other`. One line per note: `- YYYY-MM-DD HH:MM · <text>` (Stockholm time, a middle dot).
+A skill that uses a note appends ` → <where> (<who>, <YYYY-MM-DD>)` to its line, e.g. `- 2026-10-06 14:15 · Fire is out with smoke above it in light mode. → V3.5.3 card (future-ted, 2026-10-07)`. The pane recognises a used note by exactly that pattern (regex ` → ([^→]+ \([^()]*, [^()]*\))$`), so the comma between who and date is required and `<where>` holds no `→` and no parentheses.
+A line without the mark is an open note. Notes are never deleted, reordered or reworded: appending the mark is the only edit. A note a skill reads but doesn't place stays open for the next one. No file, or no open notes: say so in one line and carry on.
 
 ## Which Claude for what
 | Mode | When | Type |

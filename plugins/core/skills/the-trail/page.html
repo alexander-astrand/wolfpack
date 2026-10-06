@@ -19,6 +19,8 @@
     --line: #dfe2e8;
     --line-strong: #b9bfcb;
     --accent: #b45309;
+    /* Accent text on accent-soft: the accent itself is 4.49:1 there, this is 6.34:1. */
+    --accent-ink: #92400e;
     --accent-soft: #fdf1dc;
     --accent-line: #f0cf95;
     --v3: #0e6f94;
@@ -44,6 +46,7 @@
       --line: #263045;
       --line-strong: #3a4660;
       --accent: #f5a524;
+      --accent-ink: #f5a524;
       --accent-soft: rgb(245 165 36 / 0.1);
       --accent-line: rgb(245 165 36 / 0.35);
       --v3: #7cc8e6;
@@ -66,6 +69,7 @@
     --line: #263045;
     --line-strong: #3a4660;
     --accent: #f5a524;
+    --accent-ink: #f5a524;
     --accent-soft: rgb(245 165 36 / 0.1);
     --accent-line: rgb(245 165 36 / 0.35);
     --v3: #7cc8e6;
@@ -85,7 +89,8 @@
     padding-inline: 16px;
     padding-block: 40px 64px;
   }
-  .page { max-width: 880px; margin: 0 auto; display: grid; gap: 48px; }
+  /* minmax(0, 1fr): without it the column grows to the longest unbreakable word, and phones scroll sideways. */
+  .page { max-width: 880px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; overflow-wrap: break-word; }
 
   h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
   p { margin: 0; }
@@ -196,7 +201,6 @@
     border-radius: 12px;
     padding: 22px 22px 24px;
     display: grid; gap: 14px;
-    scroll-margin-top: 16px;
   }
   .release-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
   .release-head .titles { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -383,10 +387,74 @@
   @media (max-width: 560px) {
     .effort { white-space: normal; line-height: 1.4; min-width: 0; flex-wrap: wrap; }
   }
+
+  /* Jump bar: one row of links that stays at the top, built from the rows so a new section shows up by itself. */
+  .jump {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    margin-inline: -16px;
+    margin-block: -24px;
+    /* The bar's own fill covers the notch area, so cards don't show above it there. */
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px;
+    background: var(--ground);
+    border-bottom: 1px solid var(--line);
+  }
+  .jump[hidden] { display: none; }
+  .jump ul {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; gap: 8px;
+    overflow-x: auto; overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity; scrollbar-width: none;
+  }
+  .jump ul::-webkit-scrollbar { display: none; }
+  .jump ul.is-dragging { scroll-snap-type: none; cursor: grabbing; }
+  .jump li { flex: none; scroll-snap-align: start; }
+  .jump a {
+    display: inline-flex; align-items: center;
+    min-height: 44px; padding: 0 14px;
+    border: 1px solid var(--line); border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink); text-decoration: none; white-space: nowrap;
+    font: 500 14px/1 var(--body);
+    cursor: pointer;
+  }
+  .jump a:hover { border-color: var(--line-strong); }
+  .jump a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 999px; }
+  /* The current link changes border and fill only: a bolder weight would widen it and shift its neighbours. */
+  .jump a[aria-current="location"] { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent-ink); }
+  .jump a.is-v3 { color: var(--v3); }
+  .jump a.is-v3[aria-current="location"] { border-color: var(--v3-line); background: var(--v3-soft); }
+  @media (min-width: 900px) {
+    /* On a wide screen the bar spans the page column only, so it lines up with the cards under it, and wraps:
+       a row with no scrollbar would hide the later links from a mouse. */
+    .jump { margin-inline: 0; padding-inline: 0; }
+    .jump ul { flex-wrap: wrap; overflow: visible; }
+  }
+  /* Smaller pills only for a mouse; a wide touch screen keeps the 44px targets. */
+  @media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+    .jump a { min-height: 36px; padding: 0 12px; }
+  }
+  /* Anchors, focus moves and scrollIntoView all stop below the bar, not under it (WCAG 2.4.11). */
+  html { scroll-padding-top: calc(var(--jump-h, 64px) + 12px); }
+
+  /* Ease of reading: prose in cards stops at a comfortable line length; cards get a little more air. */
+  .releases { gap: 24px; }
+  .release-body > p, .release-body > ul, .release > p, .release > ul, .history-body p, .track .what { max-width: 72ch; }
+  @media (max-width: 560px) {
+    body { padding-inline: 14px; }
+    .jump { margin-inline: -14px; padding-inline: 14px; }
+    .page { gap: 40px; }
+    .release-head .titles { gap: 6px 10px; }
+    .track .ver { font-size: 13px; overflow-wrap: anywhere; }
+  }
 </style>
 </head>
 <body>
 <div class="page">
+  <!-- First on the page: the header's status lines run long, and the bar should be there before them. -->
+  <nav class="jump" id="jump" aria-label="Jump to section" hidden><ul id="jump-list"></ul></nav>
+
   <p class="notice" id="notice" role="status">Loading the roadmap&hellip;</p>
 
   <header>
@@ -491,6 +559,7 @@
       drawGlance();
       drawCards();
       drawSections();
+      drawJump();
       // Jump to a hash only once everything above the cards has arrived, or the header growing later pushes it away.
       if (!revealed && state.cards && state.cards.length && state.metaLoaded && state.archiveLoaded && location.hash) {
         revealed = true;
@@ -675,6 +744,113 @@
         box.appendChild(sec);
       });
     }
+
+    // The jump bar: the two fixed parts, the next open release and the first V3 and V4 cards, then every section row.
+    // Rebuilt only when the list changes, so its sideways scroll doesn't reset on every snapshot.
+    var jumpKey = '';
+    function jumpTargets() {
+      var t = [['overview-title', $('overview-title').textContent, ''], ['releases', $('releases-title').textContent, '']];
+      var cards = state.cards || [];
+      var next = cards.filter(function (c) { return !isShipped(c) && c.track !== 'beyond'; })[0];
+      if (next) t.push([next.id, 'Next up · ' + str(next.ver), '']);
+      ['v3', 'v4'].forEach(function (v) {
+        var c = cards.filter(function (x) { return x.variant === v; })[0];
+        if (c) t.push([c.id, str(c.ver), v === 'v3' ? 'is-v3' : '']);
+      });
+      state.sections.forEach(function (s) {
+        if (/^[a-z0-9-]+$/i.test(str(s.anchor)) && str(s.heading)) t.push([s.anchor, str(s.heading), '']);
+      });
+      return t.filter(function (x) { return document.getElementById(x[0]); });
+    }
+    function drawJump() {
+      var t = jumpTargets();
+      var key = JSON.stringify(t);
+      $('jump').hidden = !state.cards;
+      if (key === jumpKey) return;
+      jumpKey = key;
+      var list = $('jump-list');
+      list.textContent = '';
+      t.forEach(function (x) {
+        var li = el('li');
+        var a = el('a', x[2], x[1]);
+        a.setAttribute('href', '#' + x[0]);
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+      measureJump();
+      markCurrent();
+    }
+    // Targets keep their heading clear of the bar: scroll-padding-top reads the bar's real height.
+    function measureJump() {
+      var bar = $('jump');
+      if (!bar.hidden) document.documentElement.style.setProperty('--jump-h', bar.offsetHeight + 'px');
+    }
+    // The current part is the last target whose top has passed under the bar; cheap enough on a throttled scroll.
+    var marking = false;
+    function markCurrent() {
+      var bar = $('jump');
+      if (bar.hidden) return;
+      var line = bar.getBoundingClientRect().bottom + 24;
+      var links = Array.prototype.slice.call(bar.querySelectorAll('a'));
+      var cur = null;
+      links.forEach(function (a) {
+        var n = document.getElementById(a.getAttribute('href').slice(1));
+        if (n && n.getBoundingClientRect().top <= line) {
+          if (!cur || n.getBoundingClientRect().top >= cur.top) cur = { a: a, top: n.getBoundingClientRect().top };
+        }
+      });
+      links.forEach(function (a) {
+        if (cur && a === cur.a) {
+          if (a.getAttribute('aria-current') !== 'location') {
+            a.setAttribute('aria-current', 'location');
+            // Keep the marked link visible in the row without moving the page.
+            var ul = $('jump-list');
+            var left = a.parentNode.offsetLeft - ul.offsetLeft;
+            if (left < ul.scrollLeft || left + a.offsetWidth > ul.scrollLeft + ul.clientWidth) ul.scrollTo({ left: Math.max(0, left - 16) });
+          }
+        } else {
+          a.removeAttribute('aria-current');
+        }
+      });
+    }
+    window.addEventListener('scroll', function () {
+      if (marking) return;
+      marking = true;
+      requestAnimationFrame(function () { marking = false; markCurrent(); });
+    }, { passive: true });
+    window.addEventListener('resize', function () { measureJump(); markCurrent(); });
+    // The bar's height also changes when the fonts arrive or the wrapped row reflows.
+    if (window.ResizeObserver) new ResizeObserver(measureJump).observe($('jump'));
+    // A mouse drags the row sideways like the app's ScrollRow; a drag doesn't count as a click on the link under it.
+    (function () {
+      var ul = $('jump-list');
+      var down = null, moved = false;
+      ul.addEventListener('pointerdown', function (e) {
+        // Only a row that actually scrolls drags; on a wrapped wide row a sloppy click stays a click.
+        if (e.pointerType !== 'mouse' || e.button !== 0 || ul.scrollWidth <= ul.clientWidth) return;
+        down = { x: e.clientX, left: ul.scrollLeft };
+        moved = false;
+      });
+      window.addEventListener('pointermove', function (e) {
+        if (!down) return;
+        var dx = e.clientX - down.x;
+        if (!moved && Math.abs(dx) > 5) { moved = true; ul.classList.add('is-dragging'); }
+        if (moved) ul.scrollLeft = down.left - dx;
+      });
+      // The click that ends a drag fires right after pointerup; clearing `moved` a tick later lets it be eaten,
+      // but never the next click or Enter (a drag that ended outside the row fires no click on it).
+      function end() {
+        down = null;
+        ul.classList.remove('is-dragging');
+        setTimeout(function () { moved = false; }, 0);
+      }
+      window.addEventListener('pointerup', end);
+      window.addEventListener('pointercancel', end);
+      ul.addEventListener('click', function (e) {
+        if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; }
+      }, true);
+      ul.addEventListener('dragstart', function (e) { e.preventDefault(); });
+    })();
 
     // Opening a release from a link (At a glance, or a hash in the address) unfolds it first.
     function reveal(id) {
