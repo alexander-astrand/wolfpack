@@ -1,6 +1,6 @@
 ---
 name: the-tower
-description: The status line for this repo - release branch, the chain link, Hank's latest budget, the week (only above 80%) and the last refusal of the past 30 minutes, on one line under 80 columns. Use to install, test, read or remove it.
+description: The status line for this repo - the session's tokens split by model and its share of the week, with the live weekly meter always shown, on one line under 80 columns. Use to install, test, read or remove it.
 argument-hint: "[install|test|remove]"
 disable-model-invocation: true
 ---

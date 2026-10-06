@@ -108,6 +108,7 @@ A star is a Fable worker: `heisenberg`, `mosbius-designs` on Fable, or any build
 - `stars=1` per release session by default; `/maverick <version> stars=N` overrides it; `quick` sets 0.
 - `maverick` keeps the count in the PR body ("Stars used: 1/1") and never goes over it without a ping.
 - A Fable navigator isn't a star; that's the session mode. The big Fable releases have their own navigator, `captain-call` (Woodrow F. Call of Lonesome Dove, who leads the drive and says little), started with `/captain-call` and run by its own skill; this skill's routing applies to him wherever his skill doesn't say otherwise.
+- A Fable navigator counts ≈ 3× an Opus one per token on the weekly meter (≈ 8M a point against Opus's 27M; provisional, one reading of 66 → 70% on 6 Oct; `/memento 3.0` measures it), so a Fable session's share is its tokens ÷ 8M, not ÷ 27M.
 
 ## Overrides
 
@@ -185,6 +186,8 @@ Hard stops are the same in every allowance and never a senior's call.
 | Opus autopilot | M–L releases with a clear spec | `/model opus`, `/effort high`, Auto |
 | Driver | taste-heavy work Alexander steers | `/model opus`, `/effort medium`, default permissions |
 | Planning | before a chain or an important release (required), or triage and roadmap | `/model opus`, `/effort medium`, `/inception <version> [chain …]`; longer range: `/model fable`, `/effort high`, `/inception horizon <from>–<to>` |
+
+A Fable navigator (Fable autopilot, or a Fable planning session) counts ≈ 3× per token on the weekly meter against an Opus one (provisional, from the 6 Oct 66 → 70% reading); size its session from that, not from Opus's 27M a point.
 
 `/maverick <version> mode` prints the lines; restart if the model/effort don't match (a session can set its own permission mode but not its model or effort; those are typed or set from outside). Speed (`slow|normal|quick`), `stars=N`, `allowance=cheap|normal|high|unlimited` (care and cost; `oceans-eleven` skill), `<role>=<model>` overrides (e.g. `designer=fable`) and `pick=designer|me|navigator` (default `designer`) are `/maverick` arguments too, and the same `role=model` form works mid-release in chat for the rest of the run; `/night-watch` = slow + away; details in the `oceans-eleven` skill. `.claude/lessons.md` holds the newest tuning lessons, rewritten by `/future-ted`.
 

@@ -751,7 +751,9 @@
     function jumpTargets() {
       var t = [['overview-title', $('overview-title').textContent, ''], ['releases', $('releases-title').textContent, '']];
       var cards = state.cards || [];
-      var next = cards.filter(function (c) { return !isShipped(c) && c.track !== 'beyond'; })[0];
+      // Falls back to the first open card on the beyond track, so the button doesn't vanish when everything before it has shipped.
+      var next = cards.filter(function (c) { return !isShipped(c) && c.track !== 'beyond'; })[0]
+        || cards.filter(function (c) { return !isShipped(c) && c.track === 'beyond'; })[0];
       if (next) t.push([next.id, 'Next up · ' + str(next.ver), '']);
       ['v3', 'v4'].forEach(function (v) {
         var c = cards.filter(function (x) { return x.variant === v; })[0];
