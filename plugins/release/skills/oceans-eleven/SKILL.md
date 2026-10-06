@@ -5,7 +5,7 @@ description: "Who does what: the routing table `maverick` applies when handing o
 
 # The team (`oceans-eleven`, was the `team` skill)
 
-**Title:** runs inside another session; keeps that session's title.
+**Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · oceans-eleven <subject>` (norms.md).
 
 ## Why a table, not pickers
 

@@ -3,7 +3,7 @@ name: car-wash
 description: Produce a release's Usage section for the PR from this session's Claude Code transcripts, tallied by model with the release plugin's usage.mjs. Used at the end of /maverick, and by hand.
 ---
 
-**Title:** runs inside another session; keeps that session's title.
+**Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · car-wash <subject>` (norms.md).
 
 Give the release PR a "Usage" section so the next release's budgets are set from numbers, not a feeling.
 

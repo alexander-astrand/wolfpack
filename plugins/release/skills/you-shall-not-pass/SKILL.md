@@ -7,7 +7,7 @@ agent: romeo-olsson
 background: false
 ---
 
-**Title:** runs inside another session; keeps that session's title.
+**Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · you-shall-not-pass <subject>` (norms.md).
 
 Run `scripts/check.sh $ARGUMENTS` (no argument means `app`; `db` runs the SQL tests on dev; `local` runs them on a fresh migrated local database (needs Docker); `all` runs app + dev).
 

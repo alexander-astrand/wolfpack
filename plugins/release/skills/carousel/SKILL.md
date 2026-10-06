@@ -5,7 +5,7 @@ description: Open or finish the release's draft PR with the reviewer tagged (`re
 
 The production scripts below (`scripts/…`) are the project's own, in its `scripts/` folder: the kit 1.0.0 doesn't ship them.
 
-**Title:** runs inside another session; keeps that session's title.
+**Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · carousel <subject>` (norms.md).
 
 Open the pull request for the current release branch, or fill in the description of the draft autopilot opened with the plan checklist. This runs in the session that built the release: it already knows what changed and how it was tested, so don't re-read the branch beyond what's listed below. Have `c-3po` (Sonnet, medium) write the README update and the description itself, from the plan file, the commit log and this session's notes; this skill's checklist is what you give it to follow, and what you check its draft against before opening or updating the PR.
 

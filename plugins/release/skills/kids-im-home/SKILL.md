@@ -4,7 +4,7 @@ description: End this session's away mode and report what happened while Alexand
 disable-model-invocation: true
 ---
 
-**Title:** runs inside another session; keeps that session's title.
+**Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · kids-im-home <subject>` (norms.md).
 
 Away mode ends now. Running agents carry on — "I'm back" reports where things stand, it doesn't stop them (a stop makes the next agent re-read the whole diff). Only an explicit "stop" stops one.
 

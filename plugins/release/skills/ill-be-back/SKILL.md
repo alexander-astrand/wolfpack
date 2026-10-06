@@ -5,7 +5,7 @@ argument-hint: "[reason] [until]"
 disable-model-invocation: true
 ---
 
-**Title:** runs inside another session; keeps that session's title.
+**Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · ill-be-back <subject>` (norms.md).
 
 Away mode is on for this session, until "back" or `/kids-im-home`. Arguments: **$ARGUMENTS**
 

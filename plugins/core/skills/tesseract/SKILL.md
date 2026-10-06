@@ -5,7 +5,7 @@ description: "Set up a worktree lane beside the main checkout - branch tracking,
 
 # Worktree lane
 
-**Title:** runs inside another session; keeps that session's title.
+**Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · tesseract <subject>` (norms.md).
 
 A lane running beside the main checkout (`isolation: "worktree"`) starts from `main`, not the release branch, and can't `git switch` to a branch the main checkout already holds. Its order gives it this setup, with `V<x>` filled in:
 

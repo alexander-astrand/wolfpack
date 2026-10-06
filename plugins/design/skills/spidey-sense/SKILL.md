@@ -3,7 +3,7 @@ name: spidey-sense
 description: Check a UI change in the built-in browser the way this project requires - 375, 1024 (and 1440) px, dark and light theme - plus the workarounds for confirm dialogs, screenshots and proving a refactor changed nothing. Use after any change the app shows.
 ---
 
-**Title:** runs inside another session; keeps that session's title.
+**Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · spidey-sense <subject>` (norms.md).
 
 ## Modes
 - **Builder mode** (default, for builders): run the layout check (below) at 375 and 1024, then read the page as text per item (`read_page`, `get_page_text`, `find`, console); at most one screenshot for the step, only when a text check can't tell what's on screen. No matrix.

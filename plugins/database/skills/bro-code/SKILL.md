@@ -3,7 +3,7 @@ name: bro-code
 description: Write or extend a database test in supabase/tests/ - fixture users and groups in one transaction that always rolls back and reports PASS or FAIL. Use for any change to RLS, grants, database functions, the waitlist or group rules.
 ---
 
-**Title:** runs inside another session; keeps that session's title.
+**Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · bro-code <subject>` (norms.md).
 
 Database logic is tested on **dev** with SQL files in `supabase/tests/`, run with `supabase db query --linked -f <file>` (the CLI must be linked to dev). Each file acts as fixture users inside one transaction and always ends by raising an exception, so nothing is kept. The message is `PASS <name> (n checks)` or `FAIL <name>` followed by the failed checks.
 

@@ -6,7 +6,7 @@ context: fork
 agent: kissochbajslowski
 ---
 
-**Title:** runs inside another session; keeps that session's title.
+**Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · its-a-trap <subject>` (norms.md).
 
 Review release **$ARGUMENTS** before it is merged. If no version was given, review the current branch: !`git branch --show-current`
 

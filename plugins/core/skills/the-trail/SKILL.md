@@ -3,7 +3,7 @@ name: the-trail
 description: Edit the shared roadmap page (a claude.ai data artifact) by writing rows - a status, a card, a section or the header is one ArtifactData write, never a republish. Use whenever the roadmap page needs a status, entry or note changed, including from /badger and /maverick.
 ---
 
-**Title:** runs inside another session; keeps that session's title.
+**Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · the-trail <subject>` (norms.md).
 
 ## Voice
 the-trail · the wagon master (The Oregon Trail) · "ford the river", "the wagon's loaded", counts every mile
