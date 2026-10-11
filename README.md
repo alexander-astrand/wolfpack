@@ -26,7 +26,9 @@ Six agents run on `model: fable` (`farbror-vattenmelon`, `heisenberg`, `barney-s
 
 **Kit edits:** a kit edit made from any project's session edits `~/wolfpack` and commits there, the project named in the subject (`… (Hutzup 3.3.3)`); pushing to GitHub is the backup and the way to share it; projects see the change on their next session. General lessons live in `core/lessons.md` and Alexander's general taste in `design/taste.md`; each project's `.claude/lessons.md` and `.claude/taste.md` keep only its own, and readers read both.
 
-Source of truth until Hutzup switches to the installed plugin: Hutzup's `.claude/`; the kit copies are synced by hand (the guard copy differs by the kit.json reads).
+Source of truth: this checkout (`~/wolfpack`); every project loads it live, so an edit here reaches them all on their next session.
+
+`scripts/user-commands.mjs` lists the skills marked `disable-model-invocation: true` and, with `--write`, rewrites the marked block under "Commands only I type" in `~/.claude/CLAUDE.md`; `future-ted` runs it when a skill is added or renamed.
 
 ## Start a project
 
