@@ -4,7 +4,8 @@
 // rows.json is a dump of the page's db keyed by doc path: {"meta/page": {...}, "meta/archive": {...}, "cards/v3-3": {...}, ...}
 // (a script can't call the artifact's database; the caller dumps the rows first).
 // Prints the "At a glance" quick list as drawGlance() builds it, then one line per problem; exit 1 if any.
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
 
 export function parseStatus(pageHtml) {
   const m = pageHtml.match(/var STATUS = \[([\s\S]*?)\];/);
@@ -23,11 +24,12 @@ const MIRRORED = [
 ];
 const GROUPS = [['shipped', 'Shipped'], ['to-come', 'Still to come'], ['beyond', 'Beyond V2']];
 
+const ENTITIES = { nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", middot: '·', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“', asymp: '≈', rarr: '→', larr: '←', ndash: '–', mdash: '—', hellip: '…', times: '×', bull: '•' };
+const decode = (s) =>
+  s.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (m, d, x, n) =>
+    d ? String.fromCodePoint(+d) : x ? String.fromCodePoint(parseInt(x, 16)) : (ENTITIES[n.toLowerCase()] ?? m));
 const text = (h) =>
-  String(h ?? '')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
+  decode(String(h ?? '').replace(/<[^>]*>/g, ' '))
     .replace(/\s+/g, ' ')
     .trim();
 const shortBadge = (b) => String(b ?? '').replace(/\s*·\s*PR #\d+$/, '');
@@ -68,16 +70,62 @@ export function glance(rows) {
   return out;
 }
 
-// A clause is a stretch of header text between sentence breaks; a version in a "next" or "in progress" clause
-// must be a card in that state, a version in a "shipped" clause must be shipped.
-function headerClauses(rows) {
+// Header text is cut into clauses at commas, semicolons, full stops, brackets and the words then/with/after/on to
+// ("3.3.2 live on 11 Oct, with 3.3.3 in progress, then 3.3.1 Guard"). A status word belongs to the nearest version
+// in its own clause (the one before it, else the one after). A clause that opens with then/after/on to is a queue
+// and makes no claim.
+function headerParts(rows) {
   const meta = rows['meta/page'] || {};
   const parts = [];
   for (const h of Array.isArray(meta.status_html) ? meta.status_html : [meta.status_html]) parts.push(['status', text(h)]);
   parts.push(['lede', text(meta.lede_html)], ['footer', text(meta.footer_html)]);
-  const clauses = [];
-  for (const [where, t] of parts) for (const c of t.split(/[.;·|]\s+|[.;·|]$/)) if (c.trim()) clauses.push([where, c.trim()]);
-  return clauses;
+  return parts;
+}
+const VER = /\d+(?:\.\d+)+/g;
+const STATUS_WORDS = [
+  ['next', /\bnext\b/gi],
+  ['progress', /in[ -]progress|\bbuilding\b|being built|under ?way/gi],
+  // "live" is lower case only: a title such as "3.2 Live at the table" is a name, not a claim.
+  ['live', /\b[Ss]hipped\b|\blive\b/g],
+];
+export function claims(t) {
+  const out = [];
+  for (const clause of t.split(/\.(?=\s|$)|[;,()]\s*|\s+(?:then|with|after)\s+|\s+on to\s+/i)) {
+    const c = (clause || '').trim();
+    if (!c || /^(?:then|after|on to)\b/i.test(c)) continue;
+    const vers = [...c.matchAll(VER)].map((m) => ({ v: m[0], at: m.index }));
+    if (!vers.length) continue;
+    for (const [kind, re] of STATUS_WORDS) {
+      for (const w of c.matchAll(re)) {
+        if (kind === 'live' && /not (?:yet )?$/i.test(c.slice(0, w.index))) continue;
+        const before = vers.filter((x) => x.at < w.index).pop();
+        const hit = before || vers.find((x) => x.at > w.index);
+        out.push({ kind, v: hit.v, clause: c });
+      }
+    }
+  }
+  return out;
+}
+
+// A rows file, or a directory of one JSON file per doc (ArtifactData's out_dir): the doc path is the file's path
+// without .json, with "__" or "%2F" standing for "/"; an {id, data} wrapper is unwrapped.
+export function loadRows(path) {
+  if (!statSync(path).isDirectory()) return JSON.parse(readFileSync(path, 'utf8'));
+  const rows = {};
+  const walk = (d) => {
+    for (const f of readdirSync(d)) {
+      const full = join(d, f);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (f.endsWith('.json')) {
+        let v = JSON.parse(readFileSync(full, 'utf8'));
+        const key = decodeURIComponent(relative(path, full).replace(/\.json$/, '')).replace(/__/g, '/');
+        if (v && typeof v.data === 'object' && Object.keys(v).every((k) => ['id', 'path', 'data'].includes(k))) v = v.data;
+        rows[key] = v;
+      }
+    }
+  };
+  walk(path);
+  return rows;
 }
 
 export function check(rows, pageHtml) {
@@ -109,17 +157,14 @@ export function check(rows, pageHtml) {
   }
 
   // 4. header text against the cards
-  for (const [where, clause] of headerClauses(rows)) {
-    const vers = [...clause.matchAll(/\d+(?:\.\d+)+/g)].map((m) => m[0]);
-    for (const v of vers) {
+  for (const [where, t] of headerParts(rows)) {
+    for (const { kind, v, clause } of claims(t)) {
       const c = byVer.get(v);
       if (!c) continue;
       const tag = `${where}: "${clause}"`;
-      if (/\bnext\b/i.test(clause) && isShipped(c)) problems.push(`${tag} names ${v} as next, but it has shipped`);
-      if (/in progress|in-progress|building|being built|under way|underway/i.test(clause) && !/not in progress/i.test(clause) && isShipped(c))
-        problems.push(`${tag} names ${v} as in progress, but it has shipped`);
-      if (/\b(shipped|live)\b/i.test(clause) && !/not (yet )?(shipped|live)|until|when/i.test(clause) && !isShipped(c))
-        problems.push(`${tag} says ${v} is shipped or live, but its card is ${c.status}`);
+      if (kind === 'next' && isShipped(c)) problems.push(`${tag} names ${v} as next, but it has shipped`);
+      if (kind === 'progress' && isShipped(c)) problems.push(`${tag} names ${v} as in progress, but it has shipped`);
+      if (kind === 'live' && !isShipped(c)) problems.push(`${tag} says ${v} is shipped or live, but its card is ${c.status}`);
     }
   }
   return problems;
@@ -131,7 +176,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.error('usage: node roadmap-check.mjs <rows.json> <page.html>');
     process.exit(2);
   }
-  const rows = JSON.parse(readFileSync(rowsPath, 'utf8'));
+  const rows = loadRows(rowsPath);
   const html = readFileSync(pagePath, 'utf8');
   console.log('At a glance');
   console.log(glance(rows).join('\n'));
