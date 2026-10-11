@@ -2,7 +2,7 @@
 
 Our way of working with Claude Code, packaged as plugins. One session is the **navigator**: it talks with you, plans a release step by step and hands each step to a named specialist (a builder, a reviewer, a designer, a deployer), each on its own model and effort. Every job carries a token **budget** that a hook enforces, and a **production guard** stands between every agent and the production database: only the deployer gets through, and only with a person's yes.
 
-The agents have names and voices (`maverick` the navigator, `chris-de-kok` a builder, `ranjit` the deployer, Hank the budget hook). It's how we tell them apart in chat, in PRs and in the usage tables.
+The agents have names and voices (`maverick` the navigator, `chris-de-kok` a builder, `the-playbook` the database engineer, Hank the budget hook). It's how we tell them apart in chat, in PRs and in the usage tables.
 
 ## Install
 
@@ -50,7 +50,7 @@ Source of truth until Hutzup switches to the installed plugin: Hutzup's `.claude
 ### core
 The shared crew and the habits every project follows: planning before a big release, the wrap-up afterwards, web research, docs, the roadmap and the daily routines. `norms.md` (how questions, human steps and session names work) and `lessons.md` (tuning numbers) are read by the skills.
 
-- Agents: `boba-fett`, `doc-brown`, `dr-house`, `farbror-vattenmelon`, `john-hammond`, `lorenzo-von-matterhorn`, `marty-mcfly`, `romeo-olsson`, `yoda`
+- Agents: `boba-fett`, `doc-brown`, `dr-house`, `farbror-vattenmelon`, `john-hammond`, `lorenzo-von-matterhorn`, `marty-mcfly`, `romeo-olsson`
 - Skills: `88-mph`, `badger`, `beam-me-up`, `car-wash`, `cloud-city`, `dependabot-report`, `don-draper`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `oracle`, `previously-on`, `skyler`, `tesseract`, `the-trail`, `war-room`, `watson`, `wilson`
 
 ### release
@@ -66,10 +66,13 @@ Briefs, mock-ups and QA for anything the app shows: browser checks at phone and 
 - Skills: `darth-vader`, `heisenberg`, `spidey-sense`, `superlab`
 
 ### database
-For Supabase projects. The production guard (the Slap Bet Commissioner, `hooks/guard-production.mjs`) refuses any path to production except the deployer's, and asks a person before each change. `the-playbook` writes migrations, policies and functions; `ranjit` deploys; `bro-code` writes SQL tests. `database-artifacts.md` lists what the pack expects a project to carry.
+For Supabase projects. The production guard (the Slap Bet Commissioner, `hooks/guard-production.mjs`) refuses any path to production except the deployer's, and asks a person before each change. `the-playbook` writes migrations, policies and functions; the project's own deployer deploys; `bro-code` writes SQL tests. `database-artifacts.md` lists what the pack expects a project to carry.
 
-- Agents: `ranjit`, `the-playbook`
+- Agents: `the-playbook`
 - Skills: `bro-code`
+
+### Per project: the deployer and the senior adviser
+A deployer (Hutzup's `ranjit`, named by `deployer` in `.claude/kit.json`) and a senior adviser (Hutzup's `yoda`) are per project: they carry the project's own people, refs and history, so the kit doesn't ship them. A project that wants them keeps its own in `.claude/agents/` (the guard treats both files as frozen).
 
 ## What your project provides: `.claude/kit.json`
 

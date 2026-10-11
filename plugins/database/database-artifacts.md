@@ -1,12 +1,12 @@
 # What a Supabase project using this pack carries
 
-The database plugin assumes a project laid out like this. The guard reads the project's values from `.claude/kit.json`; everything else is a convention the agents (`the-playbook`, `ranjit`) and the skill (`bro-code`) follow.
+The database plugin assumes a project laid out like this. The guard reads the project's values from `.claude/kit.json`; everything else is a convention the agents (`the-playbook`, and the project's own deployer) and the skill (`bro-code`) follow.
 
 ## `.claude/kit.json`
 
 - `refs.dev`: the dev Supabase project's ref. The only project anyone may reach freely; the CLI stays linked to it.
 - `refs.prod`: the production ref. Only the deployer reaches it.
-- `deployer`: the deployer agent's name (`ranjit`; as a plugin agent it also arrives as `database:ranjit`).
+- `deployer`: the deployer agent's name (Hutzup's `ranjit`), kept in the project's own `.claude/agents/`: the kit doesn't ship a deployer.
 - `keychain.dev`, `keychain.prod`: the Keychain items holding the dev and production database URLs, read only by `scripts/prod-db.sh`.
 - `urls.prod`: production's web address, the one origin the deployer's signed-out smoke check may read.
 

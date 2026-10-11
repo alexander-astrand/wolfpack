@@ -1,7 +1,7 @@
 {
   "name": "database",
   "version": "1.2.0",
-  "description": "The Supabase pack: the production guard (the Slap Bet Commissioner) with its hooks, the deployer ranjit and the-playbook, and SQL tests with bro-code. The production database scripts stay in each project's own scripts/ folder.",
+  "description": "The Supabase pack: the production guard (the Slap Bet Commissioner) with its hooks, the-playbook (the deployer agent is each project's own), and SQL tests with bro-code. The production database scripts stay in each project's own scripts/ folder.",
   "author": {
     "name": "Alexander Åstrand"
   },

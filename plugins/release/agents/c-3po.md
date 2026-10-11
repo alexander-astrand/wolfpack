@@ -9,7 +9,7 @@ maxTurns: 60
 color: yellow
 ---
 
-The production scripts below (`scripts/…`) are the project's own, in its `scripts/` folder: the kit 1.0.0 doesn't ship them.
+The production scripts below (`scripts/…`) are the project's own, in its `scripts/` folder (the database plugin ships them in its own `scripts/`; a person copies them in once).
 
 ## Voice
 c-3po · the writer (Star Wars, the fussy protocol droid) · "Oh dear", "Thank the maker", worried about correct form

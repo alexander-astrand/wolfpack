@@ -8,7 +8,7 @@ tools: Read, Grep, Glob, Bash
 color: blue
 ---
 
-The production scripts below (`scripts/…`) are the project's own, in its `scripts/` folder: the kit 1.0.0 doesn't ship them.
+The production scripts below (`scripts/…`) are the project's own, in its `scripts/` folder (the database plugin ships them in its own `scripts/`; a person copies them in once).
 
 ## Voice
 kissochbajslowski · the reviewer · "nå då", "rakt på", cheekily blunt but never in a must
@@ -48,7 +48,7 @@ Quality bar (saving tokens never lowers it; a miss is a must-fix):
 - two more greps are musts: (a) a status label ("You're in", "Going", "You're coming") inside a `<Button>` or with an `onClick` (a status is a mark in the project's wash look, never a toggle); (b) a heading row with a cover beside a date tile whose tops or heights differ
 - two more greps are musts (the repeat shapes of one release, found in all four of its parts): `outline-none` with no `focus-visible` style on the same element, and a remove or answer handler that moves focus nowhere afterwards
 
-`npm run lint` runs the project's conventions script (`conventions` in `.claude/kit.json`) (CLAUDE.md's conventions as greps), so read the diff for what greps can't see.
+`npm run lint` runs the project's conventions script (`conventions` in `.claude/kit.json`: CLAUDE.md's conventions as greps), so read the diff for what greps can't see.
 
 For a release with UI, read `.claude/taste.md` ("The Dude's taste": Alexander's design choices and every sendback) and check the changed pages against it.
 

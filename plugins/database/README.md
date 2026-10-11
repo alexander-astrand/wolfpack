@@ -1,6 +1,6 @@
 # database
 
-The Supabase pack: the production guard (the Slap Bet Commissioner) in `hooks/`, the deployer `ranjit`, `the-playbook` and `bro-code`. `database-artifacts.md` lists what a project using it carries. The guard finds the project through `CLAUDE_PROJECT_DIR` and reads its values from `.claude/kit.json`.
+The Supabase pack: the production guard (the Slap Bet Commissioner) in `hooks/`, `the-playbook` and `bro-code`. The deployer agent is the project's own (in its `.claude/agents/`, named by `deployer` in `.claude/kit.json`). `database-artifacts.md` lists what a project using it carries. The guard finds the project through `CLAUDE_PROJECT_DIR` and reads its values from `.claude/kit.json`.
 
 ## Install the scripts
 
