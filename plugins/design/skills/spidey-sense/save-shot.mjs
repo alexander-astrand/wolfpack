@@ -11,17 +11,25 @@
 // writes the image with the latest timestamp. Run it right after the
 // screenshot: another agent screenshotting in the same seconds could win.
 //
-// --since <ISO time> is when the pass started: if the newest image was taken
-// before it, nothing is saved and the script exits 1 (3.3: three of four Hut
-// shots were the designer's mocks, saved as if fresh). QA passes give it.
+// --since <ISO time | Nm> is when the pass started (an ISO time, or N minutes
+// ago, e.g. 30m): if the newest image was taken before it, nothing is saved
+// and the script exits 1 (3.3: three of four Hut shots were the designer's
+// mocks, saved as if fresh). Default: $SHOT_PASS_START (an ISO time the order
+// sets), else 60 minutes ago. Every review order passes the pass start.
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { execFileSync } from 'node:child_process'
 
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  console.log(`usage: save-shot.mjs <out.jpg> [--minutes 5] [--since <ISO time | Nm>] [--repo <main checkout>]
+  --since  refuses images older than the pass start (an ISO time, or Nm = N minutes ago).
+           Default: $SHOT_PASS_START if the order sets it, else 60 minutes ago.`)
+  process.exit(0)
+}
 const out = process.argv[2]
 if (!out) {
-  console.error('usage: save-shot.mjs <out.jpg> [--minutes 5] [--since <ISO time>]')
+  console.error('usage: save-shot.mjs <out.jpg> [--minutes 5] [--since <ISO time | Nm>]  (--help for details)')
   process.exit(2)
 }
 const minutesFlag = process.argv.indexOf('--minutes')
@@ -56,9 +64,13 @@ if (repoFlag < 0 && !existsSync(projectDir)) {
 }
 const cutoff = Date.now() - minutes * 60_000
 const sinceFlag = process.argv.indexOf('--since')
-const passStart = sinceFlag > 0 ? Date.parse(process.argv[sinceFlag + 1] ?? '') : null
-if (sinceFlag > 0 && Number.isNaN(passStart)) {
-  console.error('--since needs an ISO time, e.g. 2026-10-09T14:30:00Z')
+// The default matters: a pass that forgets the flag would otherwise save
+// anyone's newest image as fresh.
+const sinceArg = sinceFlag > 0 ? (process.argv[sinceFlag + 1] ?? '') : process.env.SHOT_PASS_START || '60m'
+const minutesAgo = /^(\d+(?:\.\d+)?)m$/.exec(sinceArg)
+const passStart = minutesAgo ? Date.now() - Number(minutesAgo[1]) * 60_000 : Date.parse(sinceArg)
+if (Number.isNaN(passStart)) {
+  console.error('--since needs an ISO time (2026-10-09T14:30:00Z) or minutes (30m)')
   process.exit(2)
 }
 
@@ -105,7 +117,7 @@ if (!best) {
 }
 // The newest image is older than the pass: it is someone else's shot (a mock,
 // an earlier pass), and saving it would pass as fresh.
-if (passStart !== null && best.at < passStart) {
+if (best.at < passStart) {
   console.error(
     'newest screenshot was taken ' + new Date(best.at).toISOString() +
       ', before the pass started (' + new Date(passStart).toISOString() + '): not saved. Take a new one.',
