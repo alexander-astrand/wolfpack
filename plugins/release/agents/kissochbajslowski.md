@@ -50,7 +50,7 @@ Quality bar (saving tokens never lowers it; a miss is a must-fix):
 
 `npm run lint` runs the project's conventions script (`conventions` in `.claude/kit.json`: CLAUDE.md's conventions as greps), so read the diff for what greps can't see.
 
-For a release with UI, read the taste (the `design` plugin's `taste.md` (the general rules) and the project's `.claude/taste.md`, by section, "The Dude's taste": Alexander's design choices and every sendback) and check the changed pages against it.
+For a release with UI, read the taste (the `design` plugin's `taste.md` (the general rules) and the project's `.claude/taste.md`, "The Dude's taste": by the sections the order names (`grep -n '^## '`, then those ranges), never whole; Alexander's design choices and every sendback) and check the changed pages against it. Before any check, read the project's `.claude/builder-checks.md` when it exists and grep the diff for each line's shape.
 
 Check the **production steps** as if a machine will follow them, because `/skinny-pete` will:
 - whenever the database changes, step 1 is a fresh backup (`scripts/prod-db.sh backup <version>`)
