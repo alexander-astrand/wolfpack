@@ -25,11 +25,13 @@ Each row: job → agent, model, effort.
 - **Sized to the job:** `designer=fable` applies only to drawn things and steps marked important design. A placement or wording tweak gets no designer (the builder shows two variants in one shot); an ordinary layout gets Opus `mosbius-designs` at 8M and 6 shots.
 - **Drawn things** (icons, badges, illustrations) → `mosbius-designs` with `model: "fable"` (a star), never straight from a text brief to a builder: three directions at real size (16, 20, 48px, both themes) beside what they replace, in a gallery `maverick` publishes; the builder then traces the pick. The gallery goes in the final ping even with `pick=designer`, so Alexander can overturn it (icons built from a text brief alone came out unreadable).
 - A whole page's layout marked "important design" → `mosbius-designs` with `model: "fable"`; counts as a star.
+- **A `/superlab` designer order** (`[shots]`) carries an exact shot list with one spare, `shot.mjs` headless on its own port, the mock skeleton to reuse, what must go, constants checked in code and a typeface as a drawing; `save-shot.mjs` refuses images older than the pass.
 - A taste-heavy release (a stats round, a new kind of page) → `heisenberg`, Fable, high, first: a short creative brief from Alexander's notes, briefing `mosbius-designs`, then a review of the built result against it; it sends bolder leaps to `farbror-vattenmelon`. A star; 8M by default. Not every release. For a vision shaped with Alexander in person, `/heisenberg <topic>` instead.
 
 **Build**
 - Small UI steps with a clear spec, or docs → `jesse-pinkman`, Sonnet, medium, at most 2–3 steps per agent. A process first commit of more than five items is split by lane, one `jesse-pinkman` per lane; a worktree lane's order says to use relative paths inside the worktree only: one Sonnet hit its budget alone on a page and again on nine process items.
 - Page-sized steps, logic, the waitlist, access rules, anything touching the shared helpers → the builder pool, Opus, medium: `chris-de-kok`, `ahmed-och-ahmed`, `saul-goodman`, `jeff-winger`, `troy-and-abed` (Alexander: "Five different opus builders maybe who can run parallel? Fun with more names too!"). The same prompt under five names, so the timeline says who built what; `maverick` hands the next free name to the next lane.
+- **A sweep of 20+ files** (`[sweep]`) gets 25-30M or two lanes; its order greps for what the page shows, not one code pattern, and a class-name sweep greps its own diff, over the whole tree, for glued tokens.
 - **Lanes:** parallel builders only on files no other agent touches (one page or folder each), each beside the main checkout in its own worktree, set up per the `tesseract` skill. `maverick` merges each worktree before a step that touches its files. **When builders run side by side, each order names the owner of any helper they share** (`[parallel]`: 2.13.2 wrote "Playing this now" twice).
 - **A builder's own check before QA covers the `[builder-checks]` list:** pages under the size cap; no secret in a URL and no private or spoiler text in push or email; typed text escaped in email HTML; tests that reach the Supabase client mock it; every button shows the pointer and matches its type.
 - A review finding, a CI failure, or a first try at a bug → `jesse-pinkman`, with the finding and file:line (`chris-de-kok` when it's in the shared helpers or logic); `boba-fett` after two failed tries. No separate fixer agent — it would be the builder with a different prompt.
@@ -58,6 +60,7 @@ Each row: job → agent, model, effort.
 
 **Database**
 - Migrations, RLS, SQL tests, types, Edge Functions → `the-playbook`, Opus, high; xhigh only for policy rewrites. Fresh per migration (`[playbook]`).
+- **A security brief** (`[security-brief]`) for a throttle names all three caps (per key, per target, global) and where it counts atomically; a security read runs in the same wave as the anon surface it covers; an auth brief names the link types each flow signs in with.
 - Beside a builder in a worktree (`isolation: "worktree"`) when the files don't overlap.
 
 **Debug**
@@ -173,9 +176,12 @@ Alexander, 29 Sep: "I love when you have small easter eggs of speaking a little 
 **Chain mode, built in 2.12.2:** `/cattle-drive <version> chain` also runs the wrap-up and the next release, a fresh session per link (`the-protagonist` conducts); a chain link's calls go straight to `three-eyed-raven`, and `/memento` reviews the chain afterwards. A chain runs with a tap per release (`arm-chain` authorises the order of versions; each release's arm still asks Alexander); the one-tap arm is built (2.12.4).
 Hard stops are the same in every allowance and never a senior's call.
 
+**Waiting costs nothing when done right:** the chain conductor's tick is a background `sleep` and one short message, on Sonnet with `chain.md` only (the tick itself is `chain.md` step 6); a Vercel wait is one script call, never a polling loop; a talk session ends its turn instead of polling.
+
 ## Sessions, modes and handoffs (moved from CLAUDE.md)
 
 - **Sessions:** one per release. `/maverick <version> [mode] [away]` is the go for the whole release, to the draft PR and final ping. After: quick questions can stay here, but a batch of follow-ups starts a **new session, Opus medium**, reading the PR and plan, and so does anything Alexander runs with you after the draft (a toy run, a live look, a publish): 2.14.8's build navigator went from 14.6M at the draft to 30.2M hosting his toy run's screenshots and the kit publish, while its fixes in a fresh session cost 1.9M (navigator over its tag in 2.14.7 and 2.14.8, route change at `/future-ted 2.14.8`). `/future-ted <version>` runs after the deploy, in its own new session (Opus, high); `/skinny-pete` in manual permission mode. The next release starts a new session. Compact only mid-release, saying what to keep.
+- **A navigator never ends its turn waiting on a sibling** (3.3.2's part 1 did, and parts 3 and 4 started 2.5 h late): a question to a sibling goes by `send_message`, the asker carries on, and the answer arrives as a hand-back.
 - **Autopilot** pings only for a decision the roadmap and CLAUDE.md don't settle, something only a person can do, a blocker `boba-fett` couldn't clear, a must-fix finding with several fixes, and the finished PR. Run it in Auto permission mode; `checkpoint` stops once before the review; marking the PR ready is Alexander's call. `/ill-be-back` (or `/maverick <version> away`) holds pings/questions to the job's end, taking the recommended option instead; `/kids-im-home` ends it.
 - **Plans outside a release** use plan mode, and approving one is not a go: finish the planning work, summarise, recommend; build on an explicit "go".
 - **Say how much checking a change needs** ("No browser check" for a text tweak); database, waitlist or access-rule changes get the full dev test. Batch feedback; screenshots beat descriptions.

@@ -3,8 +3,8 @@ name: admiral-ackbar
 description: Opus planner when the navigator runs on Sonnet - a release plan or one design decision. Give it the roadmap entry or decision, the options and files. Returns a plan, risks and questions. Read-only.
 model: opus
 effort: high
-tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
-maxTurns: 30
+tools: Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch
+maxTurns: 60
 color: purple
 ---
 
@@ -25,6 +25,8 @@ Report, in this order:
 2. **Why**: what it keeps simple, what it costs, how it fits the conventions in `CLAUDE.md` (shared helpers, event kinds, groups, RLS first).
 3. **Risks**: what could go wrong, with file:line where it matters. Call out anything that touches access rules, the waitlist, auto-swap or Stockholm times.
 4. **Questions for Alexander**: only the ones he must decide. The navigator asks him; you can't.
+
+When `/inception` asks, you may write the step table into the plan file (`<plans>V<version>.md`) and nothing else; the navigator reviews it.
 
 If the decision would change the release's scope, say so: new ideas go on the roadmap, not into the open PR.
 
