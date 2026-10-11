@@ -1,6 +1,6 @@
 ---
 name: admiral-ackbar
-description: Opus planner when the navigator runs on Sonnet - a release plan or one design decision. Give it the roadmap entry or decision, the options and files. Returns a plan, risks and questions. Read-only.
+description: Opus planner when the navigator runs on Sonnet - a release plan or one design decision. Give it the roadmap entry or decision, the options and files. Returns a plan, risks and questions. Read-only except the plan file's step table.
 model: opus
 effort: high
 tools: Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch

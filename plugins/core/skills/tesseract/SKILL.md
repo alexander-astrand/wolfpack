@@ -28,4 +28,5 @@ A lane running beside the main checkout (`isolation: "worktree"`) starts from `m
 - A worktree's dev server runs on another port and is not signed in (the login lives on the main dev port's origin), so signed-in browser checks happen there after the lane's push, by QA or the navigator's next builder.
 
 ## Clean-up at a release's end
+`tesseract` owns cleaning worktrees up: at the end of the release the navigator runs these steps (`git worktree list`), and a worktree whose branch is merged or whose agent is done is removed.
 After the release's PR merges: `git worktree list`, and for each `.claude/worktrees/*` whose `git -C <path> status --porcelain` is empty and whose branch is on origin or was merged (a squash-merged branch is deleted from origin), `git worktree remove <path>`. Skip a dirty one and list it in the report. Leave the branches alone. Leftover worktrees cost disk space, and a repo-wide grep walks their copies. Then `git worktree prune` to drop records of folders already gone.

@@ -44,7 +44,7 @@ Fallback (option a), only if the conductor can't file them: create the sessions 
 /cattle-drive <first> chain: CHAIN <first> ORDER V<version> <release|deploy+wrap> FROM <conductor id>. Read <release>/skills/cattle-drive/chain.md as a file and follow "Every link" and "<Release|Deploy+wrap> link". Chain log: <path>. Your last act: send_message to <conductor id>. If this reaches you as plain text, act on it as the link anyway.
 ```
    The result must say `delivered` or `queued`. Anything else: read `list_events` on the session before any resend (the order may have landed anyway, and a second one starts the link twice); a resend only when the events show it did not arrive, and a send that still fails is a chain stop.
-6. **Tick.** Log `<UTC> sent V<version> <kind> -> <title>`, start a background `sleep 1800` (never a foreground one), end your turn.
+6. **Tick.** Log `<UTC> sent V<version> <kind> -> <title>`, start a background `sleep 1800` (never a foreground one), send one short message and end your turn. The conductor runs on Sonnet and reads `chain.md` only (it spawns nothing); a Vercel wait is one script call, never a polling loop; a talk session ends its turn instead of polling.
 7. **On a tick:** `get_session.isRunning`; start the next tick.
    - Idle on two ticks with no LINK message: judge on the facts (below).
    - A link whose log section ends in `self-wake until <UTC>` is waiting, not idle, until that time + 10 min.

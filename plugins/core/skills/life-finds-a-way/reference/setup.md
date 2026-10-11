@@ -44,7 +44,7 @@ It writes every file to its real target, makes `scripts/check.sh` executable, ke
 - design: its allow list, `.claude/launch.json` (Node with a dev server) and `.claude/taste.md`. The taste file opens with "Where this project starts": the three picks, each with his reason, and the steal / never line verbatim. Rules the project can't meet yet (no maps, no columns) fold under "Not yet";
 - database: its allow list.
 
-`.claude/kit.json`: `project` (name, noun, a free port near the stack's default), `plans` set to the project's own folder `<plans><project>/` (not the bare root), `roadmap: "file"`, and `kit.version` from `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`'s `version`. Refs, prod URL, keychain item names and reviewer stay empty strings until the setup walkthrough fills them; `deployer` is `"ranjit"` (the database plugin's deployer agent) when the database pack is on, else an empty string. `conventions` is an empty string (the skeleton writes no conventions script).
+`.claude/kit.json`: `project` (name, noun, a free port near the stack's default), `plans` set to the project's own folder `<plans><project>/` (not the bare root), `roadmap: "file"`, and `kit.version` from `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`'s `version`. Refs, prod URL, keychain item names and reviewer stay empty strings until the setup walkthrough fills them; `deployer` is `"ranjit"` (the project's own deployer agent, which the kit does not ship) when the database pack is on, else an empty string. `conventions` is an empty string (the skeleton writes no conventions script).
 
 **No dev server** (a chat project, a script): `devPort` is `null` in kit.json, and every template line ending in `<!-- ui-only -->` is removed (`templates/README.md` says which).
 

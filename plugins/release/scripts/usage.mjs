@@ -23,7 +23,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 
-function projectDir(dir) {
+export function projectDir(dir) {
   if (dir) return dir
   return join(homedir(), '.claude', 'projects', process.cwd().replace(/\//g, '-'))
 }
@@ -53,7 +53,7 @@ export function resolveLocalId(localId, base = process.env.USAGE_SESSIONS_DIR ||
 }
 
 // A session-id prefix's transcript file, and its subagents' files if any.
-function resolveSession(dir, idPrefix) {
+export function resolveSession(dir, idPrefix) {
   if (/^local_/.test(idPrefix)) idPrefix = resolveLocalId(idPrefix)
   const match = readdirSync(dir).find((e) => e.startsWith(idPrefix) && e.endsWith('.jsonl'))
   if (!match) throw new Error(`No session transcript matching "${idPrefix}" in ${dir}`)
@@ -128,7 +128,7 @@ export function parseEntries(text) {
 }
 
 // Every parseable entry of a transcript file.
-function readEntries(file) {
+export function readEntries(file) {
   let text
   try {
     text = readFileSync(file, 'utf8')
@@ -218,7 +218,7 @@ function activeSpans(entries) {
 }
 
 // One timeline row for a transcript: when it ran, on which model, how busy.
-function timelineRow(entries, label, type, sessionId) {
+export function timelineRow(entries, label, type, sessionId) {
   const by = tallyEntries(entries)
   let tokens = 0
   let topModel = '?'

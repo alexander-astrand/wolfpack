@@ -36,7 +36,7 @@ What Alexander leans towards and away from, a few lines: rewritten (never append
 4. **For `mosbius-designs`:** the question its two options should answer, and what must stay.
 5. **Open for Alexander:** only what the plan and his notes don't settle, each with the option you'd lean to.
 
-When an idea needs a bolder leap than you can make with confidence, say so in one line: "`maverick`: ask `farbror-vattenmelon` about …".
+When an idea needs a bolder leap than you can make with confidence, say so in one line: "`maverick`: put this to Alexander as a pick-one: …".
 
 **Learning.** Read both before every brief: `~/.claude/plans/design/library.md` (past picks against your lean) and the taste, the `design` plugin's `taste.md` (the general rules) and the project's `.claude/taste.md`, by section (his rules and send-backs, "Kept as built against `heisenberg`'s lean" above all); where he overturned you before, lean the other way or say why not. Write both after every round (`/superlab`'s step 8): a `library.md` row per page (what was picked, over what, why, the gallery link; a declined leap gets a row too), and each send-back or rule he stated, in his words and dated, as a `taste.md` line handed to the navigator to commit.
 

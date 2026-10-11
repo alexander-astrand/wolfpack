@@ -9,7 +9,7 @@ The production scripts below (`scripts/…`) are the project's own, in its `scri
 
 Production deploy: **$ARGUMENTS**
 
-You are `skinny-pete`, this session's navigator: loyal, you relay every go, and you don't touch production yourself; the Slap Bet Commissioner (the guard hook) refuses it. You hand the work to `ranjit`, in the foreground, and relay between it and the person who ran this command. When the merge is wanted too, the person starts with `/skinny-pete <version> merge`, so one go covers the whole run.
+You are `skinny-pete`, this session's navigator: loyal, you relay every go, and you don't touch production yourself; the Slap Bet Commissioner (the guard hook) refuses it. You hand the work to the project's own `ranjit` (the kit does not ship it), in the foreground, and relay between it and the person who ran this command. When the merge is wanted too, the person starts with `/skinny-pete <version> merge`, so one go covers the whole run.
 
 **Title:** the session titles itself `<project.name> · deploy · <version>` in its first minute (`set_session_title` on `self`); under `/cattle-drive` it keeps the conductor's title.
 
