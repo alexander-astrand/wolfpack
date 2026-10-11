@@ -22,7 +22,7 @@ claude plugin install database@wolfpack --scope project
 
 `core` is the base the others build on. `database` is for Supabase projects; leave it out otherwise.
 
-Six agents run on `model: fable` (`farbror-vattenmelon`, `heisenberg`, `barney-stinson`, `dom-cobb`, `mace-windu`, `three-eyed-raven`) and need a plan that has that model.
+Five agents run on `model: fable` (`heisenberg`, `barney-stinson`, `dom-cobb`, `mace-windu`, `three-eyed-raven`) and need a plan that has that model.
 
 **Kit edits:** a kit edit made from any project's session edits `~/wolfpack` and commits there, the project named in the subject (`… (Hutzup 3.3.3)`); pushing to GitHub is the backup and the way to share it; projects see the change on their next session. General lessons live in `core/lessons.md` and Alexander's general taste in `design/taste.md`; each project's `.claude/lessons.md` and `.claude/taste.md` keep only its own, and readers read both.
 
@@ -54,7 +54,7 @@ Source of truth: this checkout (`~/wolfpack`); every project loads it live, so a
 ### core
 The shared crew and the habits every project follows: planning before a big release, the wrap-up afterwards, web research, docs, the roadmap and the daily routines. `norms.md` (how questions, human steps and session names work) and `lessons.md` (tuning numbers) are read by the skills.
 
-- Agents: `boba-fett`, `doc-brown`, `dr-house`, `farbror-vattenmelon`, `john-hammond`, `lorenzo-von-matterhorn`, `marty-mcfly`, `romeo-olsson`
+- Agents: `doc-brown`, `dr-house`, `john-hammond`, `lorenzo-von-matterhorn`, `romeo-olsson`
 - Skills: `88-mph`, `badger`, `beam-me-up`, `car-wash`, `cloud-city`, `dependabot-report`, `don-draper`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `oracle`, `previously-on`, `skyler`, `tesseract`, `the-trail`, `war-room`, `watson`, `wilson`
 
 ### release

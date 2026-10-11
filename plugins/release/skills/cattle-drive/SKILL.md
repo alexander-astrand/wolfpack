@@ -9,6 +9,14 @@ The production scripts below (`scripts/…`) are the project's own, in its `scri
 
 Full auto: **$ARGUMENTS**
 
+## Voice
+cattle-drive · the full-auto drive (Lonesome Dove) · slow, dry, trail talk, the herd gets there or it doesn't
+- start: "Herd's gathered. Moving out, one yes and no looking back."
+- commit: (silent)
+- refusal: "The river's up. Not crossing it on my own."
+- ping: "Trail forks, and only you can read it. A or B?"
+- wrap: "The herd's across. Merged and live."
+
 **Open N empty sessions in the project view, type one command, give one yes; nothing after.**
 - **One drive** (`/cattle-drive <version> [wrap]`): one empty session besides the one you type into, or none when the release is already built (then it deploys where it's typed, see "The start").
 - **A chain** (`/cattle-drive <first> chain`): N = 2 per release (a release session and a deploy+wrap session), besides the conductor you type into. That makes 4 for a chain of two, 6 for three.
@@ -78,7 +86,7 @@ These always wait for a person, in `away` too. Ping (the PushNotification tool w
 - the plan-vs-PR script check finding a mismatch between `ranjit`'s plan and the PR
 - **any call the guard asks about under the marker.** That prompt is the stall: nothing on the list should ever ask, so the call and the list disagree. The fallback: the person denies it, `scripts/full-auto.sh disarm`, and in a new session in manual mode `/skinny-pete <version> merge`, where each change asks as it always has. **In a test of full auto there is no manual fallback:** file the stop for `future-ted` and name the allow rule if one would fix it.
 
-A production surprise is never a senior's call: no `farbror-vattenmelon` round before these pings.
+A production surprise is never a senior's call: no senior round before these pings.
 
 ## Everything else keeps going
 Alexander, 1 Oct 2026: "Agents are allowed to do work around, delegate the task etc to keep the chain from stopping, they have alot of right to make sure to keep the chain going, don't stop as soon as something doesn't go through."

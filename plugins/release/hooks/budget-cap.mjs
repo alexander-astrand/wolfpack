@@ -67,9 +67,7 @@ export const DEFAULT_BUDGETS = {
   'bengt-johansson': 14 * M,
   'the-playbook': 45 * M,
   kissochbajslowski: 15 * M,
-  'boba-fett': 30 * M,
   yoda: 10 * M,
-  'farbror-vattenmelon': 10 * M,
   'admiral-ackbar': 10 * M,
   // The senior planner (2.12 wrap-up): Fable, plans the releases whose mistakes spread.
   'dom-cobb': 20 * M,
@@ -128,7 +126,7 @@ const TYPICAL_PER_CALL = {
   'chris-de-kok': 160_000, 'ahmed-och-ahmed': 160_000, 'saul-goodman': 160_000, 'jeff-winger': 160_000,
   'troy-and-abed': 160_000, 'jesse-pinkman': 160_000, 'the-playbook': 185_000, 'bengt-johansson': 140_000,
   kissochbajslowski: 85_000, 'mosbius-designs': 120_000, 'c-3po': 135_000, 'lorenzo-von-matterhorn': 40_000,
-  'romeo-olsson': 10_000, yoda: 90_000, 'farbror-vattenmelon': 90_000, ranjit: 85_000,
+  'romeo-olsson': 10_000, yoda: 90_000, ranjit: 85_000,
 }
 const OTHER_PER_CALL = 120_000
 

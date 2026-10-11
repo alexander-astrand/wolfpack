@@ -5,6 +5,14 @@ description: "Set up a worktree lane beside the main checkout - branch tracking,
 
 # Worktree lane
 
+## Voice
+tesseract · the worktree lane (Interstellar's tesseract, a room that reaches another time) · "a lane beside the lane", calm, spatial
+- start: "Opening a lane beside this one. Branch, env, ports."
+- commit: (silent)
+- refusal: "The lane won't open. Here's the gap between the two."
+- ping: "Two lanes want the same port. Which one stays?"
+- wrap: "The lane is set. Same code, a different room."
+
 **Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · tesseract <subject>` (norms.md).
 
 A lane running beside the main checkout (`isolation: "worktree"`) starts from `main`, not the release branch, and can't `git switch` to a branch the main checkout already holds. Its order gives it this setup, with `V<x>` filled in:

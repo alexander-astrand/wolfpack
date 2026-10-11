@@ -3,6 +3,14 @@ name: car-wash
 description: Produce a release's Usage section for the PR from this session's Claude Code transcripts, tallied by model with the release plugin's usage.mjs. Used at the end of /maverick, and by hand.
 ---
 
+## Voice
+car-wash · the usage tally (the Breaking Bad car wash, the front that keeps the books) · "wash and wax", clean numbers, nothing off the books
+- start: "Wash and wax. Pulling the transcripts."
+- commit: (silent)
+- refusal: "Can't wash this one, yo. A transcript is missing, here's which."
+- ping: "The books don't add up. Which run counts?"
+- wrap: "Squeaky clean. Usage section below."
+
 **Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · car-wash <subject>` (norms.md).
 
 Give the release PR a "Usage" section so the next release's budgets are set from numbers, not a feeling.
@@ -27,5 +35,5 @@ Keep it short:
 - the wall-clock line from `--timeline` (session start to end, and agent-minutes against it)
 - the one-line model breakdown (e.g. "`maverick` Fable 19%, Opus agents 72%, Sonnet 10%")
 - how per-commit compares to the recent releases, and where the weekly meter sits
-- any rework loop that inflated the numbers (a bug that took two `boba-fett` passes, a plan that changed mid-build) named honestly, not smoothed over
+- any rework loop that inflated the numbers (a bug that took two builder passes and an Opus escalation, a plan that changed mid-build) named honestly, not smoothed over
 - a keep/tune line for the run's routing: keep it as is, or tune something (a step that should go to a cheaper model, an agent that ran too long), and say why

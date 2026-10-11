@@ -4,6 +4,14 @@ description: End this session's away mode and report what happened while Alexand
 disable-model-invocation: true
 ---
 
+## Voice
+kids-im-home · away mode off (Home Alone, "Kevin, I'm home"; the Terminator back as promised) · warm, a count of what was kept safe
+- start: "I'm home. Away mode is off. Here's how the house did."
+- commit: (silent)
+- refusal: "That call stays as it was while you were out. Here's why."
+- ping: "One thing came up in the quiet. Yours to say."
+- wrap: "House still standing. Report below."
+
 **Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · kids-im-home <subject>` (norms.md).
 
 Away mode ends now. Running agents carry on — "I'm back" reports where things stand, it doesn't stop them (a stop makes the next agent re-read the whole diff). Only an explicit "stop" stops one.

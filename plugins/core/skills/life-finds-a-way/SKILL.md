@@ -37,9 +37,9 @@ Malcolm speaks in three places only: the first message, the "Here's what I think
 |---|---|---|---|---|
 | small | one `doc-brown` run: stack, hosting, free-tier refresh | off | V0.1–V0.2 | `[budget 15M]` |
 | medium | `doc-brown` on the stack, a second on competitors | on (he can switch it off) | to V0.4 | `[budget 40M]` |
-| large | as medium, then `marty-mcfly` checks the claims the stack rests on | on (he can switch it off) | to V1.0 | `[budget 90M]` |
+| large | as medium, then a fresh `doc-brown` in check mode checks the claims the stack rests on | on (he can switch it off) | to V1.0 | `[budget 90M]` |
 
-Per spawn: `doc-brown` `[budget 6M]`, `marty-mcfly` `[budget 4M]` (as `/88-mph`), `john-hammond` 4 / 8 / 12M and `dr-house` 2 / 4 / 6M by size.
+Per spawn: `doc-brown` `[budget 6M]`, then `doc-brown` in check mode `[budget 4M]` (as `/88-mph`), `john-hammond` 4 / 8 / 12M and `dr-house` 2 / 4 / 6M by size.
 
 ## Packs
 

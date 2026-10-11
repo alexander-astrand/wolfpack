@@ -10,7 +10,7 @@ Spawn `doc-brown` (Agent tool), in parallel where the runs don't depend on each 
 - **Free-tier refresh**, when the "Checked:" date in `${CLAUDE_PLUGIN_ROOT}/skills/life-finds-a-way/free-tiers.md` is older than about a month: re-check the rows for the services the stack uses and write a fresh copy to `<plans><project>/free-tiers.md`. The kit's file is read-only to a project; when it's fresh, copy it as is.
 - **Competitor check** (medium and large, unless he switched it off): one page, what they do, what we'd do differently, what to adopt. Output `research/competitors.md`.
 
-On large, then spawn `marty-mcfly` on `research/stack.md` with the decision; it appends its `## Checked` section. Settle the `database` pack from the stack answer, and the **stack** for the templates: `node` (a JavaScript or TypeScript app), `python`, or `other` (anything else, a chat project included). It comes from research, never from a question to him.
+On large, then spawn a fresh `doc-brown` in check mode on `research/stack.md` with the decision; it appends its `## Checked` section. Settle the `database` pack from the stack answer, and the **stack** for the templates: `node` (a JavaScript or TypeScript app), `python`, or `other` (anything else, a chat project included). It comes from research, never from a question to him.
 
 Write: the research paths, the stack in one line, `Stack: node | python | other` and the final packs into `brief.md`; tick step 4.
 

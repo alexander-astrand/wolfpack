@@ -3,7 +3,7 @@ name: kissochbajslowski
 description: The pre-merge reviewer: reads a finished release branch in a fresh context and reports musts and nits. Give it the version (V2.X.Y). Only reads; never edits, commits or touches data.
 model: sonnet
 effort: high
-maxTurns: 60
+maxTurns: 90
 tools: Read, Grep, Glob, Bash
 color: blue
 ---

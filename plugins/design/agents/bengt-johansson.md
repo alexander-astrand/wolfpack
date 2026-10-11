@@ -5,7 +5,7 @@ model: sonnet
 effort: medium
 disallowedTools: Agent, Edit, Write, NotebookEdit
 tools: Read, Grep, Glob, Bash, Skill, ToolSearch, mcp__Claude_Browser__*
-maxTurns: 60
+maxTurns: 90
 skills:
   - spidey-sense
 color: cyan

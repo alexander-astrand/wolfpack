@@ -1,6 +1,6 @@
 ---
 name: 88-mph
-description: Web research sized to the question - small (one extended search, answered inline), medium (doc-brown researches and writes a findings file) or large (doc-brown, then marty-mcfly checks the claims the decision rests on). Use when a decision needs facts from the web; the caller says which decision the research serves.
+description: Web research sized to the question - small (one extended search, answered inline), medium (doc-brown researches and writes a findings file) or large (doc-brown, then a fresh doc-brown in check mode re-checks the claims the decision rests on). Use when a decision needs facts from the web; the caller says which decision the research serves.
 argument-hint: <small|medium|large> <topic>
 ---
 
@@ -32,7 +32,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 |---|---|---|---|
 | small | one fact or a quick comparison; the answer fits in chat and nobody needs it next week | this session, one search | ≈ 1M |
 | medium | a real choice (library, service, pricing, approach) worth keeping for later sessions | `doc-brown` (Opus, medium) | 6M |
-| large | a choice that's expensive to undo (a provider, a paid plan, a V3 architecture call) | `doc-brown`, then `marty-mcfly` (Sonnet, high) checks it | 6M + 4M, run capped at 13M |
+| large | a choice that's expensive to undo (a provider, a paid plan, a V3 architecture call) | `doc-brown`, then a fresh `doc-brown` in check mode checks it | 6M + 4M, run capped at 13M |
 
 For scale: 1% of the week is about 27M, so a large run is about 0.5%.
 
@@ -51,7 +51,7 @@ For scale: 1% of the week is about 27M, so a large run is about 0.5%.
 ## Large
 
 1. Steps 1–2 of Medium.
-2. Then spawn `marty-mcfly` with the findings path and the decision, `[budget 4M]`. It checks only the claims the answer rests on (re-fetches their sources, marks each held / weakened / wrong) and appends a `## Checked` section; it never rewrites `doc-brown`'s text.
+2. Then spawn a fresh `doc-brown` in **check mode** (the order says "check mode") with the findings path and the decision, `[budget 4M]`. It checks only the claims the answer rests on (re-fetches their sources, marks each held / weakened / wrong) and appends a `## Checked` section; it never rewrites the researcher's text. A fresh spawn has no stake in the first one's conclusions.
 3. Relay: the path, the three-line answer, and any claim marked weakened or wrong (those change the answer; say how).
 4. The whole run stays under 13M. If `doc-brown` comes back over budget, skip the check and say so rather than raising the cap.
 

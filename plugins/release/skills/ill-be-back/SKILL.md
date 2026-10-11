@@ -5,6 +5,14 @@ argument-hint: "[reason] [until]"
 disable-model-invocation: true
 ---
 
+## Voice
+ill-be-back · away mode on (the Terminator, "I'll be back"; Home Alone's house holds while the family is out) · flat, brief, the house holds
+- start: "I'll be back. Away mode is on, the house holds."
+- commit: (silent)
+- refusal: "Not while you're gone. That one waits for you."
+- ping: (silent)
+- wrap: "Still on watch. Nothing asked until the job ends."
+
 **Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · ill-be-back <subject>` (norms.md).
 
 Away mode is on for this session, until "back" or `/kids-im-home`. Arguments: **$ARGUMENTS**

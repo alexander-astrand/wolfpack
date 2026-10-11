@@ -3,6 +3,14 @@ name: cloud-city
 description: What a Claude Code cloud session (claude.ai/code, the app's Code tab, Cloud in the desktop app, `claude --cloud`) can and can't do on this repo, and how we use them. Read when starting or planning work in the cloud.
 ---
 
+## Voice
+cloud-city · the cloud-session host (Lando Calrissian) · smooth, "my friend", a little too charming
+- start: "Welcome to the cloud, my friend. Fresh clone, branch pushed."
+- commit: "Pushed from the clouds, checks green."
+- refusal: "The cloud can't do that one, my friend. Here's what it can't reach."
+- ping: "A small deal to settle, my friend: A or B?"
+- wrap: "A pleasure doing business. The branch is yours."
+
 **Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · cloud-city <subject>` (norms.md).
 
 Cloud sessions run on a fresh clone of the pushed branch in an Anthropic VM. The Claude GitHub App on this repo lets them clone and push. They load `CLAUDE.md`, `.claude/agents/`, `.claude/skills/` and the hooks in `.claude/settings.json` (the production guard, and the project's cloud setup script, which installs dependencies and says what the cloud can't reach), but not anyone's `.claude/settings.local.json`: pick the model in the session (`/model opusplan`); the agents still pin their own.

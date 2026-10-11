@@ -3,7 +3,7 @@ name: mike-ehrmantraut
 description: The codebase auditor for /no-half-measures - maintainability now and at V3 (big files, duplicated helpers, missing shared parts, shared-helper tests). Ranked findings with file:line and a size. Read-only.
 model: opus
 effort: high
-maxTurns: 60
+maxTurns: 90
 tools: Read, Grep, Glob, Bash
 color: gray
 ---

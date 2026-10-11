@@ -3,7 +3,7 @@ name: the-playbook
 description: Database work on dev only - migrations, RLS, grants, security definer functions, SQL tests, types, Edge Functions to dev. Give it the plan step and what the data should do. Never production.
 model: opus
 effort: high
-maxTurns: 60
+maxTurns: 90
 disallowedTools: Agent
 tools: Read, Edit, Write, Bash, Grep, Glob, Skill, ToolSearch, mcp__b9b722b0-cd4f-4144-b0cf-ec304092b6c0__*, mcp__b9b722b0__*, mcp__plugin_context7_context7__*
 skills:

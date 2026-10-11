@@ -79,6 +79,8 @@ function readMeta(subDir, jsonlName) {
 
 // The agents were renamed in 2.10; transcripts from earlier releases carry the
 // old names, so they're shown under the new ones and timelines compare across releases.
+// boba-fett and farbror-vattenmelon were retired in 3.3.3 (not in AGENTS below); the
+// two entries stay so old transcripts keep reading under the names they ran as.
 const RENAMED = {
   scout: 'lorenzo-von-matterhorn', 'test-runner': 'romeo-olsson', planner: 'admiral-ackbar',
   builder: 'chris-de-kok', designer: 'mosbius-designs', 'db-engineer': 'the-playbook',
@@ -92,8 +94,8 @@ const RENAMED = {
 // so that prefix names it instead.
 export const AGENTS = new Set([
   'lorenzo-von-matterhorn', 'admiral-ackbar', 'heisenberg', 'chris-de-kok', 'jesse-pinkman',
-  'mosbius-designs', 'the-playbook', 'boba-fett', 'romeo-olsson', 'kissochbajslowski', 'c-3po',
-  'ranjit', 'yoda', 'farbror-vattenmelon', 'bengt-johansson',
+  'mosbius-designs', 'the-playbook', 'romeo-olsson', 'kissochbajslowski', 'c-3po',
+  'ranjit', 'yoda', 'bengt-johansson',
   // The builder pool beside chris-de-kok (2.10.2).
   'ahmed-och-ahmed', 'saul-goodman', 'jeff-winger', 'troy-and-abed',
   // Added since, so a generic spawn named by its description prefix still gets
