@@ -24,6 +24,8 @@ claude plugin install database@wolfpack --scope project
 
 Six agents run on `model: fable` (`farbror-vattenmelon`, `heisenberg`, `barney-stinson`, `dom-cobb`, `mace-windu`, `three-eyed-raven`) and need a plan that has that model.
 
+**Kit edits:** a kit edit made from any project's session edits `~/wolfpack` and commits there, the project named in the subject (`… (Hutzup 3.3.3)`); pushing to GitHub is the backup and the way to share it; projects see the change on their next session. General lessons live in `core/lessons.md` and Alexander's general taste in `design/taste.md`; each project's `.claude/lessons.md` and `.claude/taste.md` keep only its own, and readers read both.
+
 Source of truth until Hutzup switches to the installed plugin: Hutzup's `.claude/`; the kit copies are synced by hand (the guard copy differs by the kit.json reads).
 
 ## Start a project

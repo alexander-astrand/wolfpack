@@ -1,6 +1,6 @@
 # The Dude's taste
 
-**Each project keeps its own `.claude/taste.md`, started from this template.** Copy it there and grow it: the plugin's agents and skills read the project's file, never this one. The rules below held in the project this kit came from and hold for most apps; keep them, drop what doesn't fit, and add your own sendbacks under the headings.
+**Each project keeps its own `.claude/taste.md`, started from this template.** Copy it there and grow it: the plugin's agents and skills read the project's file beside the kit's `taste.md` (Alexander's general rules, with their sources), never this one. The rules below held in the project this kit came from and hold for most apps; keep them, drop what doesn't fit, and add your own sendbacks under the headings.
 
 Alexander's design taste. Every rule names the page and the release whose work he sent back, with his words in quotes where he wrote them. CLAUDE.md's conventions are the short form; this file is the why, so a new page gets it right the first time.
 
