@@ -1,4 +1,4 @@
-// node --test kit/scripts/drift.test.mjs — the drift check on tiny fixture
+// node --test scripts/drift.test.mjs — the drift check on tiny fixture
 // trees in a temp dir, so the real guard copies never have to be bent.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
@@ -36,7 +36,7 @@ const PAIRS = {
 
 function run(files, options = {}) {
   const root = tree({ 'pairs.json': PAIRS, ...files })
-  return checkDrift(root, { pairsFile: join(root, 'pairs.json'), ...options })
+  return checkDrift(root, { kitDir: root, pairsFile: join(root, 'pairs.json'), ...options })
 }
 
 test('equal copies are the same; files the list does not name are not compared', () => {
@@ -91,10 +91,10 @@ test('--hutzup checks a prototype folder in place of .claude/hooks/', () => {
     'kit/agents/d.md': 'agent\n',
   }
   const root = tree(files)
-  const r = checkDrift(root, { pairsFile: join(root, 'pairs.json'), hooks: 'proto/hooks' })
+  const r = checkDrift(root, { kitDir: root, pairsFile: join(root, 'pairs.json'), hooks: 'proto/hooks' })
   assert.equal(r.drift, false)
   assert.equal(r.pairs[0].hutzup, join('proto/hooks', 'a.mjs'))
-  assert.equal(checkDrift(root, { pairsFile: join(root, 'pairs.json') }).drift, true)
+  assert.equal(checkDrift(root, { kitDir: root, pairsFile: join(root, 'pairs.json') }).drift, true)
 })
 
 test('with no .claude/hooks/ (the kit on its own) it skips with one line and exits 0', () => {
@@ -103,6 +103,21 @@ test('with no .claude/hooks/ (the kit on its own) it skips with one line and exi
   const out = execFileSync('node', [SCRIPT, root], { encoding: 'utf8' })
   assert.equal(out.trim().split('\n').length, 1)
   assert.match(out, /skipped/)
+})
+
+test('with no project dir given it skips, even where a .claude/hooks/ is near', () => {
+  assert.equal(checkDrift(undefined).skipped, true)
+  const out = execFileSync('node', [SCRIPT], { encoding: 'utf8' })
+  assert.match(out, /no project dir given/)
+})
+
+test("kitOnly lines (the kit's step-aside check) are left out of the compare", () => {
+  const root = tree({
+    'pairs.json': { ...PAIRS, files: [PAIRS.files[0]], kitOnly: ["if (projectOwns({ kitName: 'a.mjs' })) process.exit(0)"] },
+    '.claude/hooks/a.mjs': 'one\ntwo\n',
+    'kit/hooks/a.mjs': "one\n  if (projectOwns({ kitName: 'a.mjs' })) process.exit(0)\ntwo\n",
+  })
+  assert.equal(checkDrift(root, { kitDir: root, pairsFile: join(root, 'pairs.json') }).drift, false)
 })
 
 test('the script exits 1 on drift and --json says so', () => {

@@ -52,10 +52,13 @@ export function projectOwns({ kitName, names = [kitName], projectDir = process.e
     const kitRe = new RegExp(`hooks[\\\\/]${escape(kitName)}(?![\\w.-])`)
     const needs = registrations(kit?.hooks).filter(([, , command]) => kitRe.test(command))
     if (!needs.length) return false
-    // The project's copy: a command naming `.claude/hooks/<name>`, whose file is there.
+    // The project's copy: a command that is exactly `node "${CLAUDE_PROJECT_DIR}/.claude/hooks/<name>"`
+    // (quotes optional, `$CLAUDE_PROJECT_DIR` too), whose file is there. Anchored
+    // whole, so a command that only names the file (`echo …`, `# node …`,
+    // `exit 0; node …`, another folder's copy) never makes the kit's hook step aside.
     const present = names.filter((name) => existsSync(join(projectDir, '.claude', 'hooks', name)))
     if (!present.length) return false
-    const projectRe = new RegExp(`\\.claude[\\\\/]hooks[\\\\/](?:${present.map(escape).join('|')})(?![\\w.-])`)
+    const projectRe = new RegExp(`^\\s*node\\s+("?)(?:\\$\\{CLAUDE_PROJECT_DIR\\}|\\$CLAUDE_PROJECT_DIR)/\\.claude/hooks/(?:${present.map(escape).join('|')})\\1\\s*$`)
     const have = registrations(settings?.hooks).filter(([, , command]) => projectRe.test(command))
     return needs.every(([event, matcher]) => have.some(([e, m]) => e === event && (m === matcher || CATCH_ALL.has(m))))
   } catch {

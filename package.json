@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run --config vitest.config.mjs && node --import ./scripts/test-project.node.mjs --test scripts/*.test.mjs"
+    "test": "vitest run --config vitest.config.mjs && node --import ./scripts/test-project.node.mjs --test scripts/*.test.mjs && node scripts/check.mjs"
   },
   "devDependencies": {
     "vitest": "^5.0.2"

@@ -21,7 +21,7 @@
 //   plugin.json one wins silently, so a mismatch here is a release that
 //   doesn't say what it ships.
 //
-// Usage: node kit/scripts/check.mjs [kitDir] — prints `file:line  reason` per
+// Usage: node scripts/check.mjs [kitDir] [--project <dir>] — prints `file:line  reason` per
 // problem and exits 1, or a one-line summary and exits 0.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
@@ -259,18 +259,22 @@ export function checkKit(kitDir, { values = [], base = process.cwd() } = {}) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const kitDir = resolve(process.argv[2] ?? join(dirname(fileURLToPath(import.meta.url)), '..'))
+  const args = process.argv.slice(2)
+  const at = args.indexOf('--project')
+  const project = at >= 0 ? resolve(args[at + 1] ?? '.') : undefined
+  const positional = args.find((a, i) => !a.startsWith('--') && (at < 0 || i !== at + 1))
+  const kitDir = resolve(positional ?? join(dirname(fileURLToPath(import.meta.url)), '..'))
   const values = projectValues(join(process.cwd(), '.claude', 'kit.json'))
   const { problems, plugins } = checkKit(kitDir, { values })
-  // The project's guard against the kit's copy (drift.mjs); the repo is the
-  // folder above kit/, and a kit checked on its own skips with one line.
-  const drift = checkDrift(dirname(kitDir))
+  // The project's frozen guard against the kit's copy (drift.mjs), only when
+  // `--project <dir>` names one; the kit checked on its own skips with one line.
+  const drift = checkDrift(project, { kitDir })
   if (drift.skipped) console.log(drift.reason)
   for (const p of drift.pairs) {
     if (p.same) continue
     const where = p.missing ? `${p.kit}:1` : `${p.first.file}:${p.first.line}`
     const what = p.missing ? `${p.missing} is missing` : `${p.lines} lines differ`
-    problems.push(`${where}  drifted from ${p.hutzup}: ${what} (node kit/scripts/drift.mjs)`)
+    problems.push(`${where}  drifted from ${p.hutzup}: ${what} (node scripts/drift.mjs <project>)`)
   }
   for (const p of problems) console.log(p)
   if (problems.length) process.exit(1)

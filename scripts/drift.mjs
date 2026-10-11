@@ -14,11 +14,11 @@
 // Only the guard's source files are paired: its tests, fixtures, entry,
 // budget cap and ranjit.md differ by design (drift-pairs.json says why).
 //
-// Usage: node kit/scripts/drift.mjs [--json] [--hutzup <hooksDir>] [rootDir]
-// — one line per pair, exit 1 on any drift. `--hutzup` (relative to rootDir)
-// stands in for `.claude/hooks/`, to check a prototype before its paste. rootDir defaults to the folder above kit/; with no
-// `.claude/hooks/` there (the kit checked on its own, as in the published
-// marketplace) the check skips with one line and exits 0.
+// Usage: node scripts/drift.mjs [--json] [--hutzup <hooksDir>] [projectDir]
+// — one line per pair, exit 1 on any drift. `--hutzup` (relative to
+// projectDir) stands in for `.claude/hooks/`, to check a prototype before its
+// paste. With no projectDir, or none with `.claude/hooks/` (the kit checked on
+// its own, as in ~/wolfpack), the check skips with one line and exits 0.
 
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -81,28 +81,35 @@ function changedLines(a, b) {
   return a.length - common + (b.length - common)
 }
 
-export function comparePair(root, hutzup, kit, replacements) {
-  for (const f of [hutzup, kit]) {
-    if (!existsSync(join(root, f))) return { hutzup, kit, same: false, missing: f }
-  }
-  let text = readFileSync(join(root, hutzup), 'utf8')
+// `kitOnly` lines exist in the kit's copy alone (the step-aside check, which a
+// project's own copy has no use for: it is the copy the kit steps aside for).
+export function comparePair(project, kitDir, hutzup, kit, replacements, kitOnly = []) {
+  if (!existsSync(join(project, hutzup))) return { hutzup, kit, same: false, missing: hutzup }
+  if (!existsSync(join(kitDir, kit))) return { hutzup, kit, same: false, missing: kit }
+  let text = readFileSync(join(project, hutzup), 'utf8')
   for (const [from, to] of replacements) text = text.split(from).join(to)
   const a = text.split('\n')
-  const b = readFileSync(join(root, kit), 'utf8').split('\n')
+  const skip = new Set(kitOnly)
+  const b = readFileSync(join(kitDir, kit), 'utf8').split('\n').filter((line) => !skip.has(line.trim()))
   let first = 0
   while (first < a.length && first < b.length && a[first] === b[first]) first++
   if (first === a.length && first === b.length) return { hutzup, kit, same: true }
   return { hutzup, kit, same: false, lines: changedLines(a, b), first: { file: kit, line: first + 1 } }
 }
 
-export function checkDrift(root, { pairsFile = join(HERE, 'drift-pairs.json'), hooks } = {}) {
-  if (!existsSync(join(root, hooks ?? HOOKS))) {
-    return { skipped: true, reason: `no ${hooks ?? HOOKS} beside kit/: drift check skipped (the kit on its own)`, pairs: [] }
+// `project` is the project whose frozen hooks are the twins; with none given
+// (the kit checked on its own, as in ~/wolfpack) the check skips. Kit paths
+// in the pairs list are relative to `kitDir`, the kit's own root.
+export function checkDrift(project, { kitDir = join(HERE, '..'), pairsFile = join(HERE, 'drift-pairs.json'), hooks } = {}) {
+  if (!project) return { skipped: true, reason: 'no project dir given: twin check skipped (the kit on its own)', pairs: [] }
+  if (!existsSync(join(project, hooks ?? HOOKS))) {
+    return { skipped: true, reason: `no ${hooks ?? HOOKS} in ${project}: twin check skipped`, pairs: [] }
   }
   const config = JSON.parse(readFileSync(pairsFile, 'utf8'))
-  const replacements = resolveReplacements(config.replacements, root)
+  const replacements = resolveReplacements(config.replacements, project)
+  const kitOnly = Array.isArray(config.kitOnly) ? config.kitOnly : []
   const files = Array.isArray(config.files) ? config.files : []
-  const pairs = files.map((p) => comparePair(root, hutzupPath(p.hutzup, hooks), p.kit, replacements))
+  const pairs = files.map((p) => comparePair(project, kitDir, hutzupPath(p.hutzup, hooks), p.kit, replacements, kitOnly))
   return { skipped: false, drift: pairs.some((p) => !p.same), pairs }
 }
 
@@ -117,8 +124,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const json = args.includes('--json')
   const at = args.indexOf('--hutzup')
   const hooks = at >= 0 ? args[at + 1] : undefined
-  const root = resolve(args.find((a, i) => !a.startsWith('--') && (at < 0 || i !== at + 1)) ?? join(HERE, '..', '..'))
-  const result = checkDrift(root, { hooks })
+  const given = args.find((a, i) => !a.startsWith('--') && (at < 0 || i !== at + 1))
+  const result = checkDrift(given ? resolve(given) : undefined, { hooks })
   if (json) console.log(JSON.stringify(result, null, 2))
   else if (result.skipped) console.log(result.reason)
   else for (const p of result.pairs) console.log(describe(p))

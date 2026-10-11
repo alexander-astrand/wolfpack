@@ -460,6 +460,16 @@ describe('kit.json budgets (2.14.6)', () => {
     expect(logs.join('\n')).toMatch(/chris-de-kok unreadable/)
   })
 
+  // The fallback and the oceans-eleven skill's Budgets table must agree, or an
+  // untagged the-playbook gets 45M where the table says 15M (3.3.3 review).
+  it("gives the-playbook the default in oceans-eleven's Budgets table", () => {
+    const skill = readFileSync(fileURLToPath(new URL('../skills/oceans-eleven/SKILL.md', import.meta.url)), 'utf8')
+    const row = skill.split('\n').find((line) => line.startsWith('|') && line.includes('`the-playbook` | '))
+    const tag = row?.match(/`the-playbook` \| (\d+)M/)?.[1]
+    expect(tag).toBeDefined()
+    expect(DEFAULT_BUDGETS['the-playbook']).toBe(Number(tag) * M)
+  })
+
   it("mirrors the built-in table in the repo's .claude/kit.json", () => {
     const repoKit = fileURLToPath(new URL('../kit.json', import.meta.url))
     if (!existsSync(repoKit)) return // the proto has no kit beside it

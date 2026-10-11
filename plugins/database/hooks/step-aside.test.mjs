@@ -86,6 +86,25 @@ describe('step-aside: the kit guard', () => {
     expect(guardOwns(project(wide, ['guard-entry.mjs']))).toBe(false)
   })
 
+  // A command that names the file without running the project's copy (review of 3.3.3 P1).
+  it.each([
+    'echo .claude/hooks/guard-entry.mjs',
+    'true # node .claude/hooks/guard-entry.mjs',
+    'cat .claude/hooks/guard-entry.mjs',
+    'exit 0; node .claude/hooks/guard-entry.mjs',
+    'node /somewhere/else/.claude/hooks/guard-entry.mjs',
+  ])('runs when the registration only names the file: %s', (command) => {
+    const fake = { hooks: { PreToolUse: HUTZUP.hooks.PreToolUse.slice(0, 2).map((e) => ({ ...e, hooks: [{ type: 'command', command }] })) } }
+    const dir = project(fake, ['guard-entry.mjs'])
+    expect(guardOwns(dir)).toBe(false)
+    expect(runGuard(dir).stdout).toContain('"permissionDecision":"deny"')
+  })
+
+  it('accepts $CLAUDE_PROJECT_DIR unbraced and unquoted', () => {
+    const plain = { hooks: { PreToolUse: HUTZUP.hooks.PreToolUse.slice(0, 2).map((e) => ({ ...e, hooks: [{ type: 'command', command: ' node $CLAUDE_PROJECT_DIR/.claude/hooks/guard-entry.mjs ' }] })) } }
+    expect(guardOwns(project(plain, ['guard-entry.mjs']))).toBe(true)
+  })
+
   it('never counts a kit-path registration as the project\'s own', () => {
     const viaPlugin = { hooks: { PreToolUse: HUTZUP.hooks.PreToolUse.map((e) => ({ ...e, hooks: [{ type: 'command', command: 'node "${CLAUDE_PLUGIN_ROOT}/hooks/guard-entry.mjs"' }] })) } }
     expect(guardOwns(project(viaPlugin, ['guard-entry.mjs']))).toBe(false)

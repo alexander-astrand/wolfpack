@@ -1,11 +1,16 @@
 {
-  "why": "Only the guard's source files must be the same code. Left out on purpose, because they differ by design: the hook tests and fixtures (the kit's use placeholder values, a kit-project fixture and skips for files only a person pastes), guard-entry.mjs (its error message names the project's path), budget-cap.mjs and its test (the release plugin reads kit.json budgets and scripts/ beside hooks/), and ranjit.md (the kit's names the project's people and refs through kit.json).",
+  "why": "Only the guard's source files must be the same code. Left out on purpose, because they differ by design: the hook tests and fixtures (the kit's use placeholder values, a kit-project fixture and skips for files only a person pastes), guard-entry.mjs (its error message names the project's path, and it steps aside for the project's own guard), budget-cap.mjs and its test (the release plugin reads kit.json budgets and scripts/ beside hooks/), and step-aside.mjs (kit only). Kit paths are relative to the kit's root; `kitOnly` lists the kit-only step-aside lines (Hutzup 3.3.3), dropped from the kit side before the compare.",
   "files": [
-    { "hutzup": ".claude/hooks/guard-production.mjs", "kit": "kit/plugins/database/hooks/guard-production.mjs" },
-    { "hutzup": ".claude/hooks/production-steps.mjs", "kit": "kit/plugins/database/hooks/production-steps.mjs" },
-    { "hutzup": ".claude/hooks/chain-arm.mjs", "kit": "kit/plugins/database/hooks/chain-arm.mjs" },
-    { "hutzup": ".claude/hooks/chain-exclusions.mjs", "kit": "kit/plugins/database/hooks/chain-exclusions.mjs" },
-    { "hutzup": ".claude/hooks/denied-log.mjs", "kit": "kit/plugins/database/hooks/denied-log.mjs" }
+    { "hutzup": ".claude/hooks/guard-production.mjs", "kit": "plugins/database/hooks/guard-production.mjs" },
+    { "hutzup": ".claude/hooks/production-steps.mjs", "kit": "plugins/database/hooks/production-steps.mjs" },
+    { "hutzup": ".claude/hooks/chain-arm.mjs", "kit": "plugins/database/hooks/chain-arm.mjs" },
+    { "hutzup": ".claude/hooks/chain-exclusions.mjs", "kit": "plugins/database/hooks/chain-exclusions.mjs" },
+    { "hutzup": ".claude/hooks/denied-log.mjs", "kit": "plugins/database/hooks/denied-log.mjs" }
+  ],
+  "kitOnly": [
+    "import { projectOwns } from './step-aside.mjs'",
+    "// The project's own denied-log writes the line; a second copy would log it twice.",
+    "if (projectOwns({ kitName: 'denied-log.mjs' })) process.exit(0)"
   ],
   "replacements": [
     { "from": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/", "to": "\"${CLAUDE_PLUGIN_ROOT}/hooks/" },

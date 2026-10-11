@@ -42,7 +42,7 @@ CI runs the same check on every pull request.
 
 ## Working with Claude
 
-- The kit's working norms are `kit/plugins/core/norms.md` in the wolfpack core plugin; this section is the short form.
+- The kit's working norms are `plugins/core/norms.md` in the kit at `~/wolfpack` (the wolfpack core plugin); this section is the short form.
 - **Questions are pick-one choices**, the recommended option first, each saying what it gives and what it costs.
 - **Human steps one at a time:** one line on what the step does, one command in its own block, then wait for "Done", "Got an error" or "Stop here".
 - Comments in code explain why, at the density around them. Wording in the app is plain and specific.

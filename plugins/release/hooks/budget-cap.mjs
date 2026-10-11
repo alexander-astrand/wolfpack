@@ -65,7 +65,8 @@ export const DEFAULT_BUDGETS = {
   heisenberg: 8 * M,
   // 12M → 14M after 2.10.1 and 2.10.2 both overran it (the `oceans-eleven` skill's table too).
   'bengt-johansson': 14 * M,
-  'the-playbook': 45 * M,
+  // 45M → 15M with oceans-eleven's one Budgets table (`[playbook]`: a big migration is cut in two).
+  'the-playbook': 15 * M,
   kissochbajslowski: 15 * M,
   yoda: 10 * M,
   'admiral-ackbar': 10 * M,
