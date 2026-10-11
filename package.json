@@ -1,0 +1,11 @@
+{
+  "name": "wolfpack",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --config vitest.config.mjs && node --import ./scripts/test-project.node.mjs --test scripts/*.test.mjs"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.2"
+  }
+}

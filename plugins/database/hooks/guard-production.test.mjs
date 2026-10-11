@@ -2461,7 +2461,8 @@ describe('2.12.4 review: refused as on main', () => {
     } catch { mainDecide = null }
   })
 
-  it("loads main's guard wherever main can be read, so the comparison isn't skipped quietly", () => {
+  // Skipped in the kit's own repo (Hutzup 3.3.3, 0.5): it expects Hutzup's .claude/hooks on main, which this repo lacks.
+  it.skip("loads main's guard wherever main can be read, so the comparison isn't skipped quietly", () => {
     let hasMain = true
     try { execFileSync('git', ['rev-parse', '--verify', '--quiet', 'main^{commit}'], { cwd: fileURLToPath(new URL('.', import.meta.url)), stdio: 'ignore' }) } catch { hasMain = false }
     expect(mainDecide !== null).toBe(hasMain)
