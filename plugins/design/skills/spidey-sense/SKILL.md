@@ -1,19 +1,19 @@
 ---
 name: spidey-sense
-description: Check a UI change in the built-in browser the way this project requires - 375, 1024 (and 1440) px, dark and light theme - plus the workarounds for confirm dialogs, screenshots and proving a refactor changed nothing. Use after any change the app shows.
+description: Check a UI change in the built-in browser the way this project requires - 375, 1024 (and 1440) px, every theme the project has - plus the workarounds for confirm dialogs, screenshots and proving a refactor changed nothing. Use after any change the app shows.
 ---
 
 **Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · spidey-sense <subject>` (norms.md).
 
 ## Modes
 - **Builder mode** (default, for builders): run the layout check (below) at 375 and 1024, then read the page as text per item (`read_page`, `get_page_text`, `find`, console); at most one screenshot for the step, only when a text check can't tell what's on screen. No matrix.
-- **QA mode** (`bengt-johansson` and the Bengan Boys, only on features the plan marks qa; `.claude/taste.md` read first, since a pass means Alexander wouldn't send it back; test data from the QA seed in `qa-and-refactor.md`, driven by `read_page`/`find`, `tabId` on every browser call; the screenshot rules are under "QA screenshots"): one pass per feature — one trigger inside a `browser_batch` (navigate, act, check) — at 375 dark and 1024 dark, plus one light screenshot, with text checks between and a saved screenshot each. The layout check runs first, at both widths, before any screenshot. Pages with a map, a sideways row, a sheet or two columns also get the interaction checks in `qa-and-refactor.md` (wheel over each widget, two scrollbars, fold and unfold). The budget is the `[budget …]` tag in the work order, and Hank holds it (5 screenshots per feature, frame shots not counted; QA's target is ≤10% of a release).
-- **Full matrix** (`/darth-vader`, on demand): every width below in both themes.
+- **QA mode** (`bengt-johansson` and the Bengan Boys, only on features the plan marks qa; `.claude/taste.md` read first, since a pass means Alexander wouldn't send it back; test data from the QA seed in `qa-and-refactor.md`, driven by `read_page`/`find`, `tabId` on every browser call; the screenshot rules are under "QA screenshots"): one pass per feature — one trigger inside a `browser_batch` (navigate, act, check) — at 375 and 1024 in the default theme, plus one screenshot in each other theme, with text checks between and a saved screenshot each. The layout check runs first, at both widths, before any screenshot. Pages with a map, a sideways row, a sheet or two columns also get the interaction checks in `qa-and-refactor.md` (wheel over each widget, two scrollbars, fold and unfold). The budget is the `[budget …]` tag in the work order, and Hank holds it (5 screenshots per feature, frame shots not counted; QA's target is ≤10% of a release).
+- **Full matrix** (`/darth-vader`, on demand): every width below in every theme the project has.
 
 ## The run
-1. Start the dev server with `preview_start` (`npm run dev` on `project.devPort` from the project's `.claude/kit.json`; configured in `.claude/launch.json`) and use the signed-in dev server's tab in the browser pane: the dev browser tab stays signed in as the test user between checks, so no login step is needed. **The sign-in probe:** ask the app's own auth client for the user with the javascript tool (`tabId` of the dev server's tab); the project's CLAUDE.md says where the client lives (a Supabase app: `const m = await import('<client path>'); (await m.supabase.auth.getUser()).data.user`). If it isn't signed in, stop and tell the navigator; never reach for a login from memory.
+1. Start the dev server with `preview_start` (`npm run dev` on `project.devPort` from the project's `.claude/kit.json`; configured in `.claude/launch.json`) and use the signed-in dev server's tab in the browser pane: the dev browser tab stays signed in as the test user between checks, so no login step is needed. **The sign-in probe:** ask the app's own auth client for the user with the javascript tool (`tabId` of the dev server's tab); the project's CLAUDE.md says where the client lives (a Supabase app: `const m = await import('<client path>'); (await m.supabase.auth.getUser()).data.user`). If it isn't signed in, stop and tell the navigator; never reach for a login from memory. **One signed-in session serves at most two browser lanes** (`[one-session]`: a shared session was signed out twice, once by four lanes refreshing the same token, once by a click by position on a hidden desktop Sign out at phone width): QA picks controls by aria-label (`find`, `read_page`), never by position, and never clicks in the header blind. **Each browser lane runs its own dev port** (`npm run dev -- --port 51NN --strictPort`), signed in at the start of the lane, so lanes never share a server; restart the lane's server after any `package.json` change. The layout QA group is a fixed one that nobody toggles (the work order names it).
 2. For each width: `resize_window` to **375×812** (phone) and **1024×768** (desktop, `lg`), plus **1440×900** for layout work. A width or layout release is also checked at the widest step (a 1920×1080 viewport), judged against the pages the project's CLAUDE.md names for the widest width. Reset with `preset: desktop` at the end.
-3. For each theme: **dark** and **light** (the project's CLAUDE.md says which is the default). **The theme switch:** set the app's theme key in `localStorage` (the project's CLAUDE.md names it) to `'light'` or `'dark'` through the javascript tool, then reload; the pane's `colorScheme` emulation does not switch the app. Colours must come from the project's theme tokens; a `dark:` pair is a finding.
+3. For each theme: every one the project's CLAUDE.md lists (a project with three, such as Light, Amber and Dark, checks all three; the default is named there). **The theme switch:** a per-tab `?theme=<name>` on the URL where the app has one (the project's CLAUDE.md lists the values), else set the app's theme key in `localStorage` (the project's CLAUDE.md names it) through the javascript tool, then reload; the pane's `colorScheme` emulation does not switch the app. Colours must come from the project's theme tokens; a `dark:` pair is a finding.
 4. Check with text tools first (`read_page`, `find`, `get_page_text`, `read_console_messages` for errors), then take a screenshot as proof and save it (below).
 
 ## The layout check (before any screenshot)
@@ -29,8 +29,10 @@ Run it at 375 and 1024. Cut-off section titles and rows without drag are finding
 The screenshot tool returns the image and writes no file, but the image is kept in the transcript. Right after taking one (scale 1, so it's full size), run:
 
 ```
-node ${CLAUDE_PLUGIN_ROOT}/skills/spidey-sense/save-shot.mjs <scratchpad>/<step>-<width>-<theme>.jpg
+node ${CLAUDE_PLUGIN_ROOT}/skills/spidey-sense/save-shot.mjs <scratchpad>/<step>-<width>-<theme>.jpg [--since <ISO time>]
 ```
+
+QA passes note the time they start (`date -u +%Y-%m-%dT%H:%M:%SZ`) and give it as `--since`: the script then exits 1 and saves nothing when the newest image was taken before it (3.3: three of four Hut shots were the designer's mocks, saved as if fresh). Without the flag it saves the newest image whatever its age; builders may leave it out.
 
 It writes the newest screenshot from this project's transcripts (the session's and its subagents', last 5 minutes) and prints when it was taken. Run it straight after each screenshot: another agent screenshotting in the same seconds could win. List the saved paths in your report; the PR lists them for the reviewer, who opens them with the Read tool.
 
@@ -41,7 +43,7 @@ Three QA passes lost their named shots to exploratory ones, and parallel runs in
 - No screenshot until the spot is found with `read_page`/`find` and scrolled into view (`scroll_to`); a shot shows only the top ~1150px, so the spot must be in view.
 - **Before a named screenshot, wait until every image has loaded** (`await Promise.all([...document.images].map(i => i.complete || new Promise(r => { i.onload = i.onerror = r })))`), or the shot catches half-drawn pictures.
 - Use short real viewports: 375×800, 1024×768, 1440×900. A tall emulated one is for builders' one-off checks.
-- Theme through the theme switch and a reload, as above.
+- Theme through the theme switch (`?theme=` where the app has it) and a reload, as above.
 - Page paths come from the project's CLAUDE.md.
 - Close your own tab at the end (`tabs_close`); the pane has a tab cap.
 
@@ -53,7 +55,7 @@ Three QA passes lost their named shots to exploratory ones, and parallel runs in
 - **Test data:** mark test rows "TEST …" and delete them afterwards (CLAUDE.md: clean up what you create on dev).
 
 ## More, in `qa-and-refactor.md`
-- **QA seed:** what the project's seed must do (one `javascript_tool` call, and its clean-up, for `bengt-johansson`) and where the project keeps it.
+- **QA seed:** what the project's seed must do (one `javascript_tool` call, and its clean-up, for `bengt-johansson`) and where the project keeps it. A project with a database can keep seeds as `<name>.up.sql` / `.down.sql` files and a small wrapper script that runs them quietly against its dev database only.
 - **Interaction checks:** wheel and trackpad scroll over a map or other widget, two scrollbars, fold and unfold; both snippets tried on dev.
 
 ## The Bengan Boys' files

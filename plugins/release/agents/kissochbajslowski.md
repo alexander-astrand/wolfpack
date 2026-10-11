@@ -33,6 +33,7 @@ Look for:
 - layouts that break at phone or desktop width (a width or layout release is also checked at the widest step, the 1760 cap: a 1920×1080 viewport, judged against /games and the events board)
 - unused or leftover code
 - whether the README and the PR description match the changes
+- whether the build meets the plan's agreed lines (I1, I2 … in the stamp's intent trace), not only the picked mock: a line not met is a must (`[intent-trace]`: 3.1's book club matched its drawing and missed I2)
 
 Quality bar (saving tokens never lowers it; a miss is a must-fix):
 - a file past ~800 lines doesn't grow without a split
@@ -43,6 +44,9 @@ Quality bar (saving tokens never lowers it; a miss is a must-fix):
 - typed text escaped in email HTML
 - every button shows the pointer and matches its type (one look per button type)
 - a state that cuts across pages has one owner for every read (grep its table's queries and check they all use it)
+- grep the diff for earlier sendbacks and musts: a list built from events in the client with no visibility filter (`[private-nights]`: private events landed in a share message), a native `navigator.share` outside the shared share menu, and fractional px sizes in a logo or mark (a blurry wordmark)
+- two more greps are musts: (a) a status label ("You're in", "Going", "You're coming") inside a `<Button>` or with an `onClick` (a status is a mark in the project's wash look, never a toggle); (b) a heading row with a cover beside a date tile whose tops or heights differ
+- two more greps are musts (the repeat shapes of one release, found in all four of its parts): `outline-none` with no `focus-visible` style on the same element, and a remove or answer handler that moves focus nowhere afterwards
 
 `npm run lint` runs the project's conventions script (`conventions` in `.claude/kit.json`) (CLAUDE.md's conventions as greps), so read the diff for what greps can't see.
 

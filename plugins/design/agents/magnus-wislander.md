@@ -3,7 +3,7 @@ name: magnus-wislander
 description: Bengan Boy for desktop layout - checks a finished qa feature at 1024 and 1440 against .claude/taste.md. Give it the feature, its pages and a [budget ...] tag. Read-only, never fixes.
 model: sonnet
 effort: medium
-maxTurns: 40
+maxTurns: 60
 disallowedTools: Agent, Edit, Write, NotebookEdit
 tools: Read, Grep, Glob, Bash, Skill, ToolSearch, mcp__Claude_Browser__*
 skills:

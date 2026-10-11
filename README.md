@@ -81,7 +81,7 @@ The plugins carry placeholders; your values live in your project's `.claude/kit.
   "refs": { "dev": "<dev project ref>", "prod": "<production project ref>" },
   "urls": { "prod": "https://myapp.example.com" },
   "deployer": "ranjit",
-  "keychain": { "dev": "<keychain item, dev db url>", "prod": "<keychain item, prod db url>" },
+  "keychain": { "dev": "<keychain item, dev db url>", "prod": "<keychain item, prod db url>", "vercelBypass": "<keychain item, Vercel protection-bypass secret; optional>" },
   "ci": { "workflow": ".github/workflows/ci.yml", "jobs": ["Checks"] },
   "reviewer": "<github handle to tag on release PRs>",
   "conventions": "scripts/conventions.sh",

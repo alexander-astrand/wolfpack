@@ -7,6 +7,7 @@ disable-model-invocation: true
 
 `/night-watch <version>` is `/maverick <version> slow away`: the careful speed from the `oceans-eleven` skill, and no pings until the draft PR is done.
 **Title:** as `maverick`'s: the session titles itself `<project.name> · release · <version> <name>` in its first minute (`set_session_title` on `self`). Its voice is the navigator's card in that skill.
+Overnight a silent lane is the likeliest failure (`[stalls]`): watchdog each lane's last file write, stop one that wrote no file for 20 minutes and hand its files to a fresh agent of the same role.
 Night is when nobody's waiting, so it spends the time on checking rather than tokens on a bigger model.
 An `allowance=` argument is passed on unchanged (default normal; the `oceans-eleven` skill's Allowances table). Anything else after the version is passed on as input for the plan.
 Before the first builder starts, the :<project.devPort> tab must be signed in (the `maverick` preflight's probe): if it isn't, ask Alexander to sign in before the night begins, and if nobody can answer, stop rather than build without QA.

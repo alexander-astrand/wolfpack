@@ -3,7 +3,7 @@ name: stefan-lovgren
 description: Bengan Boy for interactions - wheel, trackpad, scrollbars and folds on a finished qa feature, against .claude/taste.md. Give it the feature, its pages and a [budget ...] tag. Read-only, never fixes.
 model: sonnet
 effort: medium
-maxTurns: 40
+maxTurns: 60
 disallowedTools: Agent, Edit, Write, NotebookEdit
 tools: Read, Grep, Glob, Bash, Skill, ToolSearch, mcp__Claude_Browser__*
 skills:

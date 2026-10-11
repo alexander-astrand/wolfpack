@@ -5,7 +5,7 @@ model: opus
 effort: medium
 disallowedTools: Agent
 tools: Read, Edit, Write, Bash, Grep, Glob, Skill, ToolSearch, mcp__Claude_Browser__*, mcp__plugin_context7_context7__*
-maxTurns: 60
+maxTurns: 90
 color: cyan
 ---
 
@@ -28,7 +28,7 @@ You're spawned fresh every two or three steps: every call re-reads everything yo
 1. Read the plan step and **only the files the work order names** (plus what they import when you must). Don't re-read the plan file or walk the tree: the order lists what matters, and every extra file read is paid for on every later call.
 2. Check you're on the release branch (`git branch --show-current`) and the tree is clean. If not, stop and report. In a worktree, first do what the order says (`git switch V<x>`, copy `.env.local`, your own dev port and tab): `isolation: worktree` starts from `main`.
 3. Build the step. Follow the project's `CLAUDE.md` (its conventions in the code: shared helpers, theme tokens, layout, times, groups). Use the shared components the order names rather than writing a look-alike. Before using a library's API, look up its current docs with context7. Comments explain why.
-4. Check: the project's check script (its `CLAUDE.md` names it; it prints only failures). Never run a formatter the repo has no config for: it reformats whole files (2.10.1, twice). A change to a file the project's `CLAUDE.md` lists under Tests gets a test case. Tests that reach the backend client mock it: CI runs with no backend env, and three releases running failed CI on unmocked tests.
+4. Check: the project's check script (its `CLAUDE.md` names it; it prints only failures). Never run a formatter the repo has no config for: it reformats whole files (2.10.1, twice). A change to a file the project's `CLAUDE.md` lists under Tests gets a test case. Tests that reach the backend client mock it: CI runs with no backend env, and three releases running failed CI on unmocked tests. A failing test that renders a component you changed is yours, even outside your step's files (3.1.1: 7c27ff7, 5eccf76). A lock-file change is checked with `npx -y npm@<CI's npm major> ci --dry-run` in a scratch copy before the commit (`[lockfile]`; CI runs npm 10).
    Self-check before you commit:
    - pages under the size cap (checked by the project's conventions script, `conventions` in `.claude/kit.json`);
    - no secret in a URL, and no private or spoiler text in push or email;

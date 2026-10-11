@@ -38,6 +38,9 @@ Each row: job → agent, model, effort.
 - An audit (every toast, every confirm) gets its file list from `lorenzo-von-matterhorn` first, and the order names the files.
 - A fresh builder every 2–3 steps, or once its calls pass ~150k tokens.
 - **Paths in an order are a literal list** (2.14.6.1, confirmed at `/memento`): one path per line or a zsh array, never a space-separated variable; zsh doesn't split it, and three builders of 2.14.6.1 lost calls on that.
+- **A silent lane is stopped** (`[stalls]`): the navigator checks each lane's last file write on every hand-back (a background watchdog), stops a lane that wrote no file for 20 minutes and hands its files to a fresh agent of the same role. Every work order carries "never run a command that doesn't exit on its own; a refused call is never retried".
+- **Commits in an order are path-scoped:** `git commit -- <paths>`, never a bare `git commit` after `git add` (`[parallel]`: three ride-alongs in 3.1, one lane's commit carrying another's staged files). An order for a page that writes data names the query keys it invalidates (3.1's club cache).
+- **Every lane order under a chain marker carries the edit rule** (`[guard-noise]`, `[orders]`; chain 3.0: seven guard refusals, all one shape): "edit with Edit or Write, never a `python3`/`node -e` heredoc; no `cd` into a folder built at run time".
 - **No skill or agent ships unnamed or unvoiced:** the step that adds one writes its `## Voice` card from the `design` plugin's `voice-card.md` in the same commit (2.14.6.2).
 
 **Find**
@@ -50,6 +53,7 @@ Each row: job → agent, model, effort.
 - The full matrix → only on demand, as `/darth-vader`.
 - `bengt-johansson` is the single-feature pass. A release with several UI features or any layout work sends the Bengan Boys instead, one per lane: `magnus-wislander` (1024/1440), `staffan-olsson` (375), `stefan-lovgren` (interactions), then `tomas-svensson` last against `.claude/taste.md`; each in its own tab. QA's share target is ≤10% of the release.
 - The pre-merge review of a finished branch → `kissochbajslowski`, Sonnet, high; give it the screenshot folders.
+- A whole-part review splits into a database lane and an app lane, one `kissochbajslowski` each (`[turns]`: it hit its 60-turn cap twice on whole parts in 3.3; W1's split didn't).
 - The second reviewer, for design and accessibility → `daredevil`, Sonnet, high, read-only, in every release with UI.
 
 **Database**
@@ -157,7 +161,7 @@ Every agent, whatever its model: decide it yourself when it is reversible and in
 
 ## The navigator stays lean
 
-The navigator never reads a file or page over ~20k characters itself: `lorenzo-von-matterhorn` or `c-3po` reads it and returns the part it needs. The roadmap page is read by `c-3po` and `the-trail`, never in full by the navigator. A QA finding goes to its fixer in one order with file:line, not relayed piecemeal. `c-3po` drafts the PR description before `its-a-trap` runs.
+The navigator never reads a file or page over ~20k characters itself: `lorenzo-von-matterhorn` or `c-3po` reads it and returns the part it needs. The roadmap page is read by `c-3po` and `the-trail`, never in full by the navigator. A QA finding goes to its fixer in one order with file:line, not relayed piecemeal. `c-3po` drafts the PR description before `its-a-trap` runs. The navigator's own budget is ≈ 2.2M a step (`[sizing]`: 33 steps ≈ 73M in 3.1.1); `c-3po` fills the PR body's Budget and Usage tables, not the navigator.
 
 ## Speaking in character
 
@@ -228,6 +232,10 @@ The main session is the navigator, **`maverick`**: it talks with you, plans, and
 - Reuse an agent through SendMessage for follow-ups on the same files, but a builder for at most 2–3 steps: its context grows with every step and is re-read on every call. Screenshots only when a feature is finished, taken once by the `bengt-johansson` agent. Small edits stay with the navigator.
 - **Every job carries a budget** (`[budget NM]` at the end of its description); Hank (`${CLAUDE_PLUGIN_ROOT}/hooks/budget-cap.mjs`) enforces it.
 - **The work order carries everything** (the step, the 3–5 files to read, shared components to use, how to check it, the branch): specialists don't see the conversation, and stop with questions for the navigator to ask you.
+- **A builder step over 6 files, or with screenshots, says in its order "at turn 50, commit and report what's left"** (`[turns]`: two releases running had page-sized steps hit `maxTurns: 60`, then resumed once only to report, and a resume pays `[floor]` again). **No order is tagged over 15M:** a step that sizes to 20M is cut in two at `/inception` (`[turns]`: every 20M step in 3.1.1 hit `maxTurns` 90).
+- **Every page order carries a "Fixtures" block** (`[fixtures]`: ten of 3.1.1's sixteen "cheaper next time" lines asked for it): the QA group ids (a club one, a non-club one), seed URLs, the measured stack heights, the existing components and tokens to reuse (the navigator greps them before writing the order), and where each new button leads. A wrap-up page order carries the exact lines or array to change.
+- **Browser lanes in one session (`[one-session]`):** each lane runs its own dev port (`npm run dev -- --port 51NN --strictPort`), signed in at the start; a fixed QA layout group nobody toggles, named in the order; restart the lane's server after any `package.json` change.
+- **A step that adds a server route (Vercel middleware, an edge path) is checked on Vercel before review:** the builder curls the Vercel preview with Vercel's protection-bypass header (the secret is the Keychain item named `keychain.vercelBypass` in `.claude/kit.json`), never only the dev build, which doesn't run it (`[edge-route]`: a middleware that passed on Vite answered 500 on every event link for ≈ 18 min).
 - **Every order lists what the guard refuses in a shell call** (`[frozen]`, `[guard-noise]`, 2.14.7): a shell line naming `prod-db.sh`, `full-auto.sh` or the plugins' `hooks/`, or writing `${…}`, is refused, so use Read, Grep or Edit for those; no route lets an agent copy the three production scripts (a person copies them from the database plugin into `scripts/` once; a drive's preflight stops without them); a nested `claude` is refused in Bypass. Hook tests run as `npx vitest run` on the hooks folder, never `node --test`.
 - **Capture skills:** a procedure that comes up twice becomes `.claude/skills/<name>/SKILL.md`, listed in the PR's "Notes for review". Improve an existing skill over a near-duplicate.
 - **Effort:** xhigh/max only where a mistake is expensive (production, stubborn bugs, seniors). `the-playbook` runs at high; for policy rewrites and private events it writes the test first (see its prompt). Failing twice goes one model up, per the `oceans-eleven` skill; after the hard part, back down.

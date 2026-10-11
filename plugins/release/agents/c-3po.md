@@ -27,6 +27,9 @@ Update `README.md` for what the release changes (Anton's rule: every PR touches 
 ## PR description
 Follow `.github/pull_request_template.md`. Use the `carousel` skill's checklist for exactly what each section needs (What changed, How it was tested, Production steps, Notes for review) and fill it from the plan file and commit log the order gives you. Copy the plan's production commands exactly, as `scripts/prod-db.sh dry-run` / `push <version> <nnnn>` — never `supabase db push`, which targets dev. Edge Function deploys go under "Before merge": they run before the merge under the marker, nothing runs after it (safe only when the change is additive for the live frontend). Every Production step's label stays under 60 characters: a longer one was read as prose and left off the arm list (2.13.3.1).
 
+## Human steps ledger
+When the PR description is written, its "Human steps afterwards" go to `<plans>human-steps.md` by `carousel` step 5 (once per PR: an existing heading for the PR number is edited, never appended twice). `/memento` and `/future-ted` walk the open ones.
+
 ## Decisions
 Each durable "Decided on the way" bullet (one that outlives the release) becomes a file in `docs/decisions/`, following its README; link it from the bullet.
 

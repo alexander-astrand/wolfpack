@@ -4,12 +4,16 @@
 // and writes nothing to disk, but every image is kept in the session (or
 // subagent) transcript as base64, so the file can be recovered from there.
 //
-//   node ${CLAUDE_PLUGIN_ROOT}/skills/spidey-sense/save-shot.mjs <out.jpg> [--minutes 5] [--repo <main checkout>]
+//   node ${CLAUDE_PLUGIN_ROOT}/skills/spidey-sense/save-shot.mjs <out.jpg> [--minutes 5] [--since <ISO time>] [--repo <main checkout>]
 //
 // Looks at every transcript under ~/.claude/projects/<this project>/ (the
 // session files and their subagents/) modified in the last N minutes and
 // writes the image with the latest timestamp. Run it right after the
 // screenshot: another agent screenshotting in the same seconds could win.
+//
+// --since <ISO time> is when the pass started: if the newest image was taken
+// before it, nothing is saved and the script exits 1 (3.3: three of four Hut
+// shots were the designer's mocks, saved as if fresh). QA passes give it.
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
@@ -17,7 +21,7 @@ import { execFileSync } from 'node:child_process'
 
 const out = process.argv[2]
 if (!out) {
-  console.error('usage: save-shot.mjs <out.jpg> [--minutes 5]')
+  console.error('usage: save-shot.mjs <out.jpg> [--minutes 5] [--since <ISO time>]')
   process.exit(2)
 }
 const minutesFlag = process.argv.indexOf('--minutes')
@@ -50,7 +54,13 @@ if (repoFlag < 0 && !existsSync(projectDir)) {
     // and let the "no screenshot" check below report it.
   }
 }
-const since = Date.now() - minutes * 60_000
+const cutoff = Date.now() - minutes * 60_000
+const sinceFlag = process.argv.indexOf('--since')
+const passStart = sinceFlag > 0 ? Date.parse(process.argv[sinceFlag + 1] ?? '') : null
+if (sinceFlag > 0 && Number.isNaN(passStart)) {
+  console.error('--since needs an ISO time, e.g. 2026-10-09T14:30:00Z')
+  process.exit(2)
+}
 
 function transcripts(dir) {
   const files = []
@@ -59,7 +69,7 @@ function transcripts(dir) {
     const st = statSync(p)
     if (st.isDirectory()) {
       if (name === 'subagents' || /^[0-9a-f-]{36}$/.test(name)) files.push(...transcripts(p))
-    } else if (name.endsWith('.jsonl') && st.mtimeMs >= since) {
+    } else if (name.endsWith('.jsonl') && st.mtimeMs >= cutoff) {
       files.push(p)
     }
   }
@@ -91,6 +101,15 @@ for (const file of transcripts(projectDir)) {
 
 if (!best) {
   console.error(`no screenshot in the last ${minutes} minutes under ${projectDir}`)
+  process.exit(1)
+}
+// The newest image is older than the pass: it is someone else's shot (a mock,
+// an earlier pass), and saving it would pass as fresh.
+if (passStart !== null && best.at < passStart) {
+  console.error(
+    'newest screenshot was taken ' + new Date(best.at).toISOString() +
+      ', before the pass started (' + new Date(passStart).toISOString() + '): not saved. Take a new one.',
+  )
   process.exit(1)
 }
 writeFileSync(out, Buffer.from(best.data, 'base64'))
