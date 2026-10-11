@@ -37,6 +37,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { agentName, parseEntries, tallyEntries, totalTokens } from '../scripts/usage.mjs'
+import { projectOwns } from './step-aside.mjs'
 
 // An agent shipped in a plugin runs as `<plugin>:<agent>` (`release:chris-de-kok`),
 // while the budget table and kit.json name the agent alone; without this a
@@ -489,6 +490,8 @@ function logTo(input) {
 // ---------------------------------------------------------------- main
 
 async function main() {
+  // A project that registers its own Hank keeps it: two would count every call twice.
+  if (projectOwns({ kitName: 'budget-cap.mjs' })) process.exit(0)
   let raw = ''
   for await (const chunk of process.stdin) raw += chunk
   let input = null

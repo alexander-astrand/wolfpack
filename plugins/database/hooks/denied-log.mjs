@@ -14,6 +14,7 @@
 import { appendFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { projectOwns } from './step-aside.mjs'
 
 const INPUT_HEAD = 200
 const MASK_HEAD = 2000
@@ -79,6 +80,8 @@ export async function run(raw, env = {}) {
 }
 
 async function main() {
+  // The project's own denied-log writes the line; a second copy would log it twice.
+  if (projectOwns({ kitName: 'denied-log.mjs' })) process.exit(0)
   let raw = ''
   try {
     for await (const chunk of process.stdin) raw += chunk

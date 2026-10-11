@@ -10,6 +10,17 @@ setTimeout(() => {
   process.stderr.write('The production guard took more than 18s, so this call is blocked. A person looks at why.\n')
   process.exit(2)
 }, 18000).unref()
+// A project that registers its own guard (Hutzup's frozen .claude/hooks/)
+// keeps it, and this copy steps aside: no decision, no output. Any error in
+// that check runs the kit's guard as before, never skips it.
+let projectGuards = false
+try {
+  const { projectOwns } = await import(new URL('./step-aside.mjs', import.meta.url).href)
+  projectGuards = projectOwns({ kitName: 'guard-entry.mjs', names: ['guard-entry.mjs', 'guard-production.mjs'] })
+} catch {
+  projectGuards = false
+}
+if (projectGuards) process.exit(0)
 try {
   const guard = await import(new URL('./guard-production.mjs', import.meta.url).href)
   await guard.main()

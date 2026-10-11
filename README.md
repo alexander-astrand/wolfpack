@@ -71,6 +71,8 @@ For Supabase projects. The production guard (the Slap Bet Commissioner, `hooks/g
 - Agents: `the-playbook`
 - Skills: `bro-code`
 
+A project that registers its own copy of a hook in `.claude/settings.json` keeps it; the kit's copy steps aside (Hutzup 3.3.3). That holds for the guard, Hank and the denied-call log (`hooks/step-aside.mjs`): only when the project's settings register its copy under `.claude/hooks/` for every matcher the kit uses and the file is there; anything else, including a settings file that won't parse, runs the kit's copy.
+
 ### Per project: the deployer and the senior adviser
 A deployer (Hutzup's `ranjit`, named by `deployer` in `.claude/kit.json`) and a senior adviser (Hutzup's `yoda`) are per project: they carry the project's own people, refs and history, so the kit doesn't ship them. A project that wants them keeps its own in `.claude/agents/` (the guard treats both files as frozen).
 
