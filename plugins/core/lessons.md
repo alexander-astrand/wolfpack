@@ -4,7 +4,7 @@ The kit's working rules for any project's team (navigator, builders, budgets, Ha
 One line per rule, ≤ 300 characters. Readers read this file and the project's own `.claude/lessons.md` (its rules about its pages, kinds and tables; its figures sit in `lessons-numbers.md`); a slug lives in one of the two, never both. Alexander's way of working is `~/.claude/CLAUDE.md`, not restated here.
 Moved here from Hutzup's lessons at 3.3.3, 11 Oct 2026; `/future-ted` replaces stale lines rather than appending, and a kit edit commits in this repo.
 
-- **[skyler]** Skyler and Hank count real tokens (each message.id once); `--timeline` takes the transcript id, never the `local_…` session id; older figures sit on an inflated scale (see the project's numbers file), so compare like with like.
+- **[skyler]** Skyler and Hank count real tokens (each message.id once); a `local_…` session id resolves to its transcript itself (`--timeline` too, Burrow 0.6); older figures sit on an inflated scale (see the project's numbers file), so compare like with like.
 - **[meter]** Report a release two ways: Skyler ÷ the planning figure in `.claude/kit.json` (the estimate) and the weekly meter's delta (a ceiling, naming the sessions beside it); judge a many-card release per card, and start a day chain right after a 5-hour reset.
 - **[one-theme]** One theme per release is the cheapest shape; size it by its kind (kit, packaging, guard, pages, polish, sweep) from the per-commit rates in the project's numbers file, on the real scale.
 - **[auto]** Manual mode: `~/.claude/CLAUDE.md` (Auto by default). Process edits run in Bypass. A deploy link reads with Read/Grep only, takes times from tool output, and on any Auto refusal sends `LINK WAITING` and goes on only on Alexander's word, never by another route.
@@ -57,3 +57,6 @@ Moved here from Hutzup's lessons at 3.3.3, 11 Oct 2026; `/future-ted` replaces s
 - **[lockfile]** A lock-file change is checked with CI's exact npm (`npx -y npm@<CI's version> ci --dry-run` in a scratch copy) before the next step, and CI's result is read before moving on.
 - **[turns]** No order over 15M and a step cut at 6 files; agents don't count their turns, so the cap is `maxTurns` in the agent files, and a review of a whole part splits into a database lane and an app lane.
 - **[research]** Research on vendor limits fetches each pricing page plus one limits page, with no search step.
+- **[lane-home]** Lane worktrees live outside `.claude` (`~/Desktop/<Project>-lanes/<lane>`): Agent `isolation: worktree` puts them under `.claude/worktrees`, and every write under a `.claude` folder asks even in Auto (Burrow 0.6: the run went to Bypass at 20:35Z).
+- **[kit-agents]** A kit version that moves an agent out of a plugin copies it into each project that uses it in the same change: kit 1.3 left Burrow without `ranjit`, so `/skinny-pete 0.6` stopped, and a copied agent loads only in a fresh session.
+- **[review-lanes]** A split `/its-a-trap` runs its lanes as `kissochbajslowski`, never `general-purpose`: Burrow 0.6's G2 ran four Opus general-purpose lanes for ~26M against a 20M tag; G1's one Sonnet run cost 4.0M, and neither found a must.
