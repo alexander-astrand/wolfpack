@@ -118,7 +118,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, normalize, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
-import { CI_JOBS, CI_WORKFLOW, DEPLOYER, DEV_KEYCHAIN_ITEM, DEV_REF, GH_FILES_MS, HOOKS_DIR, PROD_KEYCHAIN_ITEM, PROD_URL, allowedCommands, armList, changesDatabase, checksNotGreen, completeFiles, ghFetchFiles, pluginMode, prFacts } from './production-steps.mjs'
+import { CI_JOBS, CI_WORKFLOW, DEPLOYER, DEV_KEYCHAIN_ITEM, DEV_REF, GH_FILES_MS, HOOKS_DIR, PROD_KEYCHAIN_ITEM, NO_PRODUCTION, PROD_URL, allowedCommands, armList, changesDatabase, checksNotGreen, completeFiles, ghFetchFiles, pluginMode, prFacts } from './production-steps.mjs'
 import { CHAIN_USAGE, FROZEN, FROZEN_RE, RELEASE_PR_FIELDS, chainArgs, chainWhyNot, frozenOnDisk, oneTapDecision, oneTapVerdict, projectRoot } from './chain-arm.mjs'
 
 // The project's values come from its .claude/kit.json (production-steps.mjs
@@ -1237,6 +1237,40 @@ const NO_RESCAN = new Set([...RESCAN, 'echo', 'printf', 'cat', 'head', 'tail', '
   'file', 'diff', 'test', '[', '[[', 'realpath', 'readlink', 'basename', 'dirname', 'cd', 'pushd', 'mkdir', 'touch', 'rm', 'cp', 'mv', 'sort',
   'uniq', 'cut', 'tr', 'true', 'false', 'export', 'which', 'type', 'printenv', 'date', 'sleep', 'tee', 'source', '.', 'eval'])
 const commandName = (w) => basename(String(w)).replace(/(?<=.)@[^/]*$/, '').toLowerCase()
+
+// The names a glob in the command word must not be able to become: every
+// command the guard judges by name, and every runner or interpreter that
+// could run one. A glob that matches none of them runs some other program,
+// which is read like any program the guard doesn't know.
+const NAMED_COMMANDS = ['gh', 'git', 'supabase', 'prod-db.sh', 'full-auto.sh', 'claude', 'claude-code', 'psql', 'pg_dump', 'pg_dumpall', 'pg_restore',
+  'security', 'sed', 'find', 'rsync', 'tar', 'ln', 'cp', 'mv', 'tee', 'dd', 'install', 'ditto',
+  ...HTTP_CLIENTS, ...SHELLS, ...INTERPRETERS, ...WRAPPERS]
+function globMayName(name) {
+  if (!DYNAMIC_RE.test(name)) return false
+  // Code read as a command line makes "globs" of its lists, and a name in
+  // one is still a call (`['bash','-c','gh pr merge 12']` reads as
+  // `[bash,-c,gh`, probe table B2): only a glob naming none of them is narrowed.
+  if (NAMED_COMMANDS.some((n) => name.includes(n))) return true
+  let re = ''
+  for (let i = 0; i < name.length; i++) {
+    const c = name[i]
+    if (c === '*') re += '.*'
+    else if (c === '?') re += '.'
+    else if (c === '[' && name.indexOf(']', i + 2) > 0) {
+      const end = name.indexOf(']', i + 2)
+      const body = name.slice(i + 1, end).replace(/^!/, '^').replace(/[\\\]]/g, '\\$&')
+      re += `[${body}]`
+      i = end
+    } else re += c.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+  }
+  // A glob the scan can't turn into a pattern may be anything: built, as before.
+  try {
+    const glob = new RegExp(`^${re}$`, 's')
+    return NAMED_COMMANDS.some((n) => glob.test(n))
+  } catch {
+    return true
+  }
+}
 
 function laterCommands(seg, ctx) {
   if (seg.subshell) return []
@@ -2677,7 +2711,11 @@ function segmentRules(seg, ctx) {
   // In interpreter code nothing is built by a shell (where.code, 2.12.3).
   // `[` and `[[` are the test builtins, not a glob: `[ -n "$PR" ]` hides no
   // gh subcommand (2.12.4).
-  const built = !where.code && cmd !== '[' && cmd !== '[[' && (DYNAMIC_RE.test(cmd) || (/\$\(|`/.test(words[0]) && /[)`]/.test(cmd)))
+  // A glob with no $ or backtick in it can only become a name it matches:
+  // `x[k]` is xk, never gh (job-hunt V0.1: code read as a command line had
+  // `x[k]`, `[head,` and `?:personligt?` refused as a hidden gh merge). So it
+  // counts as built only when it could match a command judged by name.
+  const built = !where.code && cmd !== '[' && cmd !== '[[' && (/[$`]/.test(words[0]) ? DYNAMIC_RE.test(cmd) || (/\$\(|`/.test(words[0]) && /[)`]/.test(cmd)) : globMayName(cmd))
 
   // A nested claude could run as another agent (`claude -p --agent yoda`)
   // or without the project's hooks (`--setting-sources user`), so none runs
@@ -2840,6 +2878,7 @@ function checkGh(args, ctx) {
     sub[0] === undefined || built(sub[0]) || (built(sub[1]) && sub[0] !== 'api') || alias ||
     (sub[0] === 'pr' && (sub[1] === 'merge' || sub[1] === 'ready' || sub[1] === undefined)) ||
     (GH_EXTENSION.has(sub[0]) && sub[1] === 'exec'))
+  if (shipping && NO_PRODUCTION) return noProductionMerge(sub, args, ctx)
   if (shipping) {
     ctx.production = true
     const what = sub[0] === 'pr' && sub[1] !== undefined && !built(sub[1]) ? `\`gh pr ${sub[1]}\``
@@ -2850,7 +2889,9 @@ function checkGh(args, ctx) {
   }
   if (sub[0] === 'api') {
     const text = args.join(' ')
-    if (GITHUB_MERGE_RE.test(text) || contentsWrite(text) || apiMayMerge(args.slice(args.indexOf('api') + 1))) return prodCall(ctx, deny(MERGE_BY_API))
+    if (GITHUB_MERGE_RE.test(text) || contentsWrite(text) || apiMayMerge(args.slice(args.indexOf('api') + 1))) {
+      return prodCall(ctx, deny(NO_PRODUCTION ? 'Merging goes through `gh pr merge <number>`, which checks the PR is green and asks first.' : MERGE_BY_API))
+    }
   }
   // gh runs some of its config as commands (browser, editor, pager), so
   // `gh config set browser 'gh pr merge …' && gh browse` merges (must C,
@@ -2864,6 +2905,37 @@ function checkGh(args, ctx) {
   if (sub[0] === 'alias' && ['set', 'import'].includes(sub[1])) return deny('A gh alias could hide a merge from the guard, so none is set or imported here; a person does it by hand.')
   if (GH_EXTENSION.has(sub[0]) && sub[1] === 'install') return deny('A gh extension could hide a merge from the guard, so none is installed here; a person does it by hand.')
   return null
+}
+
+// In a project with no production (kit.json's "production": "none"), a merge
+// ships nothing, so it isn't ranjit's: it waits on a person's go, and only
+// for a PR that is open, out of draft, MERGEABLE and green on CI's own jobs,
+// Alexander's merge rule. `gh pr ready` is what takes it out of draft, so it
+// is left to the permission rules. A guess (a subcommand built at run time,
+// an alias, a code string read as a command line) passes: with nothing to
+// ship, refusing it stopped only real work (job-hunt V0.1: `x[k]` and
+// `?:personligt?` refused as hidden merges).
+const GH_MERGE_VALUE_FLAGS = new Set(['-t', '--subject', '-b', '--body', '-F', '--body-file', '-A', '--author-email', '--match-head-commit'])
+function noProductionMerge(sub, args, ctx) {
+  if (sub[0] !== 'pr' || sub[1] !== 'merge') return null
+  // --admin skips the branch rules, --auto merges later with no one looking.
+  const flag = args.find((w) => /^--(?:admin|auto)$/.test(w))
+  if (flag) return deny(`\`gh pr merge ${flag}\` merges past the checks or later with no one looking; merge it plainly once CI is green.`)
+  let n
+  for (let i = args.indexOf('merge') + 1; i < args.length && n === undefined; i++) {
+    if (GH_MERGE_VALUE_FLAGS.has(args[i]) || args[i] === '-R' || args[i] === '--repo') i++
+    else if (!args[i].startsWith('-')) n = args[i]
+  }
+  if (!/^#?\d+$/.test(n ?? '')) return deny('Name the PR by number (`gh pr merge 12 --merge`), so the guard can check that PR is green before it asks.')
+  const pr = ctx.openPr(n.replace('#', ''))
+  const why = !pr ? `PR #${n} couldn't be read`
+    : pr.state !== 'OPEN' ? `PR #${n} is ${pr.state}`
+      : pr.isDraft !== false ? `PR #${n} is ${pr.isDraft ? 'a draft (gh pr ready takes it out first)' : 'of unknown draft state'}`
+        : pr.mergeable !== 'MERGEABLE' ? `PR #${n} is ${pr.mergeable ?? 'of unknown mergeability'}, not MERGEABLE`
+          : checksNotGreen(pr.statusCheckRollup) ? `PR #${n}'s checks aren't green (${checksNotGreen(pr.statusCheckRollup)})` : ''
+  if (why) return deny(`Not merged: ${why}.`)
+  if (ctx.unattended) return deny('A merge waits on a person\'s go, and bypass and don\'t-ask modes can\'t ask. Run it from an Auto mode session.')
+  return ask(ctx, `Merges PR #${n} into ${pr.baseRefName ?? 'main'}: open, out of draft, no conflicts, CI green. This project has no production, so nothing deploys. Your yes is the go: gh ${args.join(' ')}`)
 }
 
 const GH_API_VALUE_FLAGS = new Set(['-X', '--method', '-H', '--header', '-f', '--raw-field', '-F', '--field', '--input', '-q', '--jq', '-t', '--template', '-p', '--preview', '--hostname', '--cache'])
