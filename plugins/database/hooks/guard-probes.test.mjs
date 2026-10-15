@@ -87,7 +87,10 @@ const ROWS = [
   ['chain', 'false && cd /tmp/x; cp a settings.json', 'deny', B2, DOT],
   ['chain', 'cd /tmp/x || true; cp a hooks/guard-production.mjs', 'deny', B2, DOT],
   ['chain', 'test -d /tmp/x && cd /tmp/x; cp a hooks/b', 'deny', B2, DOT],
-  ['chain', 'false && cd /tmp/x; cp a notes.md', 'deny', B2],
+  // Burrow V0.9 (15 Oct 2026): judged in both folders it may run in, /tmp/x
+  // and the checkout, neither of which holds notes.md in the frozen set.
+  // Was deny (folder unknown); the frozen names above still are.
+  ['chain', 'false && cd /tmp/x; cp a notes.md', 'pass', B2],
   // …named in full, these were refused already.
   ['chain', 'cd /x || cp a .claude/hooks/b', 'deny'],
   ['chain', 'false && cd /tmp/x; cp a scripts/full-auto.sh', 'deny'],

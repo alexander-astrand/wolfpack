@@ -985,8 +985,10 @@ function checkShell(src, ctx, where = { dir: ctx.cwd, built: false }) {
     segs.forEach((seg, k) => {
       // A cd that ran only if what came before it succeeded (`a && cd x`)
       // holds while the call goes on by &&; after a ; a newline or a ||, the
-      // call may go on where it was, so the folder is unknown (2.14.9.1, B2).
-      if (where.iffy && seg.opBefore && seg.opBefore !== '&&') where = { dir: undefined, built: true }
+      // call may go on where it was (2.14.9.1, B2), so it is judged in x and
+      // in each folder it was in before (Burrow V0.9: `mkdir -p X && cd X`
+      // then a write on the next line asked as if X were unknown).
+      if (where.iffy && seg.opBefore && seg.opBefore !== '&&') where = widened(where)
       // A segment after a plain `cd /x;` may run in /x or, if the cd failed,
       // where the call was: it is judged in each folder it could run in.
       const { others = [], ...here } = where
@@ -1016,7 +1018,7 @@ function afterCd(seg, where, last = null, next = null) {
   // stops the call when the cd fails, and with it a failed `a &&` before it.
   const stops = seg.opAfter === '||' && next && ['exit', 'return'].includes(stripPrefix(next.words)[0]) && !['||', '|', '&'].includes(next.opAfter)
   if (seg.opAfter === '||' && !stops) return { dir: undefined, built: true }
-  const { others = [], ...here } = where
+  const { others = [], before = [], iffy: wasIffy, ...here } = where
   const { made, ...landed } = afterCdTo(seg, words, here, last)
   if (landed.built) return landed
   // After `a && cd x` the cd ran only if a succeeded: checkShell drops the
@@ -1037,9 +1039,24 @@ function afterCd(seg, where, last = null, next = null) {
   // A long run of cds that could each fail leaves too many folders to keep:
   // the folder counts as built at run time.
   if (alts.length > MAX_CD_FOLDERS) return { dir: undefined, built: true }
-  return { ...landed, ...(iffy && { iffy }), ...(alts.length && { others: alts }) }
+  // Where the call stays if this cd (or what came before it) fails: kept for
+  // the next ; or newline, which widens to all of them.
+  const stay = iffy ? distinctFolders([here, ...others, ...(wasIffy ? before : [])]) : []
+  if (stay.length > MAX_CD_FOLDERS) return { dir: undefined, built: true }
+  return { ...landed, ...(iffy && { iffy, before: stay }), ...(alts.length && { others: alts }) }
 }
 const MAX_CD_FOLDERS = 4
+
+const distinctFolders = (list) => list.reduce((out, at) => (out.some((o) => o.dir === at.dir && o.built === at.built) ? out : [...out, { dir: at.dir, built: at.built }]), [])
+
+// An iffy cd's folder, its alternatives and every folder the call stays in
+// if it failed: one folder to judge in, the rest as others. Past
+// MAX_CD_FOLDERS the folder counts as built at run time, as before.
+function widened(where) {
+  const [first, ...rest] = distinctFolders([where, ...(where.others ?? []), ...(where.before ?? [])])
+  if (rest.length > MAX_CD_FOLDERS || first.built || rest.some((o) => o.built)) return { dir: undefined, built: true }
+  return { ...first, ...(rest.length && { others: rest }) }
+}
 
 function afterCdTo(seg, words, where, last) {
   let to = words.slice(1).find((w) => !w.startsWith('-') || w === '-')
@@ -1678,6 +1695,27 @@ const WRITES_EACH = new Set(['mv', 'rm', 'tee', 'touch', 'truncate', 'unlink', '
 const WRITES_LAST = new Set(['cp', 'ln', 'rsync', 'ditto', 'install', 'scp'])
 const GIT_WRITES = new Set(['checkout', 'restore', 'apply', 'mv', 'rm', 'am'])
 
+// The files `sed -i` edits: its script is no path. Burrow V0.9 (15 Oct 2026):
+// `sed -i '' '3s/.*/…/' notes.md` read the script as a path, `.*` as a glob
+// that could match .github, and asked; under away mode nobody answered. The
+// script is each -e value, or else the first plain word; BSD's empty backup
+// suffix (`-i ''`) is no file either. Left with no file, every word stays a
+// candidate, so a reading that's off errs toward asking.
+function sedFiles(rest) {
+  const words = rest.filter((w) => w !== '')
+  const plain = []
+  let scripts = 0
+  for (let k = 0; k < words.length; k++) {
+    const w = words[k]
+    if (w === '--') { plain.push(...words.slice(k + 1)); break }
+    if (/^(?:-[nErsuz]*[ef]|--expression|--file)$/.test(w)) { scripts++; k++; continue }
+    if (/^(?:-[nErsuz]*[ef].|--expression=|--file=)/.test(w)) { scripts++; continue }
+    if (!w.startsWith('-')) plain.push(w)
+  }
+  const files = scripts ? plain : plain.slice(1)
+  return files.length ? files : words.filter((w) => !w.startsWith('-'))
+}
+
 function protectedWrite(seg, ctx) {
   if (seg.subshell) return null
   const where = seg.where ?? { dir: ctx.cwd, built: false }
@@ -1695,7 +1733,7 @@ function protectedWrite(seg, ctx) {
     if (source) {
       target = `a link to ${source}`
     } else if (WRITES_EACH.has(cmd) || (['sed', 'perl'].includes(cmd) && rest.some((w) => /^-[a-z0-9]*i/i.test(w) || w.startsWith('--in-place')))) {
-      target = args.find(prot)
+      target = (cmd === 'sed' ? sedFiles(rest) : args).find(prot)
       // perl -i runs its code as well (`-0pi` too, 2.12.3), unless the code
       // is plain substitutions, which edit only the files named.
       if (!target && cmd === 'perl' && !perlSubstitutes(rest)) target = interpreterWrites(cmd, rest, seg, prot)
