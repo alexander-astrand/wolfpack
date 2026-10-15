@@ -80,6 +80,13 @@ export let CI_WORKFLOW_FILE = missing('ci.workflow')
 // word with no prod ref, prod url or deployer beside it counts; a missing or
 // unreadable kit.json, or one that names any of them, keeps production.
 export let NO_PRODUCTION = false
+// `"production": "on-merge"` says a host ships main by itself and nothing
+// else reaches production (portfolio, 15 Oct 2026: Vercel deploys main to
+// astrand.xyz, no database). Marking the PR ready and merging it then wait
+// on a person's go and a green PR, as with "none", instead of on a ranjit the
+// project doesn't have. Only that word, with a web origin in urls.prod and no
+// prod ref or deployer beside it, counts; anything else keeps the full guard.
+export let SHIPS_ON_MERGE = false
 
 /** Loads the project's values; a test passes its fixture's path. */
 export function loadKitConfig(file = join(projectRoot(), '.claude', 'kit.json')) {
@@ -105,6 +112,7 @@ export function loadKitConfig(file = join(projectRoot(), '.claude', 'kit.json'))
   CI_JOBS = jobsOk ? [...jobs] : [missing('ci.jobs')]
   CI_WORKFLOW_FILE = str(kit.ci?.workflow) ?? missing('ci.workflow')
   NO_PRODUCTION = kit.production === 'none' && !str(kit.refs?.prod) && !str(kit.urls?.prod) && !str(kit.deployer)
+  SHIPS_ON_MERGE = kit.production === 'on-merge' && !str(kit.refs?.prod) && !!origin(kit.urls?.prod) && !str(kit.deployer)
 }
 loadKitConfig()
 

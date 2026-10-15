@@ -118,7 +118,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, normalize, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
-import { CI_JOBS, CI_WORKFLOW, DEPLOYER, DEV_KEYCHAIN_ITEM, DEV_REF, GH_FILES_MS, HOOKS_DIR, PROD_KEYCHAIN_ITEM, NO_PRODUCTION, PROD_URL, allowedCommands, armList, changesDatabase, checksNotGreen, completeFiles, ghFetchFiles, pluginMode, prFacts } from './production-steps.mjs'
+import { CI_JOBS, CI_WORKFLOW, DEPLOYER, DEV_KEYCHAIN_ITEM, DEV_REF, GH_FILES_MS, HOOKS_DIR, PROD_KEYCHAIN_ITEM, NO_PRODUCTION, PROD_URL, SHIPS_ON_MERGE, allowedCommands, armList, changesDatabase, checksNotGreen, completeFiles, ghFetchFiles, pluginMode, prFacts } from './production-steps.mjs'
 import { CHAIN_USAGE, FROZEN, FROZEN_RE, RELEASE_PR_FIELDS, chainArgs, chainWhyNot, frozenOnDisk, oneTapDecision, oneTapVerdict, projectRoot } from './chain-arm.mjs'
 
 // The project's values come from its .claude/kit.json (production-steps.mjs
@@ -2879,6 +2879,13 @@ function checkGh(args, ctx, where) {
     (sub[0] === 'pr' && (sub[1] === 'merge' || sub[1] === 'ready' || sub[1] === undefined)) ||
     (GH_EXTENSION.has(sub[0]) && sub[1] === 'exec'))
   if (shipping && NO_PRODUCTION) return noProductionMerge(sub, args, ctx, where)
+  // A project its host ships from main: only a spelled-out `gh pr ready` or
+  // `gh pr merge` takes the person's-go path; a built word or an alias still
+  // counts as a hidden merge below, since here a merge does ship.
+  if (shipping && SHIPS_ON_MERGE && sub[0] === 'pr' && (sub[1] === 'ready' || sub[1] === 'merge')) {
+    if (sub[1] === 'merge') ctx.production = true
+    return noProductionMerge(sub, args, ctx, where)
+  }
   if (shipping) {
     ctx.production = true
     const what = sub[0] === 'pr' && sub[1] !== undefined && !built(sub[1]) ? `\`gh pr ${sub[1]}\``
@@ -2890,7 +2897,7 @@ function checkGh(args, ctx, where) {
   if (sub[0] === 'api') {
     const text = args.join(' ')
     if (GITHUB_MERGE_RE.test(text) || contentsWrite(text) || apiMayMerge(args.slice(args.indexOf('api') + 1))) {
-      return prodCall(ctx, deny(NO_PRODUCTION ? 'Merging goes through `gh pr merge <number>`, which checks the PR is green and asks first.' : MERGE_BY_API))
+      return prodCall(ctx, deny(NO_PRODUCTION || SHIPS_ON_MERGE ? 'Merging goes through `gh pr merge <number>`, which checks the PR is green and asks first.' : MERGE_BY_API))
     }
   }
   // gh runs some of its config as commands (browser, editor, pager), so
@@ -2928,7 +2935,7 @@ function noProductionMerge(sub, args, ctx, where) {
   const real = (p) => { try { return realpathSync(p) } catch { return p } }
   const elsewhere = args.some((w) => /^(?:-R|--repo)(?:=|$)|^-R./.test(w)) || /\bGH_(?:REPO|HOST)\b/.test(ctx.source ?? '') ||
     !where || where.built || !where.dir || real(where.dir) !== real(ctx.root)
-  if (elsewhere) return deny(`In a project with no production a merge runs from its own folder (${ctx.root}) on its own repo, with no -R or GH_REPO, so the guard checks the PR it merges.`)
+  if (elsewhere) return deny(`In a project with ${SHIPS_ON_MERGE ? 'no deployer' : 'no production'} a merge runs from its own folder (${ctx.root}) on its own repo, with no -R or GH_REPO, so the guard checks the PR it merges.`)
   let n
   for (let i = args.indexOf('merge') + 1; i < args.length && n === undefined; i++) {
     if (GH_MERGE_VALUE_FLAGS.has(args[i]) || args[i] === '-R' || args[i] === '--repo') i++
@@ -2943,7 +2950,7 @@ function noProductionMerge(sub, args, ctx, where) {
           : checksNotGreen(pr.statusCheckRollup) ? `PR #${n}'s checks aren't green (${checksNotGreen(pr.statusCheckRollup)})` : ''
   if (why) return deny(`Not merged: ${why}.`)
   if (ctx.unattended) return deny('A merge waits on a person\'s go, and bypass and don\'t-ask modes can\'t ask. Run it from an Auto mode session.')
-  return ask(ctx, `Merges PR #${n} into ${pr.baseRefName ?? 'main'}: open, out of draft, no conflicts, CI green. This project has no production, so nothing deploys. Your yes is the go: gh ${args.join(' ')}`)
+  return ask(ctx, `Merges PR #${n} into ${pr.baseRefName ?? 'main'}: open, out of draft, no conflicts, CI green. ${SHIPS_ON_MERGE ? `Its host ships main, so this deploys to ${PROD_URL}.` : 'This project has no production, so nothing deploys.'} Your yes is the go: gh ${args.join(' ')}`)
 }
 
 const GH_API_VALUE_FLAGS = new Set(['-X', '--method', '-H', '--header', '-f', '--raw-field', '-F', '--field', '--input', '-q', '--jq', '-t', '--template', '-p', '--preview', '--hostname', '--cache'])

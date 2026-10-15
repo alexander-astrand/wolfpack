@@ -17,7 +17,7 @@ one-ring · the merge without review (the One Ring, with Gandalf's warning) · h
 - ping: "The Ring is heavy. Say the word, or I stay where I am."
 - wrap: "It is done. Into the fire: merged, and the PR says so."
 
-First read `.claude/kit.json`. If it says `"production": "none"`, follow "No production" below and stop there.
+First read `.claude/kit.json`. If it says `"production": "none"`, follow "No production" below and stop there; if it says `"production": "on-merge"`, follow "Ships on merge" below and stop there.
 
 Otherwise this is `/skinny-pete <version> merge` under a shorter name (Alexander: "Still no /merge skill?"). Read `skinny-pete`'s SKILL.md and follow it exactly, with `merge` set — the deployer, manual permission mode and the guard hook all still apply, because merging ships to production. Don't shortcut any of its steps: the plan, the go, the run, the human steps, the report, and the closing "Deploy usage" PR comment.
 
@@ -28,3 +28,11 @@ The project ships nowhere (job-hunt: Alexander merged its PR #3 by hand because 
 3. `gh pr view <n> --json state,isDraft,mergeable,statusCheckRollup`: open, out of draft, `MERGEABLE`, every check green. A check still running: wait in the background (`gh pr checks <n> --watch`) and look again. Red or conflicting: say which and stop. Never `--admin` or `--auto`.
 4. `gh pr merge <n> --merge --delete-branch`, as its own call (a merge commit, as the project's earlier releases merged). The guard reads the PR again and asks him; his yes merges.
 5. `git switch main && git pull --ff-only`, then `gh pr comment <n> --body "Merged on Alexander's go (/one-ring). No production, so nothing deployed."` Wrap with the card's wrap line and the merge commit's hash.
+
+## Ships on merge
+A host ships `main` by itself and nothing else reaches production: no database, no deployer (portfolio: Vercel deploys main to astrand.xyz; V0.1 and V0.3 handed Alexander the merge because only a deployer could). kit.json says `"production": "on-merge"` with `urls.prod` set. This session merges; his `/one-ring` is the go for this one PR, and the guard asks him at the merge itself, naming the live URL, so run in Auto mode.
+1. to 3. As "No production" above: find the PR, take it out of draft, then wait until it is open, `MERGEABLE` and every check green (leaving draft is what starts CI where CI skips drafts).
+4. `gh pr merge <n> --squash --delete-branch` as its own call, or `--merge` if the project's earlier releases show merge commits on `git log main --first-parent`. The guard reads the PR again and asks him; his yes merges and ships.
+5. `git switch main && git pull --ff-only`. Wait in the background for the host's deploy of the merge commit (`gh api "repos/{owner}/{repo}/deployments?sha=<merge sha>"`, then that deployment's latest status) until `success`; on `failure`, or after 10 minutes, say so and stop.
+6. A signed-out look at `urls.prod` in the built-in browser at 375 and 1024: the page loads, the release's main change shows, the console has no errors. One screenshot each; nothing clicked past a link.
+7. `gh pr comment <n> --body-file <file>`: "Merged on Alexander's go (/one-ring). <host> shipped <merge sha> to <url>; the signed-out look at 375 and 1024 passed (<one line on what showed>)." The release's human steps afterwards (his phone look, `[live-check]`) go in the final message, one at a time. Wrap with the card's wrap line and the merge commit's hash.
