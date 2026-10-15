@@ -3,7 +3,7 @@ name: you-shall-not-pass
 description: Run the checks - type-check, lint, Vitest, knip, build and the SQL tests on dev - and report failures only, in a cheap Haiku fork. For a person's use; autopilot runs scripts/check.sh directly.
 argument-hint: "[app|db|local|all]"
 context: fork
-agent: romeo-olsson
+agent: core:romeo-olsson
 background: false
 ---
 
