@@ -56,6 +56,7 @@ This run is `/maverick`'s `allowance=high` from the `oceans-eleven` skill's Allo
 - **As a chain link** (a `CHAIN … ORDER` from the conductor; see `maverick`, "As a chain link"): with nobody to take it to, a tough decision goes straight to `three-eyed-raven`; taste parks as `TASTE WAIT` for `/memento`.
 - **Every start message, final ping and wrap-up opens with "Not in this release: X → where (agreed when)"**, so nobody has to ask what was left out; a move also goes on the roadmap (the page through `the-trail`, or `<plans>roadmap.md`). An option that adds scope is offered as the next release, never "new scope for this one".
 - Everything else you decide yourself and note in the PR. New ideas go on the roadmap with `/badger`.
+- **One session to the draft PR** (`[release-session]`): the app's handoff, offer and follow-up cards stay out of the run (an unrelated message gets a line or `/badger`); part sessions, when the stamp names them, are opened in your first turn with `start_session` and logged, and one follow-up card at most comes at the draft, all as `maverick`'s "One session to the draft PR" and final ping say.
 
 ## 5. Build
 - **Open the draft PR after the first commit** (`gh pr create --draft --base main --reviewer <reviewer> --title "V<version>: <short name>"`) with the steps as a checklist; each builder ticks its own box as its last act, and your final ping lists any box still open with its reason.
