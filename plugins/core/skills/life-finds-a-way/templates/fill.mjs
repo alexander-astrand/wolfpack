@@ -27,8 +27,10 @@
 // detected in adopt). One rule for text that differs per stack, a marker:
 //   - `<!-- stack:node,python -->` at a line's end keeps that line only for those stacks;
 //   - the same marker alone on a line keeps every line up to `<!-- /stack -->`.
-// `<!-- ui-only -->` works the same way at a line's end, for a dev server (devPort set).
-// Markers are stripped from what's written. A file only some stacks get at all
+// `<!-- ui-only -->` works the same way at a line's end, for a dev server (devPort set),
+// and `<!-- ships-nowhere -->` for a project with `"production": "none"` in its values.
+// Markers are stripped from what's written. A GitHub expression `${{ github.ref }}` is no
+// placeholder and is written as it stands. A file only some stacks get at all
 // (check.mjs, launch.json) is gated in MAP below, like a pack-only file.
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync, chmodSync } from 'node:fs'
@@ -97,8 +99,8 @@ const SKIP = new Set(['README.md', 'fill.mjs', 'fill.test.mjs'])
 const SKIP_DIRS = new Set(['fixtures'])
 const isAllowList = (rel) => /^dotclaude\/settings\.allow\.[a-z]+\.json$/.test(rel)
 
-const PLACEHOLDER = /\{\{([^{}]+)\}\}/g
-const TRAILING_MARKER = /\s*<!-- (ui-only|stack:[a-z,]+) -->\s*$/
+const PLACEHOLDER = /(?<!\$)\{\{([^{}]+)\}\}/g
+const TRAILING_MARKER = /\s*<!-- (ui-only|ships-nowhere|stack:[a-z,]+) -->\s*$/
 const BLOCK_OPEN = /^\s*<!-- stack:([a-z,]+) -->\s*$/
 const BLOCK_CLOSE = /^\s*<!-- \/stack -->\s*$/
 
@@ -155,7 +157,7 @@ function listTemplates(dir = HERE, base = '') {
 }
 
 // Keeps a line or drops it by its markers, and strips them (the one stack rule).
-function gate(text, { file, ui, stack }) {
+function gate(text, { file, ui, stack, nowhere }) {
   const errors = []
   const kept = []
   let block = null // the stacks of the open block, or null
@@ -175,6 +177,7 @@ function gate(text, { file, ui, stack }) {
     let keep = !block || block.includes(stack)
     for (let m = line.match(TRAILING_MARKER); m; m = line.match(TRAILING_MARKER)) {
       if (m[1] === 'ui-only') keep &&= ui
+      else if (m[1] === 'ships-nowhere') keep &&= nowhere
       else keep &&= m[1].slice('stack:'.length).split(',').includes(stack)
       line = line.slice(0, m.index)
     }
@@ -206,7 +209,7 @@ export function renderText(text, values, { file, json, ui }) {
       return fmt(v)
     })
 
-  const gated = gate(text, { file, ui, stack: values.stack })
+  const gated = gate(text, { file, ui, stack: values.stack, nowhere: values.production === 'none' })
   errors.push(...gated.errors)
   const lines = []
   for (const line of gated.text.split('\n')) {

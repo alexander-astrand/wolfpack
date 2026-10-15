@@ -39,7 +39,8 @@ describe('fill.mjs', () => {
       expect(existsSync(dest), dest).toBe(true)
     }
     for (const f of [...walk(join(tmp, 'proj')), ...walk(join(tmp, 'plans'))]) {
-      expect(readFileSync(f, 'utf8'), f).not.toContain('{{')
+      // A GitHub expression `${{ github.ref }}` is no placeholder.
+      expect(readFileSync(f, 'utf8'), f).not.toMatch(/(?<!\$)\{\{/)
     }
     expect(statSync(join(tmp, 'proj', 'scripts', 'check.sh')).mode & 0o111).not.toBe(0)
     const kit = JSON.parse(readFileSync(join(tmp, 'proj', '.claude', 'kit.json'), 'utf8'))
@@ -77,6 +78,27 @@ describe('fill.mjs', () => {
   })
 
   const read = (...p) => readFileSync(join(tmp, 'proj', ...p), 'utf8')
+
+  it('ships nowhere: CI skips drafts and kit.json says so; a project that deploys keeps CI on drafts', () => {
+    expect(run(fixture('node')).status).toBe(0)
+    const deploys = read('.github', 'workflows', 'ci.yml')
+    expect(deploys).not.toContain('ready_for_review')
+    expect(deploys).not.toContain('draft == false')
+    expect(deploys).not.toContain('<!--')
+    expect(deploys).toContain('cancel-in-progress')
+    expect(JSON.parse(read('.claude', 'kit.json')).production).toBe(undefined)
+    rmSync(join(tmp, 'proj'), { recursive: true, force: true })
+    rmSync(join(tmp, 'plans'), { recursive: true, force: true })
+
+    const r = run({ ...fixture('other'), production: 'none' })
+    expect(r.stderr).toBe('')
+    expect(r.status).toBe(0)
+    const nowhere = read('.github', 'workflows', 'ci.yml')
+    expect(nowhere).toContain('types: [opened, synchronize, reopened, ready_for_review]\n')
+    expect(nowhere).toContain("if: github.event_name == 'push' || github.event.pull_request.draft == false\n")
+    expect(nowhere).toContain('${{ github.workflow }}')
+    expect(JSON.parse(read('.claude', 'kit.json')).production).toBe('none')
+  })
 
   it('Node: check.sh hands over to check.mjs, CI and Dependabot speak npm', () => {
     expect(run(fixture('node')).status).toBe(0)

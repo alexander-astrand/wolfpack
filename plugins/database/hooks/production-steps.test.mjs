@@ -459,8 +459,8 @@ describe('2.14.9.2: CI job names come from kit.json', () => {
 
   it("the starter's kit.json names exactly the jobs its ci.yml defines", () => {
     const template = (p) => readFileSync(fileURLToPath(new URL(`../../core/skills/life-finds-a-way/templates/${p}`, import.meta.url)), 'utf8')
-    // Placeholders (one unquoted) become 0 so the template parses as JSON.
-    const kit = JSON.parse(template('dotclaude/kit.json').replace(/\{\{[^}]+\}\}/g, '0'))
+    // Placeholders (one unquoted) become 0 and fill's line markers go, so the template parses as JSON.
+    const kit = JSON.parse(template('dotclaude/kit.json').replace(/\{\{[^}]+\}\}/g, '0').replace(/\s*<!-- [a-z:,-]+ -->/g, ''))
     expect(kit.ci.workflow).toBe('.github/workflows/ci.yml')
     const yml = template('github/workflows/ci.yml')
     expect(workflowName(yml)).toBe(CI_WORKFLOW)
@@ -474,6 +474,15 @@ describe('2.14.9.2: CI job names come from kit.json', () => {
     expect(CI_WORKFLOW_FILE).toBe('.github/workflows/ci.yml')
     expect(checksNotGreen(GREEN(CI_JOBS))).toBe('')
     expect(checksNotGreen(GREEN(CI_JOBS.slice(0, 1)))).toMatch(/CI's "Database: .*" hasn't reported/)
+  })
+
+  it('a skipped draft run beside the green run at "ready" passes; only skipped, or a red one beside, does not', () => {
+    const as = (conclusion) => GREEN(CI_JOBS).map((c) => ({ ...c, conclusion }))
+    expect(checksNotGreen([...as('SKIPPED'), ...GREEN(CI_JOBS)])).toBe('')
+    expect(checksNotGreen([...GREEN(CI_JOBS), ...as('SKIPPED')])).toBe('')
+    expect(checksNotGreen(as('SKIPPED'))).toMatch(/CI's ".*": SKIPPED/)
+    expect(checksNotGreen([...as('CANCELLED'), ...GREEN(CI_JOBS)])).toMatch(/: CANCELLED/)
+    expect(checksNotGreen([...as('FAILURE'), ...GREEN(CI_JOBS)])).toMatch(/: FAILURE/)
   })
 
   it('missing or malformed ci.jobs fails closed: the jobs never report', () => {

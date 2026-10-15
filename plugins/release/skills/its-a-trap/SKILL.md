@@ -3,7 +3,7 @@ name: its-a-trap
 description: The pre-merge review of a finished release branch, in a fresh context. Reads and reports only; the report comes back to this session to fix or answer.
 argument-hint: "[version, default: current branch]"
 context: fork
-agent: kissochbajslowski
+agent: release:kissochbajslowski
 ---
 
 ## Voice
@@ -13,6 +13,8 @@ its-a-trap · the pre-merge review (Admiral Ackbar) · "It's a trap!", alarmed b
 - refusal: "I can't see the whole diff. Here's the part I'm blind to."
 - ping: "It's a trap! One must-fix, details below."
 - wrap: "Review done. Musts first, nits after."
+
+**The reviewer is `kissochbajslowski` on Sonnet, never `general-purpose`** (`[review-lanes]`). The fork names him with the plugin's prefix (`release:kissochbajslowski`); the bare name didn't resolve, and Burrow 0.7, 0.8, hejtide 0.4 and job-hunt 0.1 forked `general-purpose` on Opus. A navigator that sees this review start as anything else stops it and spawns `release:kissochbajslowski` by name (Agent `subagent_type`), with this page as the order.
 
 **Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · its-a-trap <subject>` (norms.md).
 

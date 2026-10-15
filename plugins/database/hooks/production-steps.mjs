@@ -470,7 +470,11 @@ export const CI_WORKFLOW = 'CI'
 
 /**
  * '' when every check passed (skipped and neutral count) and each CI job
- * succeeded, else the first that didn't.
+ * succeeded, else the first that didn't. A job can sit there twice on one
+ * commit: a project that ships nowhere skips CI on a draft, and the run at
+ * "ready" lands beside the skipped one. One success is enough, since every
+ * other run already passed the loop above (failed, cancelled or still running
+ * refuses).
  * @param {unknown} rollup  `statusCheckRollup` from gh
  */
 export function checksNotGreen(rollup) {
@@ -485,9 +489,9 @@ export function checksNotGreen(rollup) {
     if (!['SUCCESS', 'SKIPPED', 'NEUTRAL'].includes(c.conclusion)) return `${name}: ${c.conclusion ?? 'unknown'}`
   }
   for (const job of CI_JOBS) {
-    const run = rollup.find((c) => c?.__typename === 'CheckRun' && c.name === job && c.workflowName === CI_WORKFLOW)
-    if (!run) return `CI's "${job}" hasn't reported`
-    if (run.conclusion !== 'SUCCESS') return `CI's "${job}": ${run.conclusion || 'unknown'}`
+    const runs = rollup.filter((c) => c?.__typename === 'CheckRun' && c.name === job && c.workflowName === CI_WORKFLOW)
+    if (!runs.length) return `CI's "${job}" hasn't reported`
+    if (!runs.some((r) => r.conclusion === 'SUCCESS')) return `CI's "${job}": ${runs[0].conclusion || 'unknown'}`
   }
   return ''
 }
