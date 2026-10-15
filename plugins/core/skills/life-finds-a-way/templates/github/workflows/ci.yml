@@ -2,13 +2,23 @@ name: CI
 
 on:
   pull_request:
+    # Nothing deploys, so a draft spends no minutes and marking it ready runs CI. A project that deploys keeps CI on drafts: full auto arms on a draft and waits for this job green. <!-- ships-nowhere -->
+    types: [opened, synchronize, reopened, ready_for_review] <!-- ships-nowhere -->
   push:
     branches: [main]
+
+# A newer push to a PR stops the run it replaces; runs on main always finish. The action
+# is in the group so the run at "ready" never cancels one on the same commit, which
+# would leave a cancelled Checks beside the green one and stop the merge.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event.action }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
     # kit.json's ci.jobs names this job: the one-tap arm waits for it by name.
     name: Checks
+    if: github.event_name == 'push' || github.event.pull_request.draft == false <!-- ships-nowhere -->
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

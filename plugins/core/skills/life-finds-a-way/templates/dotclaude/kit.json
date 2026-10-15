@@ -4,6 +4,7 @@
   "refs": { "dev": "{{refs.dev}}", "prod": "{{refs.prod}}" },
   "urls": { "prod": "{{urls.prod}}" },
   "deployer": "{{deployer}}",
+  "production": "none", <!-- ships-nowhere -->
   "keychain": { "dev": "{{keychain.dev}}", "prod": "{{keychain.prod}}" },
   "backupRoot": "",
   "ci": { "workflow": ".github/workflows/ci.yml", "jobs": ["Checks"] },
