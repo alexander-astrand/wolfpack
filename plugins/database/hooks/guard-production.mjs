@@ -2738,7 +2738,7 @@ function segmentRules(seg, ctx) {
   // first when a subcommand of its follows: `$P push` was refused as
   // "gh push (an alias)" until 2.12.4.
   if (built) {
-    const as = [['gh', checkGh(rest, ctx)], ['git', checkGit(rest, ctx)], ['supabase', checkSupabase(rest, ctx)]]
+    const as = [['gh', checkGh(rest, ctx, where)], ['git', checkGit(rest, ctx)], ['supabase', checkSupabase(rest, ctx)]]
     if (PROD_DB_SUBS.has(rest[0])) as.unshift(['prod-db.sh', checkProdDb(['prod-db.sh', ...rest], ctx)])
     const r = strictest(as.map(([, x]) => x))
     if (r) return { ...r, reason: `\`${words[0]}\` is built at run time and may be ${as.find(([, x]) => x === r)[0]}: ${r.reason}` }
@@ -2806,7 +2806,7 @@ function segmentRules(seg, ctx) {
   // Merging a release PR ships it: Vercel deploys main. It isn't a database
   // call, but it's production all the same, so it goes through ranjit too.
   if (HTTP_CLIENTS.has(cmd) && (GITHUB_MERGE_RE.test(raw) || contentsWrite(raw))) return prodCall(ctx, deny(MERGE_BY_API))
-  if (cmd === 'gh') return checkGh(rest, ctx)
+  if (cmd === 'gh') return checkGh(rest, ctx, where)
   if (cmd === 'git') return checkGit(rest, ctx)
 
   // `source script.sh` and `. script.sh` run a script like `bash script.sh`.
@@ -2859,7 +2859,7 @@ function segmentRules(seg, ctx) {
 
 // Commit messages and PR bodies may mention anything, so only the subcommand
 // is read, never the text after it.
-function checkGh(args, ctx) {
+function checkGh(args, ctx, where) {
   const sub = []
   for (let i = 0; i < args.length && sub.length < 2; i++) {
     if (args[i] === '-R' || args[i] === '--repo') { i++; continue }
@@ -2878,7 +2878,7 @@ function checkGh(args, ctx) {
     sub[0] === undefined || built(sub[0]) || (built(sub[1]) && sub[0] !== 'api') || alias ||
     (sub[0] === 'pr' && (sub[1] === 'merge' || sub[1] === 'ready' || sub[1] === undefined)) ||
     (GH_EXTENSION.has(sub[0]) && sub[1] === 'exec'))
-  if (shipping && NO_PRODUCTION) return noProductionMerge(sub, args, ctx)
+  if (shipping && NO_PRODUCTION) return noProductionMerge(sub, args, ctx, where)
   if (shipping) {
     ctx.production = true
     const what = sub[0] === 'pr' && sub[1] !== undefined && !built(sub[1]) ? `\`gh pr ${sub[1]}\``
@@ -2916,11 +2916,19 @@ function checkGh(args, ctx) {
 // ship, refusing it stopped only real work (job-hunt V0.1: `x[k]` and
 // `?:personligt?` refused as hidden merges).
 const GH_MERGE_VALUE_FLAGS = new Set(['-t', '--subject', '-b', '--body', '-F', '--body-file', '-A', '--author-email', '--match-head-commit'])
-function noProductionMerge(sub, args, ctx) {
+function noProductionMerge(sub, args, ctx, where) {
   if (sub[0] !== 'pr' || sub[1] !== 'merge') return null
   // --admin skips the branch rules, --auto merges later with no one looking.
   const flag = args.find((w) => /^--(?:admin|auto)$/.test(w))
   if (flag) return deny(`\`gh pr merge ${flag}\` merges past the checks or later with no one looking; merge it plainly once CI is green.`)
+  // "No production" is this project's word, and the PR is read from its
+  // repo: a merge aimed elsewhere (-R, GH_REPO, a cd to another checkout)
+  // would be checked against this repo's PR of the same number and merge
+  // another project's, maybe one that deploys.
+  const real = (p) => { try { return realpathSync(p) } catch { return p } }
+  const elsewhere = args.some((w) => /^(?:-R|--repo)(?:=|$)|^-R./.test(w)) || /\bGH_(?:REPO|HOST)\b/.test(ctx.source ?? '') ||
+    !where || where.built || !where.dir || real(where.dir) !== real(ctx.root)
+  if (elsewhere) return deny(`In a project with no production a merge runs from its own folder (${ctx.root}) on its own repo, with no -R or GH_REPO, so the guard checks the PR it merges.`)
   let n
   for (let i = args.indexOf('merge') + 1; i < args.length && n === undefined; i++) {
     if (GH_MERGE_VALUE_FLAGS.has(args[i]) || args[i] === '-R' || args[i] === '--repo') i++

@@ -18,10 +18,11 @@ const KIT = JSON.parse(readFileSync(fileURLToPath(new URL('./fixtures/kit.json',
 const NONE = { ci: KIT.ci, production: 'none', refs: { dev: '', prod: '' }, urls: { prod: '' }, deployer: '' }
 const green = { state: 'OPEN', isDraft: false, mergeable: 'MERGEABLE', baseRefName: 'main',
   statusCheckRollup: KIT.ci.jobs.map((name) => ({ __typename: 'CheckRun', name, workflowName: 'CI', status: 'COMPLETED', conclusion: 'SUCCESS' })) }
-const at = (command, { pr = green, mode = 'auto', agent } = {}) => decide(
-  { tool_name: 'Bash', tool_input: { command }, cwd: '/repo', permission_mode: mode, ...(agent ? { agent_type: agent } : {}) },
+const at = (command, { pr = green, mode = 'auto', agent, cwd = '/repo' } = {}) => decide(
+  { tool_name: 'Bash', tool_input: { command }, cwd, permission_mode: mode, ...(agent ? { agent_type: agent } : {}) },
   // Linked to the fixture's dev ref, which counts as dev only while kit.json names it.
-  { linkedRef: () => KIT.refs.dev, openPr: () => pr, marker: () => null, chainMarker: () => null, releasePr: () => null, log: () => {}, chainLog: () => {}, readLog: () => '' },
+  // The project's own folder is /repo.
+  { root: '/repo', linkedRef: () => KIT.refs.dev, openPr: () => pr, marker: () => null, chainMarker: () => null, releasePr: () => null, log: () => {}, chainLog: () => {}, readLog: () => '' },
 ) ?? { decision: 'pass' }
 
 // Calls that only looked like a gh merge to the guard.
@@ -118,6 +119,15 @@ describe('job-hunt V0.1: a project with no production merges on a person\'s go',
     for (const cmd of ['gh pr merge', 'gh pr merge --merge', 'gh pr merge 3 --admin', 'gh pr merge 3 --auto', 'gh api -X PUT repos/o/r/pulls/3/merge']) {
       expect(at(cmd).decision, cmd).toBe('deny')
     }
+  })
+
+  it("refuses a merge aimed at another repo or checkout: it would be checked against this one's PR", () => {
+    for (const cmd of ['gh pr merge 5 -R alexander-astrand/hutzup --merge', 'gh pr merge 5 --repo=o/r', 'gh -R o/r pr merge 5', 'GH_REPO=o/r gh pr merge 5',
+      'cd ../hutzup && gh pr merge 5', 'cd $X && gh pr merge 5']) {
+      expect(at(cmd).decision, cmd).toBe('deny')
+    }
+    expect(at('gh pr merge 5', { cwd: '/elsewhere' }).decision).toBe('deny')
+    expect(at('cd /repo && gh pr merge 5', { cwd: '/elsewhere' }).decision).toBe('ask')
   })
 
   it("can't ask in bypass mode, so it refuses there and says why", () => {
