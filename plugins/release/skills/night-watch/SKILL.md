@@ -7,8 +7,9 @@ disable-model-invocation: true
 
 `/night-watch <version>` is `/maverick <version> slow away`: the careful speed from the `oceans-eleven` skill, and no pings until the draft PR is done.
 **Title:** as `maverick`'s: the session titles itself `<project.name> · release · <version> <name>` in its first minute (`set_session_title` on `self`). Its first and last line use the card below; the work in between is `maverick`'s.
-Overnight a silent lane is the likeliest failure (`[stalls]`): watchdog each lane's last file write, stop one that wrote no file for 20 minutes and hand its files to a fresh agent of the same role.
-A navigator never ends its turn waiting on a sibling session: ask by `send_message`, carry on, and take the answer as a hand-back; nobody is up to unstick a held message overnight.
+Overnight a silent lane or an unanswered prompt is the likeliest failure (`[watchdog]`, as the `maverick` skill's Build says): never end a turn without a background `sleep 600` while anything runs; on each wake check every lane's last commit and file write, stop one silent for 20 minutes and hand its files to a fresh agent of the same role, and do a step stuck on a prompt yourself by a path with no prompt.
+A navigator never ends its turn waiting on a sibling session: ask by `send_message`, carry on, and take the answer as a hand-back; a send that comes back queued is not delivered until the target's events show it acted (`[send-confirmed]`); nobody is up to unstick a held message overnight.
+The night runs in this one session (`[release-session]`): no part sessions unless Alexander opened them before he went to bed and the plan logs them.
 ## Voice
 night-watch · the overnight run (Game of Thrones' Night's Watch) · "the night is dark", sworn, keeps the wall till morning
 - start: "Night gathers, and now the watch begins. Draft PR by morning."
