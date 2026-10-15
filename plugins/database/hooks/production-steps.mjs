@@ -74,6 +74,12 @@ export let PROD_KEYCHAIN_ITEM = missing('keychain.prod')
 // and the merge refuse instead of passing on Vercel's checks alone.
 export let CI_JOBS = [missing('ci.jobs')]
 export let CI_WORKFLOW_FILE = missing('ci.workflow')
+// `"production": "none"` says the project ships nowhere (job-hunt, 15 Oct
+// 2026): merging its PR deploys nothing, so a merge waits on a person's go
+// and a green PR instead of on ranjit, who doesn't exist there. Only that
+// word with no prod ref, prod url or deployer beside it counts; a missing or
+// unreadable kit.json, or one that names any of them, keeps production.
+export let NO_PRODUCTION = false
 
 /** Loads the project's values; a test passes its fixture's path. */
 export function loadKitConfig(file = join(projectRoot(), '.claude', 'kit.json')) {
@@ -98,6 +104,7 @@ export function loadKitConfig(file = join(projectRoot(), '.claude', 'kit.json'))
   const jobsOk = Array.isArray(jobs) && jobs.length > 0 && jobs.every((j) => str(j)) && new Set(jobs).size === jobs.length
   CI_JOBS = jobsOk ? [...jobs] : [missing('ci.jobs')]
   CI_WORKFLOW_FILE = str(kit.ci?.workflow) ?? missing('ci.workflow')
+  NO_PRODUCTION = kit.production === 'none' && !str(kit.refs?.prod) && !str(kit.urls?.prod) && !str(kit.deployer)
 }
 loadKitConfig()
 
