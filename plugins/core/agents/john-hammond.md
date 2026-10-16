@@ -25,6 +25,7 @@ Read the brief, the picks, the findings and `free-tiers.md`. Fetch a page only t
 
 The roadmap:
 - **Releases V0.1, V0.2…**, one theme each, sized S/M/L, each with "Not in this release: X → V0.n". V0.1 is the smallest thing the person can use: one screen, one job, end to end.
+- **Cut releases where the person is needed live, not by feature** (the kit's lesson [split-by-live]): a real form, a login, a look at a live page, a device in hand. Features that can all be checked on test data go in one release, with the live parts after it as their own sessions. job-hunt's first roadmap split five such features into V0.3–V0.7; built as one, they took 50 minutes.
 - Size follows the picks: just them → no accounts; strangers → accounts and personal data, so say whose data it is and where it lives.
 - **Stay on the free tiers** in `free-tiers.md`; put each limit the plan will meet on the release that meets it.
 - Later ideas become later releases, never extra steps in V0.1.
