@@ -48,7 +48,7 @@ Each row: job → agent, model, effort.
 **Find**
 - "Where is X" → `lorenzo-von-matterhorn`, Haiku, low.
 - A broad sweep across the tree → the built-in Explore agent.
-- Web research → `/88-mph <small|medium|large> <topic>` with the decision it serves: small inline (≈ 1M), medium `doc-brown` (6M), large adds a fresh `doc-brown` in check mode (4M, run ≤ 13M); never the built-in deep research.
+- Web research → `/88-mph <small|medium|large> <topic>` with the decision it serves and the person's questions in their words: small inline (≈ 1M); medium scopes the questions and angles, then one `doc-brown` (6M); large shows the scope first, then 2–4 `doc-brown` lanes (6M each), a counter pass (3M) and a check (4M), run ≤ 35M. Medium and large get their own session when asked from a side session (`oracle`, `wilson`); never the built-in deep research.
 
 **QA & review**
 - Features the plan marks **qa** (new pages or layouts; sign-up, waitlist, access or link flows) → `bengt-johansson`, Sonnet, medium: a fresh one per marked feature (side by side is fine, each in its own tab), one pass each: 375 dark, 1024 dark and one light screenshot, text checks between, **at most three checks per agent** (more checks go to another fresh `bengt-johansson` beside it: one agent runs out of budget before check 4); its budget is the `[budget …]` tag in the work order. The builder of a qa feature leaves the seeded test row's URL in its report, so `bengt-johansson` opens the page instead of creating its own data. Everything else is checked by its builder as text and by the reviewer.
@@ -226,7 +226,7 @@ The main session is the navigator, **`maverick`**: it talks with you, plans, and
 | `ranjit` (the project's own, not shipped by the kit) | prod-deployer | Opus, high | production steps, only through `/skinny-pete` (with `merge`: also marks the PR ready and merges it, on the same go) |
 | `yoda` (the project's own, where it has one) | senior-opus | Opus, max | adviser to an Opus `maverick` on a decision it doubts, before any ping; never a review, deploy-plan read or verdict; read-only |
 | `three-eyed-raven` | senior-decider (new) | Fable, high | chain mode only: decides a chain link's tough calls in Alexander's place, logs them for `/memento`; never taste or production; not a star |
-| `doc-brown` | researcher (new, 2.14.6.2) | Opus, medium | `/88-mph` medium and large runs: searches wide then deep, writes one findings file under `~/.claude/plans/research/`; 6M |
+| `doc-brown` | researcher (new, 2.14.6.2) | Opus, medium | `/88-mph` medium and large runs: works from the run's scope, searches wide then deep, writes one findings file (or one lane's notes) under `~/.claude/plans/research/`, and runs the counter pass and the check; 6M a run or lane |
 | `bengt-johansson` | qa | Sonnet, medium | features the plan marks qa (new pages, sign-up/waitlist/access/link flows): a fresh one per feature, budget from the order; full matrix via `/darth-vader` |
 
 - **Use the names, always** (Alexander: it cheers him up): in chat, pings, PR comments, reports and task descriptions, say "`maverick` here", "`ranjit` is taking the backup", "`yoda` says…", "handing it to `chris-de-kok`", not "the deployer" or "a builder"; the nicknames too (Slap Bet Commissioner for the guard hook). Old role names only in the table's "Old name" column.
