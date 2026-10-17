@@ -1,6 +1,6 @@
 ---
 name: car-wash
-description: Produce a release's Usage section for the PR from this session's Claude Code transcripts, tallied by model with the release plugin's usage.mjs. Used at the end of /maverick, and by hand.
+description: Produce a release's Usage section for the PR from this session's Claude Code transcripts, tallied by model with this plugin's usage.mjs. Used at the end of /maverick, and by hand.
 ---
 
 ## Voice
@@ -19,7 +19,7 @@ Give the release PR a "Usage" section so the next release's budgets are set from
 This session's own transcript is the newest `.jsonl` in the project's transcript directory whose first lines mention this release (or pass `--dir <path>` for a different one). Count the commits on the branch (`git log --oneline main..HEAD | wc -l`), then:
 
 ```
-node <release plugin>/scripts/usage.mjs --commits <N> <session-id>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/usage.mjs --commits <N> <session-id>
 ```
 
 Add `--timeline` for one row per agent (description, type, model, start/end, active minutes, calls, screenshots, tokens) and a wall-clock line per session. No chart: wrap-ups publish none, and `/memento` draws the one lane chart for a chain (H5, kit 1.5).
@@ -31,7 +31,7 @@ Read the claude.ai weekly usage meter with `mcp__ccd_session_mgmt__get_usage`, b
 
 ## The PR section
 Keep it short:
-- the table Skyler (`<release plugin>/scripts/usage.mjs`) prints (part, model, calls, tokens, share), the total and per-commit rows; label each agent row with the timeline's own description for it (`--timeline`), never from memory of the plan's step numbers, and name the agent (`chris-de-kok`, `jesse-pinkman`, …)
+- the table Skyler (`${CLAUDE_PLUGIN_ROOT}/scripts/usage.mjs`) prints (part, model, calls, tokens, share), the total and per-commit rows; label each agent row with the timeline's own description for it (`--timeline`), never from memory of the plan's step numbers, and name the agent (`chris-de-kok`, `jesse-pinkman`, …)
 - the wall-clock line from `--timeline` (session start to end, and agent-minutes against it)
 - the one-line model breakdown (e.g. "`maverick` Fable 19%, Opus agents 72%, Sonnet 10%")
 - how per-commit compares to the recent releases, and where the weekly meter sits
