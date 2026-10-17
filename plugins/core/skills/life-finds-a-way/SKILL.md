@@ -112,7 +112,7 @@ On Right, write `<plans><project>/brief.md`: his words verbatim, the name and no
 
 ### 7. The first plan and the files
 
-V0.1.md finished, then the skeleton rendered by `fill.mjs` from one values file.
+V0.1.md finished, then the skeleton rendered by `fill.mjs` from one values file. A project its host ships from `main` with no database (a static site) sets `"production": "on-merge"` and `"deployer": "ranjit"` in the values: kit.json gets the on-merge line and the project the no-database `ranjit` (council M10, kit 1.5).
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/life-finds-a-way/reference/setup.md` as a file for the detail of steps 4 to 7 (each ends with a write and a tick in `brief.md`'s `## Progress`).
 

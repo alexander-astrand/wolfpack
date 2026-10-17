@@ -44,7 +44,7 @@ CI runs the same check on every pull request.
 
 - The kit's working norms are `plugins/core/norms.md` in the kit at `<kit>` (the wolfpack core plugin, `~/wolfpack-live` on Alexander's machines); this section is the short form.
 - **Questions are pick-one choices**, the recommended option first, each saying what it gives and what it costs.
-- **Human steps one at a time:** one line on what the step does, one command in its own block, then wait for "Done", "Got an error" or "Stop here".
+- **Human steps one at a time:** as norms.md's "A human step" line says (one step, one command, a Terminal tab, a Done / Skip box).
 - Comments in code explain why, at the density around them. Wording in the app is plain and specific.
 - Check before you commit: `scripts/check.sh`. Never run a formatter the repo doesn't configure.
 - A step that would reach past the release's theme goes to the roadmap and gets reported.

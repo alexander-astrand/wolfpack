@@ -108,6 +108,9 @@ describe('fill.mjs', () => {
     const merge = readFileSync(ranjit, 'utf8')
     expect(merge).toContain('**toy-node has no database**')
     expect(merge).not.toContain('prod-db.sh push')
+    const mergeKit = JSON.parse(read('.claude', 'kit.json'))
+    expect(mergeKit.production).toBe('on-merge')
+    expect(mergeKit.deployer).toBe('ranjit')
 
     for (const values of [fixture('node'), { ...supa, production: 'none' }]) {
       fresh()
