@@ -16,6 +16,7 @@
 | `dotclaude/settings.allow.node.json` | merged the same way, on a Node stack (the npm lines) |
 | `dotclaude/settings.allow.python.json` | merged the same way, on a Python stack (python3, ruff, pytest, `.venv/bin/`); Other has none |
 | `taste-seed.md` | `.claude/taste.md` (UI projects only) |
+| `dotclaude/builder-checks.md` | `.claude/builder-checks.md` (design pack: the kit's grep-able taste rules, whole-pixel logos and the one share menu) |
 | `roadmap.md` | `{{plans}}{{project.name}}/roadmap.md` |
 | `V0.1.md` | `{{plans}}{{project.name}}/V0.1.md` |
 | `<database>/templates/ranjit.md` | `.claude/agents/ranjit.md`, if the database pack is on and production is Supabase (`refs.prod` set, `production` neither `none` nor `on-merge`) |

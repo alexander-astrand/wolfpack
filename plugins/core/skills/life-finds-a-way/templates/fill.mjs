@@ -54,6 +54,8 @@ export const MAP = [
   // launch.json starts `npm run dev`: only a Node project with a dev server has one.
   { from: 'dotclaude/launch.json', to: '.claude/launch.json', pack: 'design', ui: true, stack: ['node'] },
   { from: 'taste-seed.md', to: '.claude/taste.md', pack: 'design' },
+  // The kit's grep-able taste rules, so a new project's builders catch them before review (H4, kit 1.5).
+  { from: 'dotclaude/builder-checks.md', to: '.claude/builder-checks.md', pack: 'design' },
   { from: 'docs/decisions/README.md', to: 'docs/decisions/README.md' },
   { from: 'docs/decisions/0001-start.md', to: 'docs/decisions/0001-start.md' },
   { from: 'check.mjs', to: 'scripts/check.mjs', stack: ['node'] },
