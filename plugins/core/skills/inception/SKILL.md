@@ -47,7 +47,7 @@ Run in the mode Alexander started it in; **never switch to manual** (Alexander, 
 
 ## The checklist ("ready to build")
 1. **Every part has a step:** agent, model, lane, budget, how it's checked. No "decide on the way", no "builds on whatever X finds": a spike or a design question is either done here or its part is cut. **No step sizes over 15M; one that sizes to 20M is cut in two here** (`[turns]`: every 20M step in 3.1.1 hit `maxTurns` 90).
-2. **The total fits the budget:** 5% of the week (≈ 215M) incl. deploy by default, or the number Alexander sets, which must fit what's left of the week. At most one theme per release. Size the navigator at ≈ 2.2M a step (`[sizing]`: 33 steps ≈ 73M in 3.1.1).
+2. **The total fits the budget:** 5% of the week (≈ 230M) incl. deploy by default, or the number Alexander sets, which must fit what's left of the week. At most one theme per release. Size the navigator at ≈ 2.2M a step (`[sizing]`: 33 steps ≈ 73M in 3.1.1).
 3. **Every design question is decided,** with who decided it and when. The navigator doesn't reopen these.
 4. **"Not in this release":** everything that was on the roadmap entry or in earlier notes but isn't in the plan, with where it went and when Alexander agreed. The roadmap (page or `<plans>roadmap.md`) matches.
 5. **Alexander's open questions are answered,** and the defaults he hasn't confirmed are listed for the navigator's one start question.

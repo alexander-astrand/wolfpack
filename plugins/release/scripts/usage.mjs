@@ -23,6 +23,53 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 
+// The meter figure's one home (kit 1.5, H5 C2): real tokens to 1% of the
+// weekly all-models meter. car-wash, the-tower and daily-budget read it from
+// here; none keeps its own number (car-wash said 27M, Hutzup's tower 27e6,
+// the global CLAUDE.md 46M, so a PR's Usage % read about 1.7x high).
+export const DEFAULT_TOKENS_PER_POINT = 46e6
+// Fable is measured on its own (one reading, 32.9M against 66% -> 70% on
+// 6 Oct): the meter charges it about 3x Opus a token. Sonnet and Haiku are
+// unmeasured and derived from the Opus figure by list price (tokensPerPoint below).
+const FABLE_POINT = 8e6
+// $ per million tokens (input, cache write, cache read, output), Claude API list prices of Sep 2026.
+const PRICE = {
+  opus: { inp: 4, cc: 5, cr: 0.2, out: 20 },
+  sonnet: { inp: 2, cc: 2.5, cr: 0.2, out: 10 },
+  haiku: { inp: 1, cc: 1.25, cr: 0.1, out: 5 },
+}
+// How a session's tokens split across the four fields: 6 Oct, three sessions,
+// 1.05B tokens, almost all cache reads, so cache-read prices decide the comparison.
+const MIX = { inp: 0.0001, cc: 0.0094, cr: 0.9887, out: 0.0019 }
+const dollarsPerToken = (p) => Object.keys(MIX).reduce((sum, k) => sum + MIX[k] * p[k], 0)
+
+// Tokens to 1% of the week for one model family (default the all-models
+// figure). `kitJson` is the parsed `.claude/kit.json` (or null): its
+// `meter.tokensPerPoint` wins when set, as a number or per family
+// (`{ "opus": 46000000 }`, what meter-calibrate.mjs prints).
+export function tokensPerPoint(kitJson, family = 'opus') {
+  const set = kitJson?.meter?.tokensPerPoint
+  const own = (f) => {
+    const n = typeof set === 'number' ? set : set && typeof set === 'object' ? set[f] : undefined
+    return typeof n === 'number' && n > 0 ? n : null
+  }
+  if (own(family)) return own(family)
+  const opus = own('opus') ?? DEFAULT_TOKENS_PER_POINT
+  if (family === 'fable') return FABLE_POINT
+  if (!PRICE[family] || family === 'opus') return opus
+  // A family we haven't measured costs a point where it has spent what an Opus point costs.
+  return Math.round((opus * dollarsPerToken(PRICE.opus)) / dollarsPerToken(PRICE[family]) / 1e6) * 1e6
+}
+
+// The project's .claude/kit.json, parsed, or null.
+export function readKit(dir = process.cwd()) {
+  try {
+    return JSON.parse(readFileSync(join(dir, '.claude', 'kit.json'), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
 export function projectDir(dir) {
   if (dir) return dir
   return join(homedir(), '.claude', 'projects', process.cwd().replace(/\//g, '-'))
@@ -127,15 +174,62 @@ export function parseEntries(text) {
   return out
 }
 
-// Every parseable entry of a transcript file.
-export function readEntries(file) {
+// Every parseable entry of a transcript file. Pass one `seen` Set to every
+// call of a run and a message.id an earlier file already counted is dropped:
+// the desktop app forks a session into byte-identical copies (Burrow's three
+// 1,306,527-byte inceptions, 14 Oct, were one), which summed three times (M2, J4).
+export function readEntries(file, seen = null) {
   let text
   try {
     text = readFileSync(file, 'utf8')
   } catch {
     return []
   }
-  return parseEntries(text)
+  const entries = parseEntries(text)
+  return seen ? dropCounted(entries, seen) : entries
+}
+
+// Entries whose usage-carrying message.id isn't in `seen` from an earlier
+// file; this file's ids are added after, so its own repeated lines (one per
+// content block) stay for tallyEntries to count once.
+export function dropCounted(entries, seen) {
+  const mine = new Set()
+  const out = entries.filter((e) => {
+    const id = e?.message?.usage ? e.message.id : null
+    if (!id) return true
+    if (seen.has(id)) return false
+    mine.add(id)
+    return true
+  })
+  for (const id of mine) seen.add(id)
+  return out
+}
+
+// What a session ran, for its label: the slash command its first prompt
+// started with; else the first command or skill it ran later, in brackets
+// (`(/core:inception)`), so a session started in plain words isn't one more
+// "(none)" (M2, L11); else "(none)".
+export function sessionCommand(entries) {
+  const textOf = (c) => (typeof c === 'string' ? c : Array.isArray(c) ? c.map((p) => p?.text ?? '').join('\n') : '')
+  const tag = /<command-name>\s*(\/?[\w:-]+)\s*<\/command-name>/
+  const slash = (s) => (s.startsWith('/') ? s : `/${s}`)
+  for (const e of entries.slice(0, 40)) {
+    if (e.type !== 'user') continue
+    const text = textOf(e.message?.content)
+    const m = tag.exec(text) || /^\s*(\/[\w:-]+)/.exec(text)
+    if (m) return slash(m[1])
+  }
+  for (const e of entries) {
+    const c = e.message?.content
+    if (e.type === 'user') {
+      const m = tag.exec(textOf(c))
+      if (m) return `(${slash(m[1])})`
+    } else if (e.type === 'assistant' && Array.isArray(c)) {
+      const skill = c.find((p) => p?.type === 'tool_use' && p.name === 'Skill' && p.input?.skill)
+      if (skill) return `(${slash(String(skill.input.skill))})`
+    }
+  }
+  return '(none)'
 }
 
 // Tally calls (assistant messages) and token usage per model. Entries without
@@ -277,7 +371,7 @@ function timelineTable(timeline, sessions) {
 function wallClockLine(s) {
   const wall = Math.round((s.last - s.first) / 60_000)
   const h = `${Math.floor(wall / 60)}h ${String(wall % 60).padStart(2, '0')}m`
-  return `Wall-clock ${s.id.slice(0, 8)}: ${h} (${hhmm(s.first)}–${hhmm(s.last)}); agent-minutes ${s.agentMinutes} = ${fmtPct(s.agentMinutes, wall)} of wall-clock`
+  return `Wall-clock ${s.id.slice(0, 8)} ${s.command}: ${h} (${hhmm(s.first)}–${hhmm(s.last)}); agent-minutes ${s.agentMinutes} = ${fmtPct(s.agentMinutes, wall)} of wall-clock`
 }
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
@@ -360,10 +454,17 @@ function main() {
   const baseDir = projectDir(dir)
   const parts = [] // { label, model, calls, tokens }
   const timeline = []
-  const sessions = [] // { id, first, last, agentMinutes }
+  const sessions = [] // { id, command, first, last, agentMinutes }
+  const seen = new Set() // message ids counted so far, across every file (M2)
+  const copies = [] // sessions whose every message an earlier one already counted
   for (const prefix of sessionIds) {
     const { id, mainFile, subDir, subFiles } = resolveSession(baseDir, prefix)
-    const mainEntries = readEntries(mainFile)
+    const raw = readEntries(mainFile)
+    const mainEntries = dropCounted(raw, seen)
+    if (tallyEntries(raw).size > 0 && tallyEntries(mainEntries).size === 0) {
+      copies.push(id)
+      continue
+    }
     for (const [model, b] of tallyEntries(mainEntries)) {
       parts.push({ label: 'navigator', model, calls: b.calls, tokens: totalTokens(b) })
     }
@@ -371,7 +472,7 @@ function main() {
     for (const subFile of subFiles) {
       const meta = readMeta(subDir, subFile)
       const label = agentName(meta) || subFile.replace(/\.jsonl$/, '')
-      const entries = readEntries(join(subDir, subFile))
+      const entries = readEntries(join(subDir, subFile), seen)
       for (const [model, b] of tallyEntries(entries)) {
         parts.push({ label, model, calls: b.calls, tokens: totalTokens(b) })
       }
@@ -384,6 +485,7 @@ function main() {
       const all = rows.filter((r) => r.start)
       sessions.push({
         id,
+        command: sessionCommand(raw),
         first: Math.min(...all.map((r) => r.start)),
         last: Math.max(...all.map((r) => r.end)),
         agentMinutes: rows.reduce((sum, r) => sum + r.minutes, 0),
@@ -394,6 +496,10 @@ function main() {
   const grandTotal = parts.reduce((sum, p) => sum + p.tokens, 0)
   const byModel = new Map()
   for (const p of parts) byModel.set(p.model, (byModel.get(p.model) || 0) + p.tokens)
+  // The release's share of the week: its own tokens over the one meter figure
+  // (`[meter]`); car-wash copies this line rather than dividing by its own number.
+  const perPoint = tokensPerPoint(readKit())
+  const weekPct = grandTotal / perPoint
 
   if (chart) {
     const md = decisions ? readFileSync(decisions, 'utf8') : ''
@@ -407,6 +513,9 @@ function main() {
       byModel: Object.fromEntries(byModel),
       commits,
       perCommit: commits ? grandTotal / commits : null,
+      tokensPerPoint: perPoint,
+      weekPct,
+      copies,
     }
     if (wantTimeline) {
       out.timeline = timeline.map(({ spans, ...r }) => ({
@@ -436,6 +545,8 @@ function main() {
       .map(([model, tokens]) => `${model} ${fmtPct(tokens, grandTotal)}`)
       .join(', '),
   )
+  console.log(`Week: ${weekPct.toFixed(1)}% of the weekly meter (${fmtM(grandTotal)} / ${fmtM(perPoint)} a point, kit.json meter.tokensPerPoint or the kit's default)`)
+  if (copies.length) console.log(`Counted once: ${copies.map((c) => c.slice(0, 8)).join(', ')} only repeat messages an earlier session already counted (forked copies).`)
   if (wantTimeline) {
     console.log('')
     console.log(timelineTable(timeline, sessions))
