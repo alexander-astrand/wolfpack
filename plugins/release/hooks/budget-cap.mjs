@@ -10,7 +10,7 @@
 // (this plugin's scripts/usage.mjs), so it stops agents on the numbers the PR reports.
 //
 //   - The budget is the `[budget 20M]` tag at the end of the Agent description
-//     maverick spawned it with (the subagent's .meta.json keeps it), else the
+//     captain-call spawned it with (the subagent's .meta.json keeps it), else the
 //     role's default from `.claude/kit.json` (`budgets`; at most 100M), else
 //     the built-in table below. A SendMessage follow-up that carries its own tag
 //     sets the agent's new total: the meta file keeps the first one forever,

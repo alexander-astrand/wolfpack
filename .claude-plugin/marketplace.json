@@ -13,7 +13,7 @@
       "name": "release",
       "source": "./plugins/release",
       "version": "1.3.1",
-      "description": "Releases end to end: the navigator (maverick, captain-call), the builders, the review, the PR and deploy skills (carousel, its-a-trap, skinny-pete, one-ring, cattle-drive), the audits, and Hank, the hook that holds every agent to its token budget."
+      "description": "Releases end to end: the navigator (captain-call), the builders, the review, the PR and deploy skills (carousel, its-a-trap, skinny-pete, one-ring, cattle-drive), the audits, and Hank, the hook that holds every agent to its token budget."
     },
     {
       "name": "design",

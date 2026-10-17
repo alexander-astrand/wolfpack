@@ -136,7 +136,7 @@ const RENAMED = {
 }
 
 // Every agent in .claude/agents/. An agent spawned before its file existed (or
-// as a generic one) runs as "claude" or "general-purpose"; maverick starts
+// as a generic one) runs as "claude" or "general-purpose"; captain-call starts
 // every description with the agent's name ("heisenberg: creative brief …"),
 // so that prefix names it instead.
 export const AGENTS = new Set([

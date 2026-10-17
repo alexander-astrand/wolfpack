@@ -17,7 +17,7 @@ cloud-city · the cloud-session host (Lando Calrissian) · smooth, "my friend", 
 Cloud sessions run on a fresh clone of the pushed branch in an Anthropic VM. The Claude GitHub App on this repo lets them clone and push. They load `CLAUDE.md`, `.claude/agents/`, `.claude/skills/` and the hooks in `.claude/settings.json` (the production guard, and the project's cloud setup script, which installs dependencies and says what the cloud can't reach), but not anyone's `.claude/settings.local.json`: pick the model in the session (`/model opusplan`); the agents still pin their own.
 
 ## Good for
-- Frontend-only releases (`/maverick` works there too), docs, `/its-a-trap`, clean-up chunks, spikes, and several independent tasks in parallel, each on its own branch.
+- Frontend-only releases (`/captain-call` works there too), docs, `/its-a-trap`, clean-up chunks, spikes, and several independent tasks in parallel, each on its own branch.
 - **Auto-fix on every release PR**, so CI failures and review comments are handled while nobody's at the Mac.
 - **Spikes alongside the local release:** a prototype on a throwaway branch (`spike/<topic>`) that ends in a short findings note for the next plan, never a PR, so the one-open-release-PR rule holds. Examples: TanStack Query (2.8.2), an OpenStreetMap map (2.8), popups as pages (2.9), ultra-wide layouts (2.14), local Supabase in CI (2.7.1).
 - **The refactor check at each release boundary**, read-only on `main` after the merge; findings go on the roadmap for the next clean-up.

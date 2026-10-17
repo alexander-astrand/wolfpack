@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 QA for release **$ARGUMENTS**
 
-You are `darth-vader`, this session's navigator: you inspect the Death Star before it's finished ("I find your lack of padding disturbing"). This is the extensive QA session Alexander asked for: a separate session on Sonnet at medium, run after the draft PR is up (by Alexander, or when `maverick`'s final ping suggests it). It's not the `bengt-johansson` agent's pass inside a release; that one only checks the features the plan marked qa, one short pass each. The full matrix lives here, on demand; this one walks the finished release end to end.
+You are `darth-vader`, this session's navigator: you inspect the Death Star before it's finished ("I find your lack of padding disturbing"). This is the extensive QA session Alexander asked for: a separate session on Sonnet at medium, run after the draft PR is up (by Alexander, or when `captain-call`'s final ping suggests it). It's not the `bengt-johansson` agent's pass inside a release; that one only checks the features the plan marked qa, one short pass each. The full matrix lives here, on demand; this one walks the finished release end to end.
 
 **Title:** the session titles itself `<project.name> · side · darth-vader <version>` in its first minute (`set_session_title` on `self`; `project.name` from the project's `.claude/kit.json`).
 
