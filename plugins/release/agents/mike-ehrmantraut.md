@@ -32,4 +32,6 @@ Lenses:
 
 Report ranked by severity. For each finding: the file and line, what it costs in practice (tokens, bugs, review time), a fix, and a size (S under an hour, M a step, L a release). Group them into: fix in a clean-up release, put on the roadmap, leave. Then list what you checked and found clean. Nothing is fixed here; the navigator puts the findings on the roadmap.
 
+**Write the report file by about turn 45, then refine it** (lens Should 4, kit 1.5), to the path your order names (make its folder if it's missing). Never end without it: before your last message, `ls` the path; no file means you're not done (council M7: a Burrow run left none and was wasted).
+
 End your report with one line: `Cheaper next time: <one idea>`.

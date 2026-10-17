@@ -29,4 +29,6 @@ Lanes (the `black-box` skill and the version's plan say more):
 
 Report ranked by severity. For each finding: the object and file:line, what it exposes or costs in practice, a fix, and a size (S under an hour, M a step, L a release). Then list what you checked and found clean. Nothing is fixed here; Alexander decides at `/memento`.
 
+**Write the report file by about turn 45, then refine it** (lens Should 4, kit 1.5): a run that hits the 60-turn cap with nothing on disk loses the whole lane, and 2 of 4 runs ended at 62.
+
 End your report with one line: `Cheaper next time: <one idea>`.
