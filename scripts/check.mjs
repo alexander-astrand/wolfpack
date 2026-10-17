@@ -24,7 +24,9 @@
 // Usage: node scripts/check.mjs [kitDir] [--project <dir>] — prints `file:line  reason` per
 // problem and exits 1, or a one-line summary and exits 0.
 
+import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { checkDrift } from './drift.mjs'
@@ -277,6 +279,23 @@ export function checkKit(kitDir, { values = [], base = process.cwd() } = {}) {
   return { problems, plugins: plugins.length }
 }
 
+// How far the checkout sessions load (`~/wolfpack-live`) is behind `origin/main`
+// (kit 1.5, H1). `git` is injected so the test needs no repo; null when the
+// folder is missing (CI) or git can't tell, so the line is simply not printed.
+export function liveBehind(liveDir = join(homedir(), 'wolfpack-live'), git = defaultGit) {
+  if (!existsSync(liveDir)) return null
+  try {
+    const n = Number.parseInt(git(liveDir, ['rev-list', '--count', 'HEAD..origin/main']), 10)
+    return Number.isNaN(n) ? null : n
+  } catch {
+    return null
+  }
+}
+
+function defaultGit(dir, args) {
+  return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2)
   const at = args.indexOf('--project')
@@ -298,4 +317,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   for (const p of problems) console.log(p)
   if (problems.length) process.exit(1)
   console.log(plugins ? `kit ok: ${plugins} plugin${plugins === 1 ? '' : 's'}` : 'no plugins yet')
+  const behind = liveBehind()
+  if (behind !== null) console.log(`live is ${behind} behind main`)
 }

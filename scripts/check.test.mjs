@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, test } from 'node:test'
-import { checkKit, projectValues } from './check.mjs'
+import { checkKit, liveBehind, projectValues } from './check.mjs'
 
 const roots = []
 after(() => roots.forEach((r) => rmSync(r, { recursive: true, force: true })))
@@ -144,4 +144,12 @@ test('a lessons line over 300 characters fails with its line and length; 300 pas
   assert.deepEqual(problems.filter((p) => p.includes('lesson')), [
     'plugins/core/lessons.md:4  lesson line over 300 characters (301)',
   ])
+})
+
+test('live-behind counts commits through an injected git, and is silent without the folder', () => {
+  const live = kit({ 'README.md': 'x' })
+  assert.equal(liveBehind(live, () => '5\n'), 5)
+  assert.equal(liveBehind(live, () => 'nonsense'), null)
+  assert.equal(liveBehind(live, () => { throw new Error('no origin/main') }), null)
+  assert.equal(liveBehind(join(live, 'missing'), () => '5'), null)
 })
