@@ -1,8 +1,10 @@
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { countCalls, hhmm, resolveLocalId, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
+import { countCalls, hhmm, readEntries, resolveLocalId, sessionCommand, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
 const line = (id, block) => ({
@@ -46,6 +48,36 @@ describe('resolveLocalId', () => {
 
   it('says so when no file matches', () => {
     expect(() => resolveLocalId('local_nope', base)).toThrow(/No session file for "local_nope"/)
+  })
+})
+
+describe('forked copies (M2)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'usage-forks-'))
+  const prompt = { type: 'user', message: { content: '<command-name>/core:inception</command-name>' } }
+  const text = `${[prompt, line('msg_a', { type: 'text', text: 'a' }), line('msg_b', { type: 'text', text: 'b' })].map((e) => JSON.stringify(e)).join('\n')}\n`
+  writeFileSync(join(dir, 'aaaa1111-copy.jsonl'), text)
+  writeFileSync(join(dir, 'bbbb2222-copy.jsonl'), text) // byte-identical, as the app forks them
+
+  it('readEntries with one seen Set counts two byte-identical files once', () => {
+    const seen = new Set()
+    const first = tallyEntries(readEntries(join(dir, 'aaaa1111-copy.jsonl'), seen))
+    const second = tallyEntries(readEntries(join(dir, 'bbbb2222-copy.jsonl'), seen))
+    expect(totalTokens(first.get('claude-opus-x'))).toBe(200)
+    expect(second.size).toBe(0)
+  })
+
+  it('the script sums the pair as one session and names the copy', () => {
+    const script = fileURLToPath(new URL('./usage.mjs', import.meta.url))
+    const out = JSON.parse(execFileSync(process.execPath, [script, '--json', '--dir', dir, 'aaaa1111', 'bbbb2222'], { encoding: 'utf8' }))
+    expect(out.grandTotal).toBe(200)
+    expect(out.copies).toEqual(['bbbb2222-copy'])
+  })
+
+  it('labels a session by its start command, else the first one it ran, in brackets', () => {
+    expect(sessionCommand([prompt])).toBe('/core:inception')
+    const later = [{ type: 'user', message: { content: 'plan the horizon' } }, { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Skill', input: { skill: 'core:inception' } }] } }]
+    expect(sessionCommand(later)).toBe('(/core:inception)')
+    expect(sessionCommand([{ type: 'user', message: { content: 'hi' } }])).toBe('(none)')
   })
 })
 
