@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Keeps ~/wolfpack-live on origin/main every 30 minutes (kit 1.5, H1). The Air only;
+     the Dell uses its own timer. Load: see README, "Keeping the live checkout level". -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>xyz.astrand.wolfpack-live-sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>exec "$HOME/wolfpack-live/scripts/live-sync.sh"</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>1800</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/alexanderastrand/Library/Logs/wolfpack-live-sync.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/alexanderastrand/Library/Logs/wolfpack-live-sync.log</string>
+</dict>
+</plist>

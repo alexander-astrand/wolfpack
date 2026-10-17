@@ -28,6 +28,8 @@ Five agents run on `model: fable` (`heisenberg`, `barney-stinson`, `dom-cobb`, `
 
 Source of truth: the kit's `main` on GitHub. Every project loads `<kit>` (`~/wolfpack-live` on Alexander's machines, detached at `origin/main`), so a merged change reaches them all on their next session after `scripts/live-sync.sh` runs.
 
+**Keeping the live checkout level:** `scripts/live-sync.sh` fetches and detaches `~/wolfpack-live` (or `$1`) onto `origin/main`, and stops with the changes printed if the checkout holds work that differs from `main`. On the Air, `scripts/launchd/xyz.astrand.wolfpack-live-sync.plist` runs it every 30 minutes (log: `~/Library/Logs/wolfpack-live-sync.log`); after the merge, load it once with `launchctl bootstrap gui/$(id -u) ~/wolfpack-live/scripts/launchd/xyz.astrand.wolfpack-live-sync.plist`.
+
 `scripts/user-commands.mjs` lists the skills marked `disable-model-invocation: true` and, with `--write`, rewrites the marked block under "Commands only I type" in `~/.claude/CLAUDE.md`; `future-ted` runs it when a skill is added or renamed.
 
 ## Start a project
