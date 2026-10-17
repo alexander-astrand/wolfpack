@@ -46,12 +46,13 @@ export function startCommand(entries) {
 // three times (J4, kit 1.4 council). `seen` holds every message.id from the
 // files read before this one; their lines are dropped. Ids are added only after
 // the file, because one message spans several lines (one per content block)
-// and usage.mjs's tally and call count need all of them.
+// and usage.mjs's tally and call count need all of them. A line with no
+// message id (a prompt, a tool result) is keyed by its own uuid.
 export function dropSeen(entries, seen) {
   if (!seen) return entries
   const mine = new Set()
   const out = entries.filter((e) => {
-    const id = e?.message?.id
+    const id = e?.message?.id ?? e?.uuid
     if (!id) return true
     if (seen.has(id)) return false
     mine.add(id)
