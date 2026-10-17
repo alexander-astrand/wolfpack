@@ -317,8 +317,8 @@ describe('the 2.12.2 roster', () => {
   }
   const shot = { action: 'screenshot' }
 
-  it('gives mosbius-designs 8M and 6 screenshots on Opus', () => {
-    withModel('m1', 'mosbius-designs', 'claude-opus-5', 8.1 * M)
+  it('gives mosbius-designs 5M and 6 screenshots on Opus', () => {
+    withModel('m1', 'mosbius-designs', 'claude-opus-5', 5.1 * M)
     expect(call('m1', 'mosbius-designs')).toBe('deny')
     withModel('m2', 'mosbius-designs', 'claude-opus-5', 1 * M, 6)
     expect(call('m2', 'mosbius-designs', 'mcp__Claude_Browser__computer', shot)).toBe('deny')
@@ -432,7 +432,7 @@ describe('kit.json budgets (2.14.6)', () => {
   it("keeps mosbius-designs' model numbers over the kit's \"*\"", () => {
     kit({ '*': '30M' })
     agent('k4', { type: 'mosbius-designs', description: 'mosbius-designs: x', tokens: 9 * M })
-    expect(call('k4', 'mosbius-designs')).toBe('deny') // Opus 8M, not 30M
+    expect(call('k4', 'mosbius-designs')).toBe('deny') // Opus 5M, not 30M
   })
 
   it('falls back to the built-in table when the kit is missing, logging it once', () => {
