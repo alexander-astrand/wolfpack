@@ -13,7 +13,7 @@ bro-code · the database tester (Barney Stinson's Bro Code, article by article) 
 
 **Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · bro-code <subject>` (norms.md).
 
-Database logic is tested on **dev** with SQL files in `supabase/tests/`, run with `supabase db query --linked -f <file>` (the CLI must be linked to dev). Each file acts as fixture users inside one transaction and always ends by raising an exception, so nothing is kept. The message is `PASS <name> (n checks)` or `FAIL <name>` followed by the failed checks.
+Database logic is tested on **dev** with SQL files in `supabase/tests/`, run with `supabase db query --linked -f <file>` (the CLI must be linked to dev). **On a local stack** (`refs.dev` in `.claude/kit.json` is a placeholder such as `localstacknotahosted`, or the project's `CLAUDE.md` says dev is local) there is no `--linked`: run the project's own test command (Burrow: `npm run test:db`, or `npm run test:db -- <file>` for one), which runs each file against the local stack (lens Must 4, kit 1.5). Each file acts as fixture users inside one transaction and always ends by raising an exception, so nothing is kept. The message is `PASS <name> (n checks)` or `FAIL <name>` followed by the failed checks.
 
 ## Add to an existing file first
 The project's own access rules and test suites (its `CLAUDE.md` lists them) say which file covers what. The general rule: a grants file that says exactly which functions `anon`/`authenticated` may execute (**every new function goes there**), an access-holes file for closed holes, and one file per area (isolation between owners or groups, roles, the domain's own logic).
@@ -22,7 +22,7 @@ A new file only for a new area, in the same style: the header comment says what 
 
 ## The pattern
 - `begin;` then `create temp table results (n serial, name text, ok boolean, detail text) on commit drop;`
-- **Helpers:** copy the helper block from the project's closest existing suite (typically `pg_temp.try_as`, `expect_ok`, `expect_error`, `count_as`, `expect_count`). They set `request.jwt.claims` and `set local role authenticated` *inside* a plpgsql block, so a failing statement rolls the role back with its subtransaction.
+- **Helpers:** when the project keeps them in `supabase/tests/_helpers.sql` and its runner pastes that file at a `-- @helpers` line (Burrow), write that one line instead of a copy, so each suite stays one `DO` block. Otherwise copy the helper block from the project's closest existing suite (typically `pg_temp.try_as`, `expect_ok`, `expect_error`, `count_as`, `expect_count`). They set `request.jwt.claims` and `set local role authenticated` *inside* a plpgsql block, so a failing statement rolls the role back with its subtransaction.
 - **Fixtures:** people are rows inserted into `auth.users` with fixed uuids (`00000000-0000-4000-a000-0000000000a1` …; the project's new-user trigger makes their profiles), plus the project's fixture owner/group rows. Rows need their owner or group column set explicitly. Never use real members.
 - **Checks:** one `results` row per expectation, named in plain words ("a member can't see group B's events").
 - **End:** the `do $$ … raise exception 'PASS …' / E'FAIL …\n%' … $$` block from the bottom of an existing suite.
@@ -36,4 +36,4 @@ A new file only for a new area, in the same style: the header comment says what 
 - **Prove the test can fail:** loosen the rule on purpose once (in the transaction), see FAIL, then put it back.
 
 ## Run them all
-`for f in supabase/tests/*.sql; do supabase db query --linked -f "$f"; done`, after every database change. Every file must say PASS.
+After every database change, the project's database test command (its `CLAUDE.md` names it). With none: hosted, `for f in supabase/tests/*.sql; do supabase db query --linked -f "$f"; done`; local, the same loop with `--local`, skipping `_` files (they are pasted, never run alone). Every file must say PASS.
