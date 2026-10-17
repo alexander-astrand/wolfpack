@@ -23,7 +23,7 @@ A lane lives outside `.claude`, in `~/Desktop/<Project>-lanes/<lane>`, never und
 4. **Push:** `git pull --rebase origin V<x>` first, then `git push origin HEAD:V<x>` (a plain `git push` would try to push `<lane-branch>`, not `V<x>`). Or leave it unpushed when the order says the navigator merges the lane's branch.
 5. **Database lanes link themselves:** a worktree can't inherit `supabase/.temp` (the Slap Bet Commissioner refuses copying it, by design), so `the-playbook` in a worktree links itself instead: `supabase link --project-ref <refs.dev from .claude/kit.json>`.
 
-`maverick` merges each lane's branch into the release branch before any step that touches its files.
+`captain-call` merges each lane's branch into the release branch before any step that touches its files.
 - A worktree lane edits only files under its own worktree root, by relative path (2.12.2: a lane's edits to agent files landed unpushed in the main checkout).
 - A worktree's dev server runs on another port and is not signed in (the login lives on the main dev port's origin), so signed-in browser checks happen there after the lane's push, by QA or the navigator's next builder.
 

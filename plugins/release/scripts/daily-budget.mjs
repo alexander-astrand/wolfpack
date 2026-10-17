@@ -50,7 +50,8 @@ const TAIL_BYTES = 256 * 1024
 const WEEKLY = 'seven_day'
 
 export const HEAVY_SKILLS = new Set([
-  'maverick', 'captain-call', 'cattle-drive', 'superlab', 'inception', 'no-half-measures', 'darth-vader', 'black-box',
+  // 'maverick' is captain-call's old name (kit 1.5), kept for a project on an older kit.
+  'captain-call', 'maverick', 'cattle-drive', 'superlab', 'inception', 'no-half-measures', 'darth-vader', 'black-box',
 ])
 // Never blocked: the deploy path (ranjit's own skills) and nothing else by name;
 // every skill not in HEAVY_SKILLS (routines included) passes anyway.
@@ -394,7 +395,7 @@ async function main() {
     for (const [label, input] of [
       ['Agent saul-goodman', { tool_name: 'Agent', tool_input: { subagent_type: 'saul-goodman' } }],
       ['Agent ranjit', { tool_name: 'Agent', tool_input: { subagent_type: 'ranjit' } }],
-      ['Skill maverick', { tool_name: 'Skill', tool_input: { skill: 'maverick' } }],
+      ['Skill captain-call', { tool_name: 'Skill', tool_input: { skill: 'captain-call' } }],
       ['Skill badger', { tool_name: 'Skill', tool_input: { skill: 'badger' } }],
     ]) {
       const d = decide({ session_id: 'dry-run', cwd: process.cwd(), ...input }, { forceActive, sessionModel: 'opus' })

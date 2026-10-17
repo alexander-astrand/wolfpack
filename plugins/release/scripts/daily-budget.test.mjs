@@ -55,7 +55,7 @@ test('under 14%: allowed; at 14%: new agents and heavy skills denied', () => {
   assert.equal(decide(agent(), capped).decision, 'deny')
   assert.match(decide(agent(), capped).reason, /^Daily budget reached: .*14\.0% of 14%/)
   assert.equal(decide({ session_id: 's', tool_name: 'Workflow', tool_input: {} }, capped).decision, 'deny')
-  assert.equal(decide({ session_id: 's', tool_name: 'Skill', tool_input: { skill: 'maverick' } }, capped).decision, 'deny')
+  assert.equal(decide({ session_id: 's', tool_name: 'Skill', tool_input: { skill: 'captain-call' } }, capped).decision, 'deny')
   assert.equal(decide({ session_id: 's', tool_name: 'Skill', tool_input: { skill: '88-mph', args: 'large x' } }, capped).decision, 'deny')
   // Never blocked: small skills and routines, ranjit and the deploy skills, a running agent's own calls.
   assert.equal(decide({ session_id: 's', tool_name: 'Skill', tool_input: { skill: '88-mph', args: 'small x' } }, capped), null)

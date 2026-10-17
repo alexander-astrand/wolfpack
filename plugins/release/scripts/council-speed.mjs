@@ -30,13 +30,19 @@ export function parseArgs(argv) {
 
 // The slash command a session started with: Claude Code writes it into the
 // first user message as <command-name>/x</command-name>; a typed "/x" works too.
+// Old names are counted under the new one: `/maverick` became `/captain-call`
+// in kit 1.5, and a council compares releases across the rename.
+const RENAMED = { maverick: 'captain-call' }
+
 export function startCommand(entries) {
   for (const e of entries.slice(0, 40)) {
     if (e.type !== 'user') continue
     const c = e.message?.content
     const text = typeof c === 'string' ? c : Array.isArray(c) ? c.map((p) => p?.text ?? '').join('\n') : ''
     const m = /<command-name>\s*(\/?[\w:-]+)\s*<\/command-name>/.exec(text) || /^\s*(\/[\w:-]+)/.exec(text)
-    if (m) return m[1].startsWith('/') ? m[1] : `/${m[1]}`
+    if (!m) continue
+    const cmd = m[1].startsWith('/') ? m[1] : `/${m[1]}`
+    return cmd.replace(/^\/(?:([\w-]+):)?([\w-]+)$/, (all, plugin, name) => (RENAMED[name] ? `/${plugin ? `${plugin}:` : ''}${RENAMED[name]}` : all))
   }
   return '(none)'
 }

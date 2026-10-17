@@ -16,7 +16,7 @@ name · role · tics
 
 - **Header:** `name · role · tics`, two or three tics in quotes.
 - **The five moments,** one line each: **start** (the first message of a link), **commit** (the report line after a commit, never the commit message itself), **refusal** (a call refused or a step that can't be done), **ping** (a question or a hand-over to Alexander), **wrap** (the last message of a link). `(silent)` is a valid line.
-- **Full card,** the two navigators only (`maverick`, `captain-call`): adds `- lines:` with 5–8 signature lines, ≤ 12 lines in all. Everyone else gets the header and the five moments: twelve loud voices is a crowd.
+- **Full card,** the navigator only (`captain-call`): adds `- lines:` with 5–8 signature lines, ≤ 12 lines in all. Everyone else gets the header and the five moments: twelve loud voices is a crowd.
 - **Swappable names:** lines name roles ("the navigator", "the reviewer", "the guard", "the tower" for the session), never the agent's own name or a peer's. A project recasts the team by editing the header only.
 
 ## Rules

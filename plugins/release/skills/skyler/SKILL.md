@@ -33,7 +33,7 @@ The running release is the newest `.jsonl` (by modified time) under `~/.claude/p
 - **Meter:** the weekly percentage now, against the release target (≤5% per big release, `oceans-eleven`), and the pace: percent per day since the release started. The release's own share is the script's `Week:` line: its tokens ÷ `tokensPerPoint` (kit.json `meter.tokensPerPoint`, else 46M a point).
 - **Per model:** the table's rows (part, model, calls, tokens, share) and the total.
 - **Per agent:** one line each from `--timeline` (description, model, active minutes, calls, tokens), largest first, by the agent's name (`chris-de-kok`, `the-playbook`, ...).
-- **The navigator's share:** `maverick`'s or `captain-call`'s tokens as a percentage of the total, against the last two releases' shares in their PR Usage sections.
+- **The navigator's share:** `captain-call`'s tokens as a percentage of the total, against the last two releases' shares in their PR Usage sections.
 - **Watch:** anything running long, over its `[budget]` tag, or the navigator's share climbing.
 
 `refresh`, or Alexander asking again, reruns steps 1 to 3. Stop after printing; there is nothing to fix here.

@@ -36,6 +36,12 @@ describe('sessionRow with a forked copy', () => {
 
 describe('startCommand', () => {
   it('reads a typed slash command', () => {
-    expect(startCommand([{ type: 'user', message: { content: '/maverick 1.5' } }])).toBe('/maverick')
+    expect(startCommand([{ type: 'user', message: { content: '/captain-call 1.5' } }])).toBe('/captain-call')
+  })
+
+  it("counts the old name /maverick as /captain-call (kit 1.5's rename)", () => {
+    expect(startCommand([{ type: 'user', message: { content: '/maverick 1.4' } }])).toBe('/captain-call')
+    expect(startCommand([{ type: 'user', message: { content: '<command-name>/release:maverick</command-name>' } }])).toBe('/release:captain-call')
+    expect(startCommand([{ type: 'user', message: { content: '/maverick-ish 1' } }])).toBe('/maverick-ish')
   })
 })

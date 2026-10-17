@@ -1,6 +1,6 @@
 ---
 name: carousel
-description: Open or finish the release's draft PR with the reviewer tagged (`reviewer` in `.claude/kit.json`) (it only notifies), once the README is updated. The last step of /maverick, or run by hand. The description follows the repo's template, with production steps split into Before merge, After merge and Human steps.
+description: Open or finish the release's draft PR with the reviewer tagged (`reviewer` in `.claude/kit.json`) (it only notifies), once the README is updated. The last step of /captain-call, or run by hand. The description follows the repo's template, with production steps split into Before merge, After merge and Human steps.
 ---
 
 The production scripts below (`scripts/…`) are the project's own, in its `scripts/` folder: the kit 1.0.0 doesn't ship them.
@@ -42,9 +42,9 @@ Open the pull request for the current release branch, or fill in the description
      - Facts the deploy plan needs (`ranjit`'s "cheaper next time", 2.13.8): when branch protection requires a review and nobody has approved, say "the merge needs `--admin`". When the release has no mock-up or spike branches, say "no mock-up or spike branches", so the deploy plan skips the branch listing and plan-file search (mock branches `mockup/*` from a `/superlab` are never merged; list them as "clean up after merge" when they exist). The post-merge checks are signed-out only (`ranjit` can't sign in; Vercel previews sit behind Vercel Authentication): any signed-in look goes under "Human steps afterwards", from the plan on.
      - **"How to run this deploy on full auto"** (the template's optional part): a release that changes the guard's frozen set says the plan round stays, because no chain marker covers its first `ranjit` spawn and the arm order goes by `SendMessage` after the plan (`[deploy-order]`, 2.14.7).
      - Nothing for production: write "None: frontend only, ships on merge." (or "None: tooling and docs only").
-   - **Usage** (when `/maverick` asks for it): the `car-wash` skill's table.
+   - **Usage** (when `/captain-call` asks for it): the `car-wash` skill's table.
    - **Budget** table beside it: agent, step, budget, used, stopped by Hank or not, filled by `c-3po` from the navigator's rows (a PR with the Usage table and no Budget table leaves the wrap-up nothing to read).
    - **Notes for review:** decisions taken without a ping, deviations from the plan, skills captured, review findings answered rather than fixed.
    - **Decisions:** each durable "Decided on the way" bullet (one that outlives the release) becomes an ADR in `docs/decisions/` (format in its README), linked from the bullet.
 5. **Open or update:** new PR: `gh pr create --draft --base main --title "V2.x.y: <short name>" --reviewer <reviewer> --body-file <scratchpad file>`; existing draft: `gh pr edit <number> --body-file <scratchpad file>`. End the body with the Claude Code line from the system reminder. Then append the PR's "Human steps afterwards" to the ledger `<plans>human-steps.md` under a new `## <letter> · <version> <name> (PR #n)` heading (next free letter; copy the existing headings' format), one `- [ ]` line per step, so `/memento` and `/future-ted` can walk them. Once per PR: when a heading for this PR number is already there (an update of an existing draft), edit its lines instead of appending again.
-6. Report the PR link. Marking it ready is Alexander's call; the reviewer tag only notifies, nothing waits for the reviewer. His live runs, read-alouds and tweak rounds after this go to a fresh follow-up session, never the release navigator (`[live-tweaks]`; `maverick`'s follow-up card at the draft).
+6. Report the PR link. Marking it ready is Alexander's call; the reviewer tag only notifies, nothing waits for the reviewer. His live runs, read-alouds and tweak rounds after this go to a fresh follow-up session, never the release navigator (`[live-tweaks]`; `captain-call`'s follow-up card at the draft).

@@ -44,7 +44,7 @@ describe('C8: the chain arm module', () => {
       '.claude/agents/yoda.md', '.claude/agents/ranjit.md',
     ]
     // chain-verdict.md is gone with yoda's verdict (2.12.3); the script check replaces it.
-    const outside = ['src/App.tsx', '.claude/agents/maverick.md', '.claude/skills/cattle-drive/chain.md', '.claude/skills/cattle-drive/chain-verdict.md', 'scripts/usage.mjs', 'README.md']
+    const outside = ['src/App.tsx', '.claude/agents/captain-call.md', '.claude/skills/cattle-drive/chain.md', '.claude/skills/cattle-drive/chain-verdict.md', 'scripts/usage.mjs', 'README.md']
     const files = [...inSet, ...outside].map((path) => ({ path, content: `v1 ${path}` }))
     const base = frozenHash(files)
     expect(base).toMatch(/^[0-9a-f]{64}$/)

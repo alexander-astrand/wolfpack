@@ -21,7 +21,7 @@ legendary · the brainstorm host (How I Met Your Mother: legen… wait for it) �
 Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfpack `design` plugin, which ships the card).
 
 ## Setup
-**Run in Auto**; never switch to manual (Alexander, 1 Oct 2026). The allow lines in `.claude/settings.local.json` cover plan writes. A session can set its own permission mode but not its model or effort (`set_session_effort` refuses "self"), so print the lines for the mode, as `/maverick <version> mode` does, and say to restart if the model and effort don't match: `/model opus`, `/effort medium`. Sonnet is enough for a short one, but riffing is what Opus is for.
+**Run in Auto**; never switch to manual (Alexander, 1 Oct 2026). The allow lines in `.claude/settings.local.json` cover plan writes. A session can set its own permission mode but not its model or effort (`set_session_effort` refuses "self"), so print the lines for the mode, as `/captain-call <version> mode` does, and say to restart if the model and effort don't match: `/model opus`, `/effort medium`. Sonnet is enough for a short one, but riffing is what Opus is for.
 
 **Never write the checkout.** This session writes only `~/.claude/plans/`, its own scratchpad and the roadmap page, and runs no git, so a drive or chain running beside it finds its checkout untouched (2.12.5: `/legendary` wrote `.claude/scratch/` into the repo mid-drive). A `heisenberg` brief goes to `~/.claude/plans/design/<topic>/`.
 

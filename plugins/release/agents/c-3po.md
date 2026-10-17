@@ -1,6 +1,6 @@
 ---
 name: c-3po
-description: Writes the README update, the PR description with its Usage section, and roadmap page edits, from the plan file, commit log and navigator's notes. For /carousel and /maverick; no code.
+description: Writes the README update, the PR description with its Usage section, and roadmap page edits, from the plan file, commit log and navigator's notes. For /carousel and /captain-call; no code.
 model: sonnet
 effort: medium
 disallowedTools: Agent

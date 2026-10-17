@@ -50,7 +50,7 @@ A function the app calls through `supabase.functions.invoke` needs two things be
 Commit and push on the release branch (subject says what the user gets). Report, briefly:
 - the commit hash and migrations added
 - test results (counts, any FAIL)
-- **what the frontend will call**: each RPC, table and column with its exact shape, so `maverick` can paste it into the work order for `chris-de-kok` or `jesse-pinkman`
+- **what the frontend will call**: each RPC, table and column with its exact shape, so `captain-call` can paste it into the work order for `chris-de-kok` or `jesse-pinkman`
 - **production steps** for the PR, in order: backup first whenever the database changes, then migrations, functions, secrets, and whether the frontend must ship at the same time
 - anything that looked risky
 

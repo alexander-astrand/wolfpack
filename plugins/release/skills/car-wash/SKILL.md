@@ -1,6 +1,6 @@
 ---
 name: car-wash
-description: Produce a release's Usage section for the PR from this session's Claude Code transcripts, tallied by model with this plugin's usage.mjs. Used at the end of /maverick, and by hand.
+description: Produce a release's Usage section for the PR from this session's Claude Code transcripts, tallied by model with this plugin's usage.mjs. Used at the end of /captain-call, and by hand.
 ---
 
 ## Voice
@@ -33,7 +33,7 @@ Read the claude.ai weekly usage meter with `mcp__ccd_session_mgmt__get_usage`, b
 Keep it short:
 - the table Skyler (`${CLAUDE_PLUGIN_ROOT}/scripts/usage.mjs`) prints (part, model, calls, tokens, share), the total and per-commit rows; label each agent row with the timeline's own description for it (`--timeline`), never from memory of the plan's step numbers, and name the agent (`chris-de-kok`, `jesse-pinkman`, …)
 - the wall-clock line from `--timeline` (session start to end, and agent-minutes against it)
-- the one-line model breakdown (e.g. "`maverick` Fable 19%, Opus agents 72%, Sonnet 10%")
+- the one-line model breakdown (e.g. "`captain-call` Fable 19%, Opus agents 72%, Sonnet 10%")
 - how per-commit compares to the recent releases, and where the weekly meter sits
 - any rework loop that inflated the numbers (a bug that took two builder passes and an Opus escalation, a plan that changed mid-build) named honestly, not smoothed over
 - a keep/tune line for the run's routing: keep it as is, or tune something (a step that should go to a cheaper model, an agent that ran too long), and say why

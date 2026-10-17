@@ -2,7 +2,7 @@
 
 Our way of working with Claude Code, packaged as plugins. One session is the **navigator**: it talks with you, plans a release step by step and hands each step to a named specialist (a builder, a reviewer, a designer, a deployer), each on its own model and effort. Every job carries a token **budget** that a hook enforces, and a **production guard** stands between every agent and the production database: only the deployer gets through, and only with a person's yes.
 
-The agents have names and voices (`maverick` the navigator, `chris-de-kok` a builder, `the-playbook` the database engineer, Hank the budget hook). It's how we tell them apart in chat, in PRs and in the usage tables.
+The agents have names and voices (`captain-call` the navigator, `chris-de-kok` a builder, `the-playbook` the database engineer, Hank the budget hook). It's how we tell them apart in chat, in PRs and in the usage tables.
 
 ## Install
 
@@ -60,10 +60,10 @@ The shared crew and the habits every project follows: planning before a big rele
 - Skills: `88-mph`, `badger`, `beam-me-up`, `car-wash`, `cloud-city`, `dependabot-report`, `don-draper`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `oracle`, `previously-on`, `skyler`, `tesseract`, `the-trail`, `war-room`, `watson`, `wilson`
 
 ### release
-A release end to end: `/maverick <version>` (or `/captain-call` for the big ones) plans it, spawns the builders, reviews, opens the draft PR and pings you. The deploy skills take it to production, and `/cattle-drive` runs release and deploy on one yes. Hank (`hooks/budget-cap.mjs`) holds every agent to the budget in its task description; Skyler (`scripts/usage.mjs`) counts the tokens.
+A release end to end: `/captain-call <version>` (with `fable allowance=high planner=dom-cobb pick=me stars=3` for the big ones) plans it, spawns the builders, reviews, opens the draft PR and pings you. The deploy skills take it to production, and `/cattle-drive` runs release and deploy on one yes. Hank (`hooks/budget-cap.mjs`) holds every agent to the budget in its task description; Skyler (`scripts/usage.mjs`) counts the tokens.
 
 - Agents: `admiral-ackbar`, `ahmed-och-ahmed`, `barney-stinson`, `c-3po`, `chris-de-kok`, `dom-cobb`, `jeff-winger`, `jesse-pinkman`, `kissochbajslowski`, `mace-windu`, `mike-ehrmantraut`, `r2-d2`, `saul-goodman`, `three-eyed-raven`, `troy-and-abed`
-- Skills: `black-box`, `captain-call`, `carousel`, `cattle-drive`, `ill-be-back`, `its-a-trap`, `jedi-council`, `kids-im-home`, `maverick`, `night-watch`, `no-half-measures`, `oceans-eleven`, `one-ring`, `skinny-pete`, `the-tower`, `you-shall-not-pass`
+- Skills: `black-box`, `captain-call`, `carousel`, `cattle-drive`, `ill-be-back`, `its-a-trap`, `jedi-council`, `kids-im-home`, `night-watch`, `no-half-measures`, `oceans-eleven`, `one-ring`, `skinny-pete`, `the-tower`, `you-shall-not-pass`
 
 ### design
 Briefs, mock-ups and QA for anything the app shows: browser checks at phone and desktop widths in both themes, an accessibility review, and a full QA pass. It also carries `voice-card.md` (the shape of every agent's `## Voice` card) and `taste-template.md` (start your project's `.claude/taste.md` from it).
@@ -112,7 +112,7 @@ The plugins carry placeholders; your values live in your project's `.claude/kit.
 - `conventions`: your conventions script, which the builders and the review run through `npm run lint`.
 - `names`: the project's old command names mapped to the kit's (e.g. a project's own `/check` to `you-shall-not-pass`). A record for people and project tooling; no plugin file in 1.0.0 reads it.
 - `budgets`: Hank's default budget per agent, `"*"` for the rest. Without the file Hank falls back to its own table.
-- `plans`: the folder for release plans (`<plans>V<version>.md`) and their notes. Default `~/.claude/plans/`; a project made by `/life-finds-a-way` sets `~/.claude/plans/<project>/`, so two projects' `V0.1.md` never collide. In 1.1.0 only `maverick`, `captain-call`, `inception`, `future-ted`, `its-a-trap`, `c-3po` and `badger` read it; the other readers and the guard still assume `~/.claude/plans/` (they follow in the next kit release).
+- `plans`: the folder for release plans (`<plans>V<version>.md`) and their notes. Default `~/.claude/plans/`; a project made by `/life-finds-a-way` sets `~/.claude/plans/<project>/`, so two projects' `V0.1.md` never collide. In 1.1.0 only `captain-call` (then `maverick`), `inception`, `future-ted`, `its-a-trap`, `c-3po` and `badger` read it; the other readers and the guard still assume `~/.claude/plans/` (they follow in the next kit release).
 - `roadmap`: `page` (the default) keeps the roadmap on a shared page, edited through `the-trail`; `file` keeps it in `<plans>roadmap.md`, edited in place.
 - `kit.version`: the kit release the project was set up with, written by `/life-finds-a-way`; its hand-off shows it next to `claude plugin marketplace update wolfpack`, the line that fetches a newer one.
 
