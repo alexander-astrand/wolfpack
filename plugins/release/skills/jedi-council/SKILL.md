@@ -29,17 +29,18 @@ Once per big version window, near its end, beside `/black-box`, `/no-half-measur
 ## 1. Prepare
 - In a repo: `git branch --show-current` and a clean tree.
 - **What the navigator reads** (J5, kit 1.5): the brief, the last council's summary (its `## Summary`) and the scripts' output below. Every other file read goes to `r2-d2` or `lorenzo-von-matterhorn` (Haiku), never into the navigator's context: in kit 1.4 the navigator read every lessons file and plan itself, ≈ 9M of the run's 18M.
-- **The numbers come from scripts** the navigator runs (J2; `r2-d2` and `lorenzo-von-matterhorn` have no shell). The window starts the day after the last council:
+- **The facts step, before any agent** (J2; kit 1.5, as `/black-box` and `/no-half-measures` have it: `r2-d2` and `lorenzo-von-matterhorn` have no shell, and the lanes asked for prepared facts). You run each command yourself and write the results to `<audits>/facts.md`, one section each, summaries not full output. Every order (the sweep, the four lens readers, `mace-windu`) names `facts.md`; an agent reads it and doesn't re-run a command in it. The window starts the day after the last council:
+  - the kit's changes since the last council: `git log --oneline <last council's commit>..HEAD` and `git diff --stat <same>..HEAD -- plugins/`;
   - `node ${CLAUDE_PLUGIN_ROOT}/scripts/council-speed.mjs --dir <transcripts> --since <date>`, once per project (`<transcripts>` is `~/.claude/projects/<the repo path with every / and . as ->`): per session its command, wall-clock, agent-minutes, calls and tokens, each message counted once across forks. For a slow session's slowest agent add `usage.mjs --timeline <id>`.
   - `node ${CLAUDE_PLUGIN_ROOT}/scripts/council-roles.mjs --since <date> --dir <transcripts> ...` (every project's folder in one call): per role its runs, tokens, share, calls and active minutes.
   - `node ${CLAUDE_PLUGIN_ROOT}/scripts/council-skills.mjs --since <date> --out <audits>/skills-cards.md --project <name>=<repo> ...` (every project in the window): the skills lens's cards (§3), plus `skills-cards-cheaper.md` with every `Cheaper next time:` line. About 10 seconds.
-- **`r2-d2`** (Haiku, `[budget 4M]`): greps and tables only. The sendback count from each `taste.md`, file sizes, lessons lines per file, the greps the sweep needs (below). The chain-log sweep (the `R` entries, Skyler lines per chain session) only when a `/cattle-drive` chain ran in the window.
+- **`r2-d2`** (Haiku, `[budget 4M]`): greps and tables only, for what `facts.md` doesn't hold. The sendback count from each `taste.md`, file sizes, lessons lines per file, the greps the sweep needs (below). The chain-log sweep (the `R` entries, Skyler lines per chain session) only when a `/cattle-drive` chain ran in the window.
 - Then Alexander's brief **verbatim**, and the window's other audits' summaries (60 lines at most each, from their reports' first section).
 
 ## 2. Sweep (wave 2, first)
 `admiral-ackbar` in **sweep mode** (its file says what that allows; Opus, high, `[budget 8M]`): stale, contradictory and costly rules across the CLAUDE.md files, the agents, the skills, lessons and taste; context cost; the kit split. Its order (J1, kit 1.5):
 - names its one file, `<audits>/sweep.md`, and says "write the file by turn 40, mark the rest not swept";
-- pastes the navigator's greps and `r2-d2`'s tables, so it never re-finds a path the facts already hold.
+- names `facts.md` and pastes `r2-d2`'s tables, so it never re-finds a path the facts already hold.
 Its sweep goes to `mace-windu`, not to the roadmap.
 
 ## 3. The skills lens (wave 2, beside the sweep)
@@ -67,4 +68,4 @@ Findings ranked by severity, each with file:line, a size (S/M/L) and a fix, feat
 
 ## 5. Report
 - In a repo the navigator writes the repo copy, `docs/audits/<version>/jedi-council.md`, from `mace-windu`'s file, and commits it by path; from the dojo the copy goes where the paragraph above says. Same check as the others: `grep -n -i 'key\|secret\|token\|password' <copy>` shows only headings and token counts.
-- In a repo, findings go on the roadmap in the window's one roadmap edit; from the dojo onto the agenda file. Both onto `/memento`'s agenda. Reply with the paths, the count per severity, the features, and the three calls Alexander has to make. Then stop.
+- In a repo, findings go on the roadmap in the window's one roadmap edit; from the dojo onto the agenda file. Both onto `/memento`'s agenda. Reply with the paths, the count per severity, the features, and the three calls Alexander has to make. Then stop, ending on one line: `Next: /memento <the window's versions> makes these calls (you)` (the global rule's last line, kit 1.5).

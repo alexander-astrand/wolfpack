@@ -44,4 +44,12 @@ describe('startCommand', () => {
     expect(startCommand([{ type: 'user', message: { content: '<command-name>/release:maverick</command-name>' } }])).toBe('/release:captain-call')
     expect(startCommand([{ type: 'user', message: { content: '/maverick-ish 1' } }])).toBe('/maverick-ish')
   })
+
+  it("reads a later command in brackets, as usage.mjs's sessionCommand does, and renames it there too", () => {
+    const later = [
+      { type: 'user', message: { content: 'run the release' } },
+      { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Skill', input: { skill: 'release:maverick' } }] } },
+    ]
+    expect(startCommand(later)).toBe('(/release:captain-call)')
+  })
 })

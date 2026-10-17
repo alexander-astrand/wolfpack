@@ -51,6 +51,10 @@ describe('fill.mjs', () => {
     const v01 = readFileSync(join(tmp, 'plans', 'V0.1.md'), 'utf8')
     expect(v01).toContain('- the snack list page: Code\n- the weekly reminder text: Chat')
     expect(readFileSync(join(tmp, 'proj', '.claude', 'taste.md'), 'utf8')).toContain('Why: big thumbs')
+    // The kit's grep-able taste rules start every design project's builder checks (H4).
+    const checks = readFileSync(join(tmp, 'proj', '.claude', 'builder-checks.md'), 'utf8')
+    expect(checks).toContain('whole pixels')
+    expect(checks).toContain('navigator.share')
   })
 
   it('fails naming the file and key when a value is missing, and writes nothing', () => {
@@ -75,6 +79,7 @@ describe('fill.mjs', () => {
     expect(readFileSync(join(tmp, 'proj', 'CLAUDE.md'), 'utf8')).not.toContain('npm run dev')
     expect(existsSync(join(tmp, 'proj', '.claude', 'launch.json'))).toBe(false)
     expect(existsSync(join(tmp, 'proj', '.claude', 'taste.md'))).toBe(false)
+    expect(existsSync(join(tmp, 'proj', '.claude', 'builder-checks.md'))).toBe(false)
     expect(JSON.parse(readFileSync(join(tmp, 'proj', '.claude', 'kit.json'), 'utf8')).project.devPort).toBe(null)
   })
 
@@ -103,6 +108,9 @@ describe('fill.mjs', () => {
     const merge = readFileSync(ranjit, 'utf8')
     expect(merge).toContain('**toy-node has no database**')
     expect(merge).not.toContain('prod-db.sh push')
+    const mergeKit = JSON.parse(read('.claude', 'kit.json'))
+    expect(mergeKit.production).toBe('on-merge')
+    expect(mergeKit.deployer).toBe('ranjit')
 
     for (const values of [fixture('node'), { ...supa, production: 'none' }]) {
       fresh()

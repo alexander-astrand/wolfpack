@@ -16,6 +16,7 @@
 | `dotclaude/settings.allow.node.json` | merged the same way, on a Node stack (the npm lines) |
 | `dotclaude/settings.allow.python.json` | merged the same way, on a Python stack (python3, ruff, pytest, `.venv/bin/`); Other has none |
 | `taste-seed.md` | `.claude/taste.md` (UI projects only) |
+| `dotclaude/builder-checks.md` | `.claude/builder-checks.md` (design pack: the kit's grep-able taste rules, whole-pixel logos and the one share menu) |
 | `roadmap.md` | `{{plans}}{{project.name}}/roadmap.md` |
 | `V0.1.md` | `{{plans}}{{project.name}}/V0.1.md` |
 | `<database>/templates/ranjit.md` | `.claude/agents/ranjit.md`, if the database pack is on and production is Supabase (`refs.prod` set, `production` neither `none` nor `on-merge`) |
@@ -35,7 +36,7 @@ The allow lists are never rendered: `node fill.mjs --allow <values.json>` prints
 
 **Stacks** (`stack`: `node`, `python` or `other`): text that differs per stack carries a marker, one rule everywhere. `<!-- stack:python -->` at a line's end keeps the line only for that stack (several: `stack:node,python`); the same marker alone on a line keeps everything up to `<!-- /stack -->`. Markers are stripped when filled. On Python, `scripts/check.sh` runs ruff and pytest when installed (the `.venv` first), and a missing tool prints one "skipped" line; on Other it is a TODO that prints "no checks yet: fill in scripts/check.sh". `node fill.mjs --detect <dir>` gives adopt's stack: `package.json` → node, `pyproject.toml` or `requirements.txt` → python, neither → other.
 
-`.json` templates keep their placeholders bare (`"devPort": {{project.devPort}}` is a number once filled). A line ending in `<!-- ui-only -->` is dev-server text: with no dev server the skill removes the whole line, and `kit.json` gets `"devPort": null`. A line ending in `<!-- ships-nowhere -->` stays only with `"production": "none"` in the values (CI's draft skip, kit.json's own line). A GitHub expression `${{ github.ref }}` is written as it stands. `dependabot.yml` ships with the github-actions entry only; the commented npm entry is added once `package.json` exists. Text in `<!-- … -->` comments is guidance for the skill: replace or delete it when filling.
+`.json` templates keep their placeholders bare (`"devPort": {{project.devPort}}` is a number once filled). A line ending in `<!-- ui-only -->` is dev-server text: with no dev server the skill removes the whole line, and `kit.json` gets `"devPort": null`. A line ending in `<!-- ships-nowhere -->` stays only with `"production": "none"` in the values (CI's draft skip, kit.json's own line); one ending in `<!-- on-merge -->` only with `"production": "on-merge"` (kit.json's line; set `deployer` to `ranjit` too). A GitHub expression `${{ github.ref }}` is written as it stands. `dependabot.yml` ships with the github-actions entry only; the commented npm entry is added once `package.json` exists. Text in `<!-- … -->` comments is guidance for the skill: replace or delete it when filling.
 
 ## Placeholders
 
