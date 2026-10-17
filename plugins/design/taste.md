@@ -10,7 +10,7 @@ Alexander's design taste that holds for any app he builds: buttons, colour and c
 
 The worst sendback is a repeat. "Please be better at self learning here, it's an identical situation" (shelf, 2.10). When one page has solved something (the event page's scrolling, the polls row's drag), every later page copies that solution.
 
-`future-ted` adds each new sendback at the wrap-up: the rule, then (page, release: what was sent back). No entry without a source. A rule that would hold in any app goes here (a kit edit, committed in `~/wolfpack`); one that names the project's page, kind or component goes in the project's file.
+`future-ted` adds each new sendback at the wrap-up: the rule, then (page, release: what was sent back). No entry without a source. A rule that would hold in any app goes here (a kit edit, made in a worktree off the kit's `main` and merged by PR); one that names the project's page, kind or component goes in the project's file.
 
 ## Scrolling and columns
 - One scrollbar per page. A two-column page scrolls like the event page: the main column moves with the page, the side column is sticky and scrolls on its own with no visible bar. (Profile, 2.12.1: two visible scrollbars; "Scrolls showing on both columns should be obvious not to do, should have learned from event page"; "The Profile page should NEVER pass through in its current state")
@@ -106,7 +106,7 @@ The worst sendback is a repeat. "Please be better at self learning here, it's an
 - A title names everything its rows hold. (Book page, 2.13.1 pick at `/memento`: "Readers · 2 finished", not "Who's read it" over rows that say "Wants to read it")
 - One number gets one phrase everywhere. (Pages a day, 2.13.1 pick at `/memento`: "to make it" on Smart pick and the night page)
 - After Next week, what's left of the current month reads "Rest of <month>"; later months keep their name. (Events board, 3.1.1 build, 8 Oct 2026: "SInce we have this week and next week, we might do "rest of now" for the rest of the same month, so rest of october on this one.")
-- A voice line may bend a movie quote past three words when it's a parody, not the quote: maverick's "I feel the need. The need for a smaller diff." and captain-call's "I won't tolerate rudeness in a diff." stay. (Voice cards, 2.14.6.1, pick at `/memento`: "Keep both as is", over the trims)
+- A voice line may bend a movie quote past three words when it's a parody, not the quote: maverick's (the navigator's name until kit 1.5) "I feel the need. The need for a smaller diff." and captain-call's "I won't tolerate rudeness in a diff." stay. (Voice cards, 2.14.6.1, pick at `/memento`: "Keep both as is", over the trims)
 
 ## Feedback and confirmations
 - Every action that changes something shows a pop-up. (Event page, 2.8.3: "Cancelling my spot or dealing me in should trigger toastify, as well as all other functions like that!")

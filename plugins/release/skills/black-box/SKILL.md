@@ -22,21 +22,26 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 Alexander (2.12 wrap-up, 29 Sep): "Missing a full db review, plug holes, infrastructure, architechture, security checks, password handling etc. Also a go through of apis, upgrades needed , plans we are on, considerations etc."
 
-Once per big version window (V2, V3, V4), near its end, beside `/jedi-council`, `/no-half-measures` and a full `/darth-vader` (CLAUDE.md; brief: `~/.claude/plans/audit-2026-10.md`). V2's runs in 2.13.6, after the 2.13 chains and before 2.14; its plan, budgets and current inputs are in `~/.claude/plans/V2.13.6.md` (Steps 2–4, step 8, Gaps and risks, First commit item 2). For a later version, its own plan file carries the same.
+Usually run together with the others by `/avengers-assemble`. Once per big version window (V2, V3, V4), near its end, beside `/jedi-council`, `/no-half-measures` and a full `/darth-vader` (CLAUDE.md; brief: `~/.claude/plans/audit-2026-10.md`). V2's runs in 2.13.6, after the 2.13 chains and before 2.14; its plan, budgets and current inputs are in `~/.claude/plans/V2.13.6.md` (Steps 2–4, step 8, Gaps and risks, First commit item 2). For a later version, its own plan file carries the same.
 
 **Read and report only.** Nothing in the audit changes code, agents, skills, the guard or production. Advisors are read through the Supabase MCP's read-only advisor tool (load it via ToolSearch first), on dev; production's advisors come from `/skinny-pete <version> check` beforehand or the deploy's own checks (`[production-reads]`), never from the lanes; no SQL that writes, no `prod-db.sh`, no SQL on production (a guard refusal is reported, never re-spelled). Fixes are decided by Alexander at `/memento` and built in the clean-up release after the audit, never in an open PR; anything urgent is a hotfix on his go.
 
 ## 1. Prepare
 - Check `git branch --show-current` and a clean tree; the reports go on the release branch.
-- Facts for the orders come from `lorenzo-von-matterhorn` (Haiku), with the rest of the window's audits (the plan's step 1).
 - The current baseline: the advisors' standing findings at the last deploy (V2.13.6's First commit item 2: about 90, by category). A diff against that list is cheaper than reading it whole.
+- **The facts step, before any lane** (kit 1.5, lens Must 3: the lanes and `lorenzo-von-matterhorn` can't run these, and 3 of 4 barney lines asked for them). You run each command yourself and write the results to `~/.claude/plans/audits-<version>/facts.md`, one section each, summaries not full output:
+  - the diff since the last audit: `git log --oneline <last audit's commit>..HEAD` and `git diff --stat <same>..HEAD`;
+  - `npm outdated` and `npm audit --omit=dev` (counts by severity, the packages named);
+  - the advisors on dev (the Supabase MCP's read-only advisor tool, through ToolSearch), diffed against the baseline; "no database" when the project has none;
+  - `npx knip` and the 20 biggest source files by line count (`wc -l`).
+  Every lane's order names `facts.md`; a lane reads it and doesn't re-run a command in it. `lorenzo-von-matterhorn` only greps for what's left.
 
 ## 2. Audit: three lanes, side by side (wave 1)
 Each lane is a `barney-stinson` spawn with the version, its lane, the baseline and its private report path. Lanes 2 and 3 set `model: opus` on the spawn; only lane 1 counts as a star.
 
 | Lane | Model | Budget (2.13.6) | Covers |
 |---|---|---|---|
-| 1. Database and access | Fable high (star) | 25M | every RLS policy and `security definer` function (`search_path`, the caller's group role, private events through `can_see_game_night()`); grants (`function_grants.sql`), storage policies, `pg_cron`/`pg_net` jobs, `app_settings`; the advisors on dev and production, diffed against the baseline; gaps in `supabase/tests/*.sql` |
+| 1. Database and access | Fable high (star) | 25M | every RLS policy and `security definer` function (`search_path`, the caller's group role, the project's visibility helpers for private rows); grants (the project's grants test), storage policies, `pg_cron`/`pg_net` jobs, `app_settings`; the advisors on dev and production, diffed against the baseline; gaps in `supabase/tests/*.sql` |
 | 2. Security and auth | Opus high | 15M | Auth settings (password rules, leaked-password check, MFA, email confirmation, rate limits, JWT and session lifetimes); where keys live; `_shared/caller.ts`, CORS, Vercel headers (CSP, HSTS); `npm audit`, secrets in git history, the guard hook read as code |
 | 3. Infrastructure, APIs and plans | Opus high, with WebSearch | 15M | Supabase and Vercel plans and limits (free-tier pausing, backups/PITR, Hobby's non-commercial rule); each outside API's terms and limits (the list in the plan's step 4); upgrades due (React, Vite, Tailwind, supabase-js, Deno, Postgres, Node); V3 strain points (multi-group, public groups); the domain (memory `project_domain_name.md`); a source URL per claim |
 

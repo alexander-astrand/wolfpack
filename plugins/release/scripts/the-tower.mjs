@@ -1,11 +1,19 @@
 #!/usr/bin/env node
-// /the-tower: Claude Code's status line for this repo. Claude Code pipes the
-// session JSON on stdin and shows the one line we print, e.g.
-//   V2.14.6.2 · link 2/2 · Hank: chris-de-kok 3.1/10M · the Commissioner said no (gh pr merge) 17:12Z
+// /the-tower: Claude Code's status line. Claude Code pipes the session JSON on
+// stdin and shows the one line we print, e.g.
+//   session 9.6M ≈0.4% wk (fable 0.3 opus 0.1) · link 2/2 · Hank: chris-de-kok 3.1/10M · week 86%
 // It runs on every redraw, so it stays fast and quiet: no network, no git or
-// gh process (the branch comes from .git/HEAD), only small files or the tail
-// of the logs. Every part is optional and wrapped; a status line that throws
-// is noise, so the worst case is the bare branch name.
+// gh process, only small files, the tail of the logs, and the transcript's
+// new bytes since the last run (a cache in the temp folder keeps the count).
+// Every part is optional and wrapped; a status line that throws is noise, so
+// the worst case is the bare branch name (Alexander, 6 Oct: the version isn't
+// worth a place on the line, so the branch shows only when nothing else can).
+//
+// Kit 1.5 (L1, L2, lens Must 10): Hutzup's scripts/the-tower.mjs, the one
+// settings.json ran for every project, folded in here; the meter figure comes
+// from usage.mjs's tokensPerPoint, and the week from the input or
+// ~/.claude/meter-now.json (daily-budget.mjs --tower writes it), never the
+// retired meter logger's files.
 //
 //   node <release plugin>/scripts/the-tower.mjs --install   # adds the statusLine key to ~/.claude/settings.json (asks first)
 
@@ -14,10 +22,14 @@ import { homedir, tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
+import { parseEntries, readKit, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
 
 const MAX = 79 // under 80 columns, so it fits a narrow terminal
 const TOAST_MS = 30 * 60 * 1000 // a refusal older than 30 minutes is history, not news
-const WEEK_SHOWN_ABOVE = 80 // the week is only worth a glance when it's nearly gone
+const STALE_MS = 30 * 60 * 1000 // daily-budget's own limit: an older meter-now.json is marked "~"
+const RECENT_IDS = 200 // a message's lines sit together, so a short memory dedupes them
+
+const familyOf = (model) => (/(opus|fable|sonnet|haiku)/i.exec(model || '') || ['opus'])[0].toLowerCase()
 
 const safe = (fn, fallback = null) => {
   try {
@@ -114,32 +126,121 @@ function hankLine(input, projectDir) {
   return budget ? `Hank: ${name} ${used}/${+(budget / 1e6).toFixed(1)}M` : `Hank: ${name} ${used}M`
 }
 
-// The week's share: no plan-limit API reaches a script, so read what the
-// meter logger last wrote: ~/.claude/meter.log if it exists, else the plans
-// file its scheduled task appends to (the path is read from its SKILL.md).
-function weekLine() {
-  let pct = null
-  const meterLog = join(homedir(), '.claude', 'meter.log')
-  if (existsSync(meterLog)) {
-    const last = tail(meterLog, 4096).at(-1) || ''
-    const m = /(\d+(?:\.\d+)?)\s*%/.exec(last)
-    if (m) pct = Number(m[1])
-  } else {
-    const skill = safe(() => readFileSync(join(homedir(), '.claude', 'scheduled-tasks', 'meter-log', 'SKILL.md'), 'utf8'), '')
-    const target = /~\/\.claude\/plans\/[\w.-]+\.md/.exec(skill)?.[0]
-    const path = target && join(homedir(), target.slice(2))
-    if (path && existsSync(path) && statSync(path).size < 512 * 1024) {
-      // Rows: | when | plan | week all models | week Fable | 5-hour | resets |
-      // under "## Baseline"; other tables in the file are left alone.
-      let inTable = false
-      for (const line of readFileSync(path, 'utf8').split('\n')) {
-        if (line.startsWith('## ')) inTable = /^## Baseline/.test(line)
-        const m = inTable && /^\|[^|]*\|[^|]*\|\s*(\d+(?:\.\d+)?)%\s*\|/.exec(line)
-        if (m) pct = Number(m[1])
+// The session's real tokens so far per model family, its subagents included,
+// counted by usage.mjs's own functions (Skyler): each message.id once, all
+// four usage fields. Only the bytes added since the last run are read; the
+// count lives in <tmp>/the-tower-<session>.json. A file that shrank is recounted.
+export function sessionTokens(input, cacheDir = tmpdir()) {
+  const main = input.transcript_path
+  if (!main || !existsSync(main)) return null
+  const sid = basename(main, '.jsonl')
+  const subDir = join(dirname(main), sid, 'subagents')
+  const files = [main, ...safe(() => readdirSync(subDir).filter((f) => f.endsWith('.jsonl')).map((f) => join(subDir, f)), [])]
+  const cachePath = join(cacheDir, `the-tower-${sid}.json`)
+  const cache = readJson(cachePath) ?? { files: {} }
+  const models = {}
+  for (const file of files) {
+    const size = safe(() => statSync(file).size, 0)
+    let entry = cache.files[file]
+    // A cache from before the split by model has no `models`: count afresh.
+    if (!entry?.models || size < entry.offset) entry = { offset: 0, models: {}, ids: [] }
+    if (size > entry.offset) {
+      const fd = openSync(file, 'r')
+      try {
+        const buf = Buffer.alloc(size - entry.offset)
+        readSync(fd, buf, 0, buf.length, entry.offset)
+        const end = buf.lastIndexOf(0x0a) // only whole lines; a half-written one waits
+        if (end >= 0) {
+          // tallyEntries dedupes within a chunk; the remembered ids carry it across runs.
+          const ids = new Set(entry.ids)
+          const fresh = parseEntries(buf.subarray(0, end).toString('utf8')).filter((e) => {
+            const id = e?.message?.usage ? e.message.id : null
+            if (!id) return true
+            if (ids.has(id)) return false
+            ids.add(id)
+            return true
+          })
+          for (const [model, b] of tallyEntries(fresh)) {
+            const family = familyOf(model)
+            entry.models[family] = (entry.models[family] || 0) + totalTokens(b)
+          }
+          entry.ids = [...ids].slice(-RECENT_IDS)
+          entry.offset += end + 1
+        }
+      } finally {
+        closeSync(fd)
       }
     }
+    cache.files[file] = entry
+    for (const [family, tokens] of Object.entries(entry.models)) models[family] = (models[family] || 0) + tokens
   }
-  return pct !== null && pct > WEEK_SHOWN_ABOVE ? `week ${Math.round(pct)}%` : null
+  safe(() => writeFileSync(cachePath, JSON.stringify(cache)))
+  return models
+}
+
+// Each family's share of the weekly meter, in points, and their sum, by the
+// one meter figure (usage.mjs's tokensPerPoint, kit.json first).
+export function meterShares(models, kitJson = null) {
+  const by = {}
+  let total = 0
+  for (const [family, tokens] of Object.entries(models)) {
+    by[family] = tokens / tokensPerPoint(kitJson, family)
+    total += by[family]
+  }
+  return { by, total }
+}
+
+const pctText = (p) => (p < 0.1 ? '<0.1%' : `${p.toFixed(1)}%`)
+
+// "session 9.6M ≈0.4% wk": the tokens and their share of the weekly meter;
+// with two models that each count, the split too: "(fable 1.0 opus 0.4)".
+export function sessionLine(models, kitJson = null) {
+  if (!models) return null
+  const tokens = Object.values(models).reduce((a, b) => a + b, 0)
+  const { by, total } = meterShares(models, kitJson)
+  const split = Object.entries(by)
+    .filter(([, p]) => p >= 0.1)
+    .sort((a, b) => b[1] - a[1])
+  const detail = split.length > 1 ? ` (${split.map(([f, p]) => `${f} ${p.toFixed(1)}`).join(' ')})` : ''
+  return `session ${(tokens / 1e6).toFixed(1)}M ≈${pctText(total)} wk${detail}`
+}
+
+// A weekly window from rate limits: the mod's shape ([{ kind: 'seven_day',
+// percentUsed }], also what meter-now.json holds) or the terminal's
+// ({ seven_day: { used_percentage } }). `fable` asks for the Fable-only
+// window; its name isn't in a sample yet, so any seven-day kind or key naming
+// Fable counts, and none means none shown.
+function weekFrom(rl, fable = false) {
+  if (!rl) return null
+  const wanted = (name) => (fable ? /^seven_?day.*fable/i.test(name || '') : name === 'seven_day' || name === 'sevenDay')
+  if (Array.isArray(rl)) {
+    const w = rl.find((r) => wanted(r?.kind))
+    return typeof w?.percentUsed === 'number' ? w.percentUsed : null
+  }
+  const key = Object.keys(rl).find(wanted)
+  const w = key ? rl[key] : null
+  const v = w?.used_percentage ?? w?.percentUsed ?? w?.utilization
+  return typeof v === 'number' ? v : null
+}
+
+// The week's share, always shown when anything knows it (3.0: the session's
+// share means little without the week it lands in): the input's live figure,
+// else ~/.claude/meter-now.json (daily-budget.mjs --tower writes it every
+// 10 s), marked "~" when older than 30 minutes. Fable's own week sits beside
+// it while Fable runs in this session.
+export function weekLine(input, fableRuns = false, nowPath = join(homedir(), '.claude', 'meter-now.json'), now = Date.now()) {
+  let rl = input?.rate_limits ?? input?.rateLimits
+  let mark = ''
+  if (safe(() => weekFrom(rl)) === null) {
+    const saved = readJson(nowPath)
+    rl = saved?.rate_limits
+    const at = Date.parse(saved?.at)
+    if (!Number.isFinite(at) || now - at > STALE_MS) mark = '~'
+  }
+  const week = safe(() => weekFrom(rl))
+  if (week === null) return null
+  const fable = fableRuns ? safe(() => weekFrom(rl, true)) : null
+  return `week ${mark}${Math.round(week)}%${fable !== null ? ` (Fable ${Math.round(fable)}%)` : ''}`
 }
 
 // A short "what" for the toast: a command's first words, or a file's name.
@@ -190,11 +291,12 @@ function toast(projectDir) {
 }
 
 // Fit under 80: shorten the toast's command first, then drop parts, least
-// telling first (the chain link, then Hank, then the toast, then the week).
-function fit(parts) {
+// telling first (the chain link, then Hank, then the toast). The session's
+// count and the week stay: they are what the line is for.
+export function fit(parts) {
   const join3 = () => Object.values(parts).filter(Boolean).join(' · ')
   if (join3().length > MAX && parts.toast) parts.toast = parts.toast.replace(/\(([^)]{12})[^)]+\)/, '($1…)')
-  for (const key of ['link', 'hank', 'toast', 'week']) {
+  for (const key of ['link', 'hank', 'toast']) {
     if (join3().length <= MAX) break
     parts[key] = null
   }
@@ -202,18 +304,20 @@ function fit(parts) {
   return line.length > MAX ? `${line.slice(0, MAX - 1)}…` : line
 }
 
-export function statusLine(input) {
+export function statusLine(input, opts = {}) {
   const start = input?.workspace?.current_dir || input?.cwd || process.cwd()
   const root = safe(() => repoRoot(start))
   const projectDir = input?.workspace?.project_dir || root || start
   const branch = (root && safe(() => branchOf(root))) || basename(start)
-  const parts = { release: branch, link: null, hank: null, toast: null, week: null }
+  const parts = { session: null, link: null, hank: null, toast: null, week: null }
   try {
+    const models = safe(() => sessionTokens(input ?? {}, opts.cacheDir))
+    parts.session = safe(() => sessionLine(models, readKit(projectDir)))
     parts.link = safe(() => chainLink(projectDir, branch))
     parts.hank = safe(() => hankLine(input ?? {}, projectDir))
     parts.toast = safe(() => toast(projectDir))
-    parts.week = safe(() => weekLine())
-    return fit(parts)
+    parts.week = safe(() => weekLine(input ?? {}, (models?.fable || 0) > 0, opts.meterNow))
+    return fit(parts) || branch
   } catch {
     return branch
   }

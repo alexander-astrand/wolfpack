@@ -27,7 +27,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 ## Where to look
 
 - The repo: `README.md` (what the app does), the source folders its CLAUDE.md names, `docs/decisions/` (why).
-- The kit: `CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/lessons.md`, `.claude/hooks/`.
+- The project's setup: `CLAUDE.md` and whichever of `.claude/skills/`, `.claude/agents/`, `.claude/lessons.md`, `.claude/hooks/` it has. The shared kit lives in the wolfpack plugins (`plugins/<plugin>/skills/`, `agents/`).
 - The plans: `~/.claude/plans/V<x>.md` (one release each) and its siblings.
 - Memory: `project_roadmap.md` for the roadmap. Never fetch the roadmap page in full; the memory file is the pointer and the status.
 
@@ -36,10 +36,5 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 1. Read the question. Pick the one or two places above that hold the answer, and search with Grep or Glob before reading whole files.
 2. Any file over 20k characters goes to `lorenzo-von-matterhorn` (a "where is X" with file:line). Don't read it yourself.
 3. Answer in one to three plain lines, with the file path (and line) as the source. If the sources disagree or say nothing, say so; never guess a number or a status.
-4. **If the question is really work** ("add X", "fix Y", "plan Z"), don't do it yourself. **A cheap skill you start straight away** with the Skill tool instead of handing over the line to type, then say where it landed: an idea for later is `/badger <the idea>`, a quick web fact `/88-mph small <topic>` (Alexander, 6 Oct: "You can start badger yourself"). **Research worth a file (`/88-mph medium` or `large`) never runs in this session:** start its own session (`start_session` with `user_asked`, under the session-starts trial in norms.md), the whole order in its prompt (`/88-mph <size> <topic>`, the decision, the person's questions in their own words); hejtide's large run ran inside an `oracle` and came back narrow (15 Oct 2026). **A release, a chain or other big work goes to a session of its own, which you start** (`start_session` with `user_asked`, the whole order in its prompt: the session-starts trial, norms.md "Starting sessions"), then say where it landed. **Merges and production still ask:** name the command and the exact line to type. The commands, for example:
-   - a release: `/maverick <version>` (big ones `/captain-call <version>`), planned first with `/inception <version>`
-   - a creative question: `/heisenberg <topic>`
-   - a different session's model or effort: `/beam-me-up <skill>`
-   - a brief for a chat, agent or person: `/don-draper <for chat|agent|person> <subject>`
-   - `/88-mph` and the rest of the newer commands: read the Slash commands line in the `oceans-eleven` skill (the wolfpack `release` plugin) for the current list.
-5. If the question needs weighing or a longer talk, stop and say `/oracle <the question>`. Otherwise close with the source and nothing more.
+4. **If the question is really work** ("add X", "fix Y", "plan Z"), don't do it yourself: follow step 4 of the `oracle` skill (this plugin's `skills/oracle/SKILL.md`, that step only). In short: a cheap skill (`/badger`, `/88-mph small`) you start at once; research worth a file and any big work go to a session of their own that you start; merges and production still ask. The current command list is the "Slash commands" section of `reference.md` in the `oceans-eleven` skill's folder (the wolfpack `release` plugin).
+5. If the question needs weighing or a longer talk, stop and say `/oracle <the question>`. Otherwise close with the source and nothing more. When the next step is Alexander's, end the turn with no timer (kit 1.5, M9); `/marco-polo` finds sessions waiting on him.

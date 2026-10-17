@@ -17,7 +17,7 @@ const P = '/private/tmp/claude-501/x/scratchpad/probes'
 
 describe('V0.9 stalls: plain writes outside the frozen set pass', () => {
   it("sed -i '' with a script holding .* is a script, not a path", () => {
-    expect(at(`cd ~/.claude/projects/x/memory && sed -i '' '3s/.*/description: "V0.9 (\\/maverick 0.9)"/' project_roadmap.md && sed -n 3p project_roadmap.md`)).toBe('pass')
+    expect(at(`cd ~/.claude/projects/x/memory && sed -i '' '3s/.*/description: "V0.9 (\\/captain-call 0.9)"/' project_roadmap.md && sed -n 3p project_roadmap.md`)).toBe('pass')
     expect(at(`cd /repo/lanes/s2 && sed -i '' "1s/.*/import type { ReactNode } from 'react'/" 'app/(home)/dev/ui/shapes.tsx'`)).toBe('pass')
     expect(at(`sed -i '' -e 's/^- \\[ \\] A1 .*/- [x] A1/' -e 's/^- \\[ \\] A2 .*/- [x] A2/' /tmp/pr-body.md`)).toBe('pass')
     expect(at(`sed -i 's/.*/x/' notes.md`)).toBe('pass')

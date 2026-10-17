@@ -28,7 +28,8 @@
 //   - `<!-- stack:node,python -->` at a line's end keeps that line only for those stacks;
 //   - the same marker alone on a line keeps every line up to `<!-- /stack -->`.
 // `<!-- ui-only -->` works the same way at a line's end, for a dev server (devPort set),
-// and `<!-- ships-nowhere -->` for a project with `"production": "none"` in its values.
+// `<!-- ships-nowhere -->` for a project with `"production": "none"` in its values, and
+// `<!-- on-merge -->` for one with `"production": "on-merge"`.
 // Markers are stripped from what's written. A GitHub expression `${{ github.ref }}` is no
 // placeholder and is written as it stands. A file only some stacks get at all
 // (check.mjs, launch.json) is gated in MAP below, like a pack-only file.
@@ -54,6 +55,8 @@ export const MAP = [
   // launch.json starts `npm run dev`: only a Node project with a dev server has one.
   { from: 'dotclaude/launch.json', to: '.claude/launch.json', pack: 'design', ui: true, stack: ['node'] },
   { from: 'taste-seed.md', to: '.claude/taste.md', pack: 'design' },
+  // The kit's grep-able taste rules, so a new project's builders catch them before review (H4, kit 1.5).
+  { from: 'dotclaude/builder-checks.md', to: '.claude/builder-checks.md', pack: 'design' },
   { from: 'docs/decisions/README.md', to: 'docs/decisions/README.md' },
   { from: 'docs/decisions/0001-start.md', to: 'docs/decisions/0001-start.md' },
   { from: 'check.mjs', to: 'scripts/check.mjs', stack: ['node'] },
@@ -64,7 +67,19 @@ export const MAP = [
   { from: 'github/dependabot.yml', to: '.github/dependabot.yml' },
   { from: 'roadmap.md', to: 'plans:roadmap.md' },
   { from: 'V0.1.md', to: 'plans:V0.1.md' },
+  // The deployer (council M10, kit 1.5): the database plugin's templates, so the kit keeps
+  // one ranjit instead of a hand copy per project. A Supabase production gets the full one;
+  // a project whose merge to main is the deploy gets the no-database one.
+  { from: 'ranjit.md', root: 'database', to: '.claude/agents/ranjit.md', pack: 'database', when: (v) => supabaseProduction(v) },
+  { from: 'ranjit-no-database.md', root: 'database', to: '.claude/agents/ranjit.md', when: (v) => v.production === 'on-merge' },
 ]
+
+// Templates another plugin ships, by `root` in MAP: plugins/<root>/templates/.
+const ROOTS = { database: join(HERE, '..', '..', '..', '..', 'database', 'templates') }
+const templatePath = (m) => join(m.root ? ROOTS[m.root] : HERE, m.from)
+
+// Supabase-shaped production: a production ref and no other production mode.
+export const supabaseProduction = (v) => Boolean(v.refs?.prod) && !['none', 'on-merge'].includes(v.production)
 
 // PROTO. The database plugin's guard refuses an agent's write to its frozen names at
 // any depth (`.github/`, `.claude/kit.json`, `scripts/check.sh`, …), so a toy an agent
@@ -100,7 +115,7 @@ const SKIP_DIRS = new Set(['fixtures'])
 const isAllowList = (rel) => /^dotclaude\/settings\.allow\.[a-z]+\.json$/.test(rel)
 
 const PLACEHOLDER = /(?<!\$)\{\{([^{}]+)\}\}/g
-const TRAILING_MARKER = /\s*<!-- (ui-only|ships-nowhere|stack:[a-z,]+) -->\s*$/
+const TRAILING_MARKER = /\s*<!-- (ui-only|ships-nowhere|on-merge|stack:[a-z,]+) -->\s*$/
 const BLOCK_OPEN = /^\s*<!-- stack:([a-z,]+) -->\s*$/
 const BLOCK_CLOSE = /^\s*<!-- \/stack -->\s*$/
 
@@ -157,7 +172,7 @@ function listTemplates(dir = HERE, base = '') {
 }
 
 // Keeps a line or drops it by its markers, and strips them (the one stack rule).
-function gate(text, { file, ui, stack, nowhere }) {
+function gate(text, { file, ui, stack, nowhere, onMerge }) {
   const errors = []
   const kept = []
   let block = null // the stacks of the open block, or null
@@ -178,6 +193,7 @@ function gate(text, { file, ui, stack, nowhere }) {
     for (let m = line.match(TRAILING_MARKER); m; m = line.match(TRAILING_MARKER)) {
       if (m[1] === 'ui-only') keep &&= ui
       else if (m[1] === 'ships-nowhere') keep &&= nowhere
+      else if (m[1] === 'on-merge') keep &&= onMerge
       else keep &&= m[1].slice('stack:'.length).split(',').includes(stack)
       line = line.slice(0, m.index)
     }
@@ -209,7 +225,7 @@ export function renderText(text, values, { file, json, ui }) {
       return fmt(v)
     })
 
-  const gated = gate(text, { file, ui, stack: values.stack, nowhere: values.production === 'none' })
+  const gated = gate(text, { file, ui, stack: values.stack, nowhere: values.production === 'none', onMerge: values.production === 'on-merge' })
   errors.push(...gated.errors)
   const lines = []
   for (const line of gated.text.split('\n')) {
@@ -284,6 +300,7 @@ export function fill(values, target, { plansDir, force = false, adopt = false, p
     if (m.pack && !(packs ?? []).includes(m.pack)) continue
     if (m.stack && !m.stack.includes(values.stack)) continue
     if (m.ui && !ui) continue
+    if (m.when && !m.when(values)) continue
     const plans = m.to.startsWith('plans:')
     if (plans && !plansRoot) {
       errors.push(`${m.from}: no plans folder (values.plans and project.name, or --plans)`)
@@ -300,8 +317,8 @@ export function fill(values, target, { plansDir, force = false, adopt = false, p
     const renamed = proto && !plans && isGuarded(m.to)
     const dest = renamed ? join(target, m.from) : real
     if (renamed) moves.push({ from: dest, to: real })
-    const text = readFileSync(join(HERE, m.from), 'utf8')
-    const r = renderText(text, values, { file: 'templates/' + m.from, json: m.from.endsWith('.json'), ui })
+    const text = readFileSync(templatePath(m), 'utf8')
+    const r = renderText(text, values, { file: (m.root ? `${m.root}/` : '') + 'templates/' + m.from, json: m.from.endsWith('.json'), ui })
     errors.push(...r.errors)
     writes.push({ dest, out: r.out, exec: m.exec })
   }

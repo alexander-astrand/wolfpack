@@ -24,6 +24,7 @@ You critique a new project's plan before anything is built. The order gives you 
 Look for, in this order:
 - **Scope creep in V0.1:** anything beyond the smallest usable thing, or an idea from a later release pulled forward.
 - **A release with two themes:** split it, say where the second goes.
+- **Cut by feature, not by live need** (`[split-by-live]`): features checkable on test data belong in one release; what needs Alexander live (a real form, a login, a look, a device) follows as its own session. Flag a roadmap that splits the first or bundles the second.
 - **A free-tier cliff the plan walks into:** a limit hit without a release that meets it, or a paid service with no "Free until" line.
 - **Personal data without a "whose":** accounts, emails, locations or messages with no owner, place or deletion path.
 - **A human step that could be a yes:** anything needing only a login the person already has is a step Claude runs after one yes. Human steps are sign-up, a key, billing.

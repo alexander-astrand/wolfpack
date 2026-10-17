@@ -20,11 +20,16 @@ no-half-measures · the codebase review's navigator (Breaking Bad: Mike's dry ec
 - wrap: "Done. No half measures."
 Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfpack `design` plugin, which ships the card).
 
-Once per big version window (V2, V3, V4), near its end, beside `/black-box` and `/jedi-council` (plan: `~/.claude/plans/audit-2026-10.md`). V2's runs in 2.13.6, before 2.14 rewrites the pages, so its findings set the baseline for `kissochbajslowski`'s quality section. A separate session, not inside a release; about 20-30M tokens.
+Usually run together with the others by `/avengers-assemble`. Once per big version window (V2, V3, V4), near its end, beside `/black-box` and `/jedi-council` (plan: `~/.claude/plans/audit-2026-10.md`). V2's runs in 2.13.6, before 2.14 rewrites the pages, so its findings set the baseline for `kissochbajslowski`'s quality section. A separate session, not inside a release; about 20-30M tokens.
 
 ## 1. Prepare
 - Branch: an up-to-date `main`; check `git branch --show-current` and that the tree is clean.
-- Quick facts for the order, from `lorenzo-von-matterhorn` (Haiku): the 20 biggest files under `src` by line count, what `npx knip` reports, shared-helper files without a matching test, and `.claude/lessons.md`.
+- **The facts step** (kit 1.5, lens Must 3: `mike-ehrmantraut` asked for prepared facts in 6 of 6 runs, and `lorenzo-von-matterhorn` has no shell). You run each command yourself and write the results to `~/.claude/plans/no-half-measures-<version>-facts.md`, one section each, summaries not full output:
+  - the diff since the last audit: `git log --oneline <last audit's commit>..HEAD` and `git diff --stat <same>..HEAD`;
+  - `npm outdated` and `npm audit --omit=dev` (counts by severity, the packages named);
+  - the advisors on dev (the Supabase MCP's read-only advisor tool, through ToolSearch), diffed against the last audit's list; "no database" when the project has none;
+  - `npx knip`, and the 20 biggest files under `src` by line count (`wc -l`).
+  `lorenzo-von-matterhorn` (Haiku) adds what only a grep finds: shared-helper files without a matching test. The order names the facts file and `.claude/lessons.md`.
 
 ## 2. Audit
 One `mike-ehrmantraut` (Opus, high, `[budget 30M]`), given the version, the quick facts and the lenses in its file. If the tree is big it may be split between fresh copies (one per top-level source folder), each reporting to you. Nothing is edited or committed.
@@ -32,4 +37,5 @@ One `mike-ehrmantraut` (Opus, high, `[budget 30M]`), given the version, the quic
 ## 3. Report
 - One report, findings ranked by severity, each with file:line, the cost in practice, a fix and a size (S/M/L), grouped: **clean-up release**, **roadmap**, **leave**.
 - Save it as `~/.claude/plans/no-half-measures-<version>.md` and put the findings on the roadmap with `/badger` (the clean-up group under the next clean-up release). Fixes go to that clean-up release, never into an open PR.
+- Before you reply, check the report file exists (`ls` its path). No file means the review isn't done: a run that left none was wasted (Burrow, council M7). Make the folder if it's missing.
 - Reply with the report's path, the number of findings per group and the biggest three. Then stop.

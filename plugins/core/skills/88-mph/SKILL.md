@@ -41,7 +41,7 @@ For scale: 1% of the week is about 46M, so even a full large run stays under 1%.
 ## Where it runs
 
 - **small** runs where it's called.
-- **medium and large get their own session.** Started from a side session (`oracle`, `wilson`, any `· side ·` title), don't run it there: start a session (`start_session` with `user_asked`, under the session-starts trial in norms.md) whose prompt is the whole order (`/88-mph <size> <topic>`, the decision, the person's questions verbatim, today's date), then stop. Hejtide's large run ran inside an `oracle` side session: the side question framed the order and nobody saw the scope.
+- **medium and large get their own session.** Started from a side session (`oracle`, `wilson`, any `· side ·` title), don't run it there: start a session (norms.md "Starting sessions") on Opus at medium (when it starts below that, raise it from here with `set_session_model` and `set_session_effort`), whose prompt is the whole order (`/88-mph <size> <topic>`, the decision, the person's questions verbatim, today's date) and ends "When done or blocked, SendMessage your starter (<your id>) once: what's done and the next step." Then end your turn; the report wakes you. Hejtide's large run ran inside an `oracle` side session: the side question framed the order and nobody saw the scope.
 - From a release or planning session it runs inside that session, as the plan says (`[release-session]`).
 
 ## Small
@@ -52,7 +52,7 @@ For scale: 1% of the week is about 46M, so even a full large run stays under 1%.
 
 ## Scope first (medium and large)
 
-Make a topic slug (lowercase, hyphens, ≤ 6 words). The findings file is `~/.claude/plans/research/<slug>.md`; if it exists, read it first: fresh enough (under a month, same questions) is the answer, no run; otherwise this run updates it. Before any search, write the scope to `~/.claude/plans/research/<slug>/scope.md`:
+Make a topic slug (lowercase, hyphens, ≤ 6 words). The findings file is `~/.claude/plans/research/<slug>.md`; if it exists, read it first: fresh enough (under a month, same questions) is the answer, no run; otherwise this run updates it. **Old flat lane files** from before the 15 Oct rewrite (`ls ~/.claude/plans/research/ | grep <slug>`: `<slug>-lane-*.md` or similar beside the flat file, such as the three `hejtide-becky-lane-*` files) are read as this run's lanes' notes: each lane's order names the old file for its area, and the lane starts from what it holds instead of searching again (jedi-council R6). Before any search, write the scope to `~/.claude/plans/research/<slug>/scope.md`:
 
 1. **The person's questions, verbatim and numbered** (Q1, Q2, Q3). Never reframe one. An option the person named is researched as they see it (what they hope it does for them), then as what it actually is, and judged against their whole goal, never against one plan step. Hejtide: Becky named Massvis; the order called it a "member register", judged it against the shop plan and dropped it in one line, when it is a fiscal host, a way to run the group without forming a förening at all.
 2. **The angles the decision needs that nobody asked** (A1, A2, A3), one line each on why it matters here. Go through every one below; leave one out only with a line on why it doesn't apply.
@@ -68,23 +68,28 @@ Make a topic slug (lowercase, hyphens, ≤ 6 words). The findings file is `~/.cl
 ## Medium
 
 1. Scope first.
-2. Spawn `doc-brown` with the topic, the decision, the scope's path, the output path, and today's date. It answers every Q and A in the findings file. End the order with `[budget 6M]`.
-3. Relay its report: the path, the one-line answer to each Q, and the three-line answer.
+2. Spawn `doc-brown` with the topic, the decision, the scope's path, the output path, today's date and the tells line (under "How the findings read"). It answers every Q and A in the findings file. End the order with `[budget 6M]`.
+3. Run the tells check and the harvest (both under "How the findings read").
+4. Relay its report: the path, the one-line answer to each Q, and the three-line answer.
 
 ## Large
 
 1. Scope first, shown and agreed.
-2. **Lanes.** Split the scope into 2–4 areas (by area, not one per question; hejtide's would be form and control; insurance, safety and permits; money, tax and payments). Every Q and A belongs to one lane. Spawn one `doc-brown` per area **in parallel**, each with: the decision, the scope's path, its area and the Q/A numbers it owns, its scratch folder `~/.claude/plans/research/<slug>/<lane>/` (it writes `notes.md` there), today's date and `[budget 6M]`. A lane covers the alternatives inside its area too. Keep a lane to what fits its 40 turns: about five Q's and A's; more than that is another lane, within the four. A lane that stops early has its notes on disk (it writes as it goes): resume it once with "write up what you have, mark the rest `open`", and an angle left `open` that bears on the decision gets a fresh lane on just that.
+2. **Lanes.** Split the scope into 2–4 areas (by area, not one per question; hejtide's would be form and control; insurance, safety and permits; money, tax and payments). Every Q and A belongs to one lane. Spawn one `doc-brown` per area **in parallel**, each with: the decision, the scope's path, its area and the Q/A numbers it owns, its scratch folder `~/.claude/plans/research/<slug>/<lane>/` (it writes `notes.md` there), an old flat lane file for its area if there is one, today's date, the tells line and `[budget 6M]`. Every lane order carries, as text: **"write the skeleton by turn 5, mark `open` by turn 35"** (jedi-council R3: a resume pays the lane's fixed start twice). A lane covers the alternatives inside its area too. Keep a lane to what fits its 40 turns: about five Q's and A's; more than that is another lane, within the four. A lane that stops early has its notes on disk (it writes as it goes): resume it once with "write up what you have, mark the rest `open`", and an angle left `open` that bears on the decision gets a fresh lane on just that.
 3. **Synthesis, here.** Read the scope and every lane's notes and write the findings file (shape below): every Q gets its direct answer, the options from every lane go into one table, the costs into one table, and where lanes disagree, say so.
 4. **Counter pass.** A fresh `doc-brown` in **counter mode** with the findings path and the decision, `[budget 3M]`. It argues against the leading option and for the best alternative, and finds each option's downsides, then appends `## The case against`. Read it and update `## Answer`, `## Your questions, answered` and `## Options compared` where it changes them, saying so on the line.
-5. **Check.** A fresh `doc-brown` in **check mode** with the findings path and the decision, `[budget 4M]`. It re-fetches the sources of the `**key**` claims, marks each held / weakened / wrong and appends `## Checked`; it never rewrites the text above. A fresh spawn has no stake in the others' conclusions.
-6. **Coverage.** Fill `## Coverage` and apply the 10% rule above.
-7. Relay: the path, each Q's one-line answer, the leading option and the case against it in one line each, and any claim the check marked weakened or wrong (those change the answer; say how).
-8. The run stays under 35M. If the lanes come back over budget, the check still runs and the counter pass gets 2M; never raise the cap.
+5. **Check.** A fresh `doc-brown` in **check mode** with the findings path and the decision, `[budget 4M]`. It re-fetches the sources of the `**key**` claims, marks each held / weakened / wrong, and lists each Q and A of the scope, one line each, as **answered**, **gap** or **reframed** (answered as something other than what was asked) against the file; all of it goes into `## Checked`, and it never rewrites the text above. It is the one fresh reader, so the coverage of the person's questions is checked here, not by the session that did the work (jedi-council R2). A fresh spawn has no stake in the others' conclusions.
+6. **Coverage.** Fill `## Coverage` and apply the 10% rule above; a Q the check marked gap or reframed gets its answer fixed or a line saying why not.
+7. Run the tells check and the harvest (both under "How the findings read").
+8. Relay: the path, each Q's one-line answer, the leading option and the case against it in one line each, and any claim the check marked weakened or wrong (those change the answer; say how).
+9. The run stays under 35M. If the lanes come back over budget, the check still runs and the counter pass gets 2M; never raise the cap.
 
 ## How the findings read
 
-Sober and realistic: rank by realistic need, not by everything that could go wrong; say what is normal for comparable groups; no inflated urgency (Alexander, 15 Oct 2026: "no unnecessary urgency or stress"). Plain language a person outside tech can act on, free of the AI tells in `~/.claude/CLAUDE.md`.
+Sober and realistic: rank by realistic need, not by everything that could go wrong; say what is normal for comparable groups; no inflated urgency (Alexander, 15 Oct 2026: "no unnecessary urgency or stress"). Plain language a person outside tech can act on, free of the AI tells.
+- **The tells line** in every `doc-brown` order: "Write free of the AI tells in `~/.claude/global/voice/tells-en.md` (read its `## Grep` blocks and swap tables first)." `doc-brown` runs with `omitClaudeMd`, so it never sees `~/.claude/CLAUDE.md` and the order has to name the file (skills lens Should 5).
+- **The tells check:** before relaying, run `node ~/.claude/global/voice/tells-grep.mjs ~/.claude/plans/research/<slug>.md` here (`doc-brown` has no Bash) and fix each hit until it says clean, never changing a fact to clear one.
+- **The harvest:** append `## Cheaper next time` at the findings file's very end, one line per spawn: who (research, lane name, counter, check) and its `Cheaper next time:` line word for word. The next run on the topic reads them, and the council collects them from here (jedi-council 2.5).
 
 ## The findings file
 
@@ -114,4 +119,4 @@ Researched <YYYY-MM-DD> for: <the decision>
 ## Sources
 ```
 
-A large run adds `## The case against` and `## Checked` at the end. A section that doesn't apply says `n/a:` and why; none is left out silently. The file lives outside the repo (`~/.claude/plans/research/`), so nothing private or half-checked lands in a public tree. A later run on the same topic updates the file and its date rather than starting a second one.
+A large run adds `## The case against` and `## Checked` at the end; every medium and large run ends with `## Cheaper next time` (the harvest). A section that doesn't apply says `n/a:` and why; none is left out silently. The file lives outside the repo (`~/.claude/plans/research/`), so nothing private or half-checked lands in a public tree. A later run on the same topic updates the file and its date rather than starting a second one.

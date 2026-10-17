@@ -18,7 +18,7 @@
 // — one line per pair, exit 1 on any drift. `--hutzup` (relative to
 // projectDir) stands in for `.claude/hooks/`, to check a prototype before its
 // paste. With no projectDir, or none with `.claude/hooks/` (the kit checked on
-// its own, as in ~/wolfpack), the check skips with one line and exits 0.
+// its own, as in <kit>), the check skips with one line and exits 0.
 
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -98,7 +98,7 @@ export function comparePair(project, kitDir, hutzup, kit, replacements, kitOnly 
 }
 
 // `project` is the project whose frozen hooks are the twins; with none given
-// (the kit checked on its own, as in ~/wolfpack) the check skips. Kit paths
+// (the kit checked on its own, as in <kit>) the check skips. Kit paths
 // in the pairs list are relative to `kitDir`, the kit's own root.
 export function checkDrift(project, { kitDir = join(HERE, '..'), pairsFile = join(HERE, 'drift-pairs.json'), hooks } = {}) {
   if (!project) return { skipped: true, reason: 'no project dir given: twin check skipped (the kit on its own)', pairs: [] }

@@ -1,6 +1,6 @@
 ---
 name: watson
-description: Write the project's documents in the right place - ADRs in docs/decisions/ (numbered, written when the decision is made), docs/ pages, the Command Deck and team page (claude.ai artifacts, safe republish), and Claude Docs for anything Alexander comments on (plans, /memento pages, /inception summaries, audits, wrap notes). Not the roadmap, a PR's README or code comments.
+description: Write the project's documents in the right place - ADRs in docs/decisions/ (numbered, written when the decision is made), docs/ pages, the kit's Command Deck and Agent Team pages (claude.ai artifacts, safe republish), and Claude Docs for anything Alexander comments on (plans, /memento pages, /inception summaries, audits, wrap notes). Not the roadmap, a PR's README or code comments.
 argument-hint: <adr|doc|deck|team|page> <subject>
 model: sonnet
 effort: medium
@@ -27,8 +27,8 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 |---|---|---|
 | A decision (`adr`) | `docs/decisions/NNNN-*.md` + its row in `docs/decisions/README.md` | repo file, committed by path |
 | A how-to or pattern (`doc`): the dojo inbox pattern, a setup guide | `docs/<short-name>.md` | repo file, committed by path |
-| The Command Deck (`deck`) | claude.ai artifact, link in `pages.commandDeck` in `.claude/kit.json` (older projects: memory `reference_command_deck.md`); the first time you publish it in a project, write its URL into `pages.commandDeck` | safe republish (below), same URL |
-| The team page (`team`) | claude.ai artifact, link in `pages.teamMap` in `.claude/kit.json` (older projects: the "Team map" link in memory `project_roadmap.md`); the first time you publish it in a project, write its URL into `pages.teamMap` | safe republish (below), same URL |
+| The Command Deck (`deck`) | the kit's page, https://claude.ai/artifact/PVFEK3fFPJ2bhYxMDqbgjJ (also in the README); not a project's own | safe republish (below), same URL |
+| The Agent Team page (`team`) | the kit's page, https://claude.ai/artifact/FYfMpboL4tv4bGYBTdPQEg (also in the README); not a project's own | safe republish (below), same URL |
 | Something Alexander comments on (`page`): a plan to review, a `/memento` page, an `/inception` summary, an audit, wrap notes | Claude Docs (the docs connector) | a new doc, its link in the reply |
 | The roadmap | not here: `/badger`, `the-trail` | |
 | A PR's README section | not here: `c-3po` | |
@@ -41,7 +41,7 @@ If the subject doesn't fit a row, say which rows it's between and ask; don't pic
 **An ADR is written when the decision is made, not after.** If the decision isn't made yet, its Status is Proposed and it says what's still open; it becomes Accepted in place until it's merged, never after (an Accepted one on `main` is never edited: a change of mind is a new file).
 
 1. **Number:** `ls docs/decisions/` right before writing; the next free number, four digits. Two lanes can race for a number, so look again just before the commit and renumber yours if it's taken.
-2. **Shape:** copy `docs/decisions/0026-*.md` exactly: an `# NNNN Title` heading that states the decision, then the bullets in this order, nothing else:
+2. **Shape:** copy the shape of the project's latest ADR in `docs/decisions/` (none yet: this one sets it): an `# NNNN Title` heading that states the decision, then the bullets in this order, nothing else:
    - **Status:** Proposed, Accepted, or Superseded by NNNN
    - **Context:** what forced a choice, with the release
    - **Decision:** what we do, specifically (files, names, the one command)
@@ -60,7 +60,7 @@ Plain Markdown in `docs/`, one subject per file: what it's for in one line, then
 
 ## deck and team: the two artifacts
 
-Both are private claude.ai artifacts. Republish them with the safe republish below. Then put the new version number in the memory file that holds the link. Both pages name Alexander and Anton as The Dude / The Jesus with the real name beside it (memory `feedback_character_voice.md`).
+Both are the kit's own private claude.ai artifacts, one pair for every wolfpack project (kit 1.5, Alexander, 17 Oct 2026: "general command deck and agent team for the wolfpack kit"). They are refreshed from the kit's skills and agents (frontmatter and opening lines) at each kit release's wrap-up, with the safe republish below, and nowhere else. Descriptions only: what each command, agent and hook is and how to use it; never history ("Built x.y"), dates, version stamps, token figures, a project's names or paths, or the roadmap. Each command and agent links to its file in the kit on GitHub.
 
 **Safe republish (Command Deck, team page):** read the page in full with the Artifact tool (the publish tool refuses an unread version), copy the saved file into the scratchpad, edit the copy with exact string replacements (never rewrite the page from memory), then publish to the **same URL** with a short label, never a fresh URL. Never use it for the roadmap page: that is rows, written via `the-trail`.
 

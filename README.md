@@ -2,7 +2,9 @@
 
 Our way of working with Claude Code, packaged as plugins. One session is the **navigator**: it talks with you, plans a release step by step and hands each step to a named specialist (a builder, a reviewer, a designer, a deployer), each on its own model and effort. Every job carries a token **budget** that a hook enforces, and a **production guard** stands between every agent and the production database: only the deployer gets through, and only with a person's yes.
 
-The agents have names and voices (`maverick` the navigator, `chris-de-kok` a builder, `the-playbook` the database engineer, Hank the budget hook). It's how we tell them apart in chat, in PRs and in the usage tables.
+The agents have names and voices (`captain-call` the navigator, `chris-de-kok` a builder, `the-playbook` the database engineer, Hank the budget hook). It's how we tell them apart in chat, in PRs and in the usage tables.
+
+Two pages describe the whole kit and are the same for every project, refreshed from the kit's files at each kit release: the [Wolfpack Command Deck](https://claude.ai/artifact/PVFEK3fFPJ2bhYxMDqbgjJ) (every command, its options and when to use it) and the [Wolfpack Agent Team](https://claude.ai/artifact/FYfMpboL4tv4bGYBTdPQEg) (who does what, the hooks, how a release flows).
 
 ## Install
 
@@ -24,9 +26,11 @@ claude plugin install database@wolfpack --scope project
 
 Five agents run on `model: fable` (`heisenberg`, `barney-stinson`, `dom-cobb`, `mace-windu`, `three-eyed-raven`) and need a plan that has that model.
 
-**Kit edits:** a kit edit made from any project's session edits `~/wolfpack` and commits there, the project named in the subject (`… (Hutzup 3.3.3)`); pushing to GitHub is the backup and the way to share it; projects see the change on their next session. General lessons live in `core/lessons.md` and Alexander's general taste in `design/taste.md`; each project's `.claude/lessons.md` and `.claude/taste.md` keep only its own, and readers read both.
+**Kit edits:** a kit edit is made in a fresh worktree off the kit's `main`, committed on a branch with the project named in the subject (`... (Hutzup 3.3.3)`) and merged by PR, never in a checkout a session loads; projects see the change on their next session, once `scripts/live-sync.sh` has moved the loaded checkout onto `main`. General lessons live in `core/lessons.md` and Alexander's general taste in `design/taste.md`; each project's `.claude/lessons.md` and `.claude/taste.md` keep only its own, and readers read both.
 
-Source of truth: this checkout (`~/wolfpack`); every project loads it live, so an edit here reaches them all on their next session.
+Source of truth: the kit's `main` on GitHub. Every project loads `<kit>` (`~/wolfpack-live` on Alexander's machines, detached at `origin/main`), so a merged change reaches them all on their next session after `scripts/live-sync.sh` runs.
+
+**Keeping the live checkout level:** `scripts/live-sync.sh` fetches and detaches `~/wolfpack-live` (or `$1`) onto `origin/main`, and stops with the changes printed if the checkout holds work that differs from `main`. On the Air, `scripts/launchd/xyz.astrand.wolfpack-live-sync.plist` runs it every 30 minutes (log: `~/Library/Logs/wolfpack-live-sync.log`); after the merge, load it once with `launchctl bootstrap gui/$(id -u) ~/wolfpack-live/scripts/launchd/xyz.astrand.wolfpack-live-sync.plist`.
 
 `scripts/user-commands.mjs` lists the skills marked `disable-model-invocation: true` and, with `--write`, rewrites the marked block under "Commands only I type" in `~/.claude/CLAUDE.md`; `future-ted` runs it when a skill is added or renamed.
 
@@ -55,13 +59,13 @@ Source of truth: this checkout (`~/wolfpack`); every project loads it live, so a
 The shared crew and the habits every project follows: planning before a big release, the wrap-up afterwards, web research, docs, the roadmap and the daily routines. `norms.md` (how questions, human steps and session names work) and `lessons.md` (tuning numbers) are read by the skills.
 
 - Agents: `doc-brown`, `dr-house`, `john-hammond`, `lorenzo-von-matterhorn`, `romeo-olsson`
-- Skills: `88-mph`, `badger`, `beam-me-up`, `car-wash`, `cloud-city`, `dependabot-report`, `don-draper`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `oracle`, `previously-on`, `skyler`, `tesseract`, `the-trail`, `war-room`, `watson`, `wilson`
+- Skills: `88-mph`, `badger`, `beam-me-up`, `cloud-city`, `dependabot-report`, `don-draper`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `oracle`, `previously-on`, `scrooge`, `tesseract`, `the-trail`, `war-room`, `watson`, `wilson`
 
 ### release
-A release end to end: `/maverick <version>` (or `/captain-call` for the big ones) plans it, spawns the builders, reviews, opens the draft PR and pings you. The deploy skills take it to production, and `/cattle-drive` runs release and deploy on one yes. Hank (`hooks/budget-cap.mjs`) holds every agent to the budget in its task description; Skyler (`scripts/usage.mjs`) counts the tokens.
+A release end to end: `/captain-call <version>` (with `fable allowance=high planner=dom-cobb pick=me stars=3` for the big ones) plans it, spawns the builders, reviews, opens the draft PR and pings you. After your merge go (`/one-ring`), `/special-delivery` deploys it automatically in its own session (`/skinny-pete` only for a manual or broken case), and `/cattle-drive` runs release and deploy on one yes. Hank (`hooks/budget-cap.mjs`) holds every agent to the budget in its task description; Skyler (`scripts/usage.mjs`) counts the tokens.
 
 - Agents: `admiral-ackbar`, `ahmed-och-ahmed`, `barney-stinson`, `c-3po`, `chris-de-kok`, `dom-cobb`, `jeff-winger`, `jesse-pinkman`, `kissochbajslowski`, `mace-windu`, `mike-ehrmantraut`, `r2-d2`, `saul-goodman`, `three-eyed-raven`, `troy-and-abed`
-- Skills: `black-box`, `captain-call`, `carousel`, `cattle-drive`, `ill-be-back`, `its-a-trap`, `jedi-council`, `kids-im-home`, `maverick`, `night-watch`, `no-half-measures`, `oceans-eleven`, `one-ring`, `skinny-pete`, `the-tower`, `you-shall-not-pass`
+- Skills: `avengers-assemble`, `black-box`, `captain-call`, `car-wash`, `carousel`, `cattle-drive`, `ill-be-back`, `its-a-trap`, `jedi-council`, `kids-im-home`, `night-watch`, `no-half-measures`, `oceans-eleven`, `one-ring`, `skinny-pete`, `skyler`, `special-delivery`, `the-tower`, `you-shall-not-pass`
 
 ### design
 Briefs, mock-ups and QA for anything the app shows: browser checks at phone and desktop widths in both themes, an accessibility review, and a full QA pass. It also carries `voice-card.md` (the shape of every agent's `## Voice` card) and `taste-template.md` (start your project's `.claude/taste.md` from it).
@@ -78,7 +82,7 @@ For Supabase projects. The production guard (the Slap Bet Commissioner, `hooks/g
 A project that registers its own copy of a hook in `.claude/settings.json` keeps it; the kit's copy steps aside (Hutzup 3.3.3). That holds for the guard, Hank and the denied-call log (`hooks/step-aside.mjs`): only when the project's settings register its copy under `.claude/hooks/` for every matcher the kit uses and the file is there; anything else, including a settings file that won't parse, runs the kit's copy.
 
 ### Per project: the deployer and the senior adviser
-A deployer (Hutzup's `ranjit`, named by `deployer` in `.claude/kit.json`) and a senior adviser (Hutzup's `yoda`) are per project: they carry the project's own people, refs and history, so the kit doesn't ship them. A project that wants them keeps its own in `.claude/agents/` (the guard treats both files as frozen).
+A deployer (`ranjit`, named by `deployer` in `.claude/kit.json`) and a senior adviser are per project: they carry the project's own people, refs and history, so each project keeps its own in `.claude/agents/` (the guard treats both files as frozen). `/life-finds-a-way` writes `ranjit` from the kit's template (`plugins/database/templates/ranjit.md`, or `ranjit-no-database.md` for `production: "on-merge"`). With a deployer, every deploy runs through `/special-delivery`: parked at the release's start, woken by `/one-ring`, one arm tap, then `ranjit` runs the steps under the marker. A project with no deployer (`production` `none` or `on-merge`) merges and ships in `/one-ring` itself.
 
 ## What your project provides: `.claude/kit.json`
 
@@ -94,8 +98,7 @@ The plugins carry placeholders; your values live in your project's `.claude/kit.
   "ci": { "workflow": ".github/workflows/ci.yml", "jobs": ["Checks"] },
   "reviewer": "<github handle to tag on release PRs>",
   "conventions": "scripts/conventions.sh",
-  "names": { "<old skill name>": "<new skill name>" },
-  "budgets": { "chris-de-kok": "25M", "*": "15M" },
+  "budgets": { "chris-de-kok": "25M" },
   "plans": "~/.claude/plans/myapp/",
   "roadmap": "file",
   "kit": { "version": "1.1.0" }
@@ -108,9 +111,8 @@ The plugins carry placeholders; your values live in your project's `.claude/kit.
 - `ci`: the workflow file (named `CI`) and its jobs' `name:`s, which the one-tap arm and the guarded merge wait for, each green by name (Vercel's checks alone don't count). Missing or malformed `jobs` fails closed: the arm refuses. A hook test keeps `jobs` in step with the workflow file.
 - `reviewer`: who gets tagged on release PRs (a notification, nothing waits for them).
 - `conventions`: your conventions script, which the builders and the review run through `npm run lint`.
-- `names`: the project's old command names mapped to the kit's (e.g. a project's own `/check` to `you-shall-not-pass`). A record for people and project tooling; no plugin file in 1.0.0 reads it.
-- `budgets`: Hank's default budget per agent, `"*"` for the rest. Without the file Hank falls back to its own table.
-- `plans`: the folder for release plans (`<plans>V<version>.md`) and their notes. Default `~/.claude/plans/`; a project made by `/life-finds-a-way` sets `~/.claude/plans/<project>/`, so two projects' `V0.1.md` never collide. In 1.1.0 only `maverick`, `captain-call`, `inception`, `future-ted`, `its-a-trap`, `c-3po` and `badger` read it; the other readers and the guard still assume `~/.claude/plans/` (they follow in the next kit release).
+- `budgets`: per-agent overrides of Hank's own table (the `oceans-eleven` skill's Budgets); leave it empty to use the table. A `"*"` row caps every untagged role, builders included, so the template ships none.
+- `plans`: the folder for release plans (`<plans>V<version>.md`) and their notes. Default `~/.claude/plans/`; a project made by `/life-finds-a-way` sets `~/.claude/plans/<project>/`, so two projects' `V0.1.md` never collide. In 1.1.0 only `captain-call` (then `maverick`), `inception`, `future-ted`, `its-a-trap`, `c-3po` and `badger` read it; the other readers and the guard still assume `~/.claude/plans/` (they follow in the next kit release).
 - `roadmap`: `page` (the default) keeps the roadmap on a shared page, edited through `the-trail`; `file` keeps it in `<plans>roadmap.md`, edited in place.
 - `kit.version`: the kit release the project was set up with, written by `/life-finds-a-way`; its hand-off shows it next to `claude plugin marketplace update wolfpack`, the line that fetches a newer one.
 
@@ -134,17 +136,7 @@ Eval cases are only for skills the model may invoke (`[evals]`): a skill with `d
 
 ## Publish the kit
 
-The kit is built under `kit/` in its source repo and published to this marketplace with a subtree split, after the release that changed it is merged. One command at a time, from the source repo's root; `<release>` is the source repo's release, `<plugin>--v<x.y.z>` one tag per plugin whose version the release bumped.
-
-1. `git fetch origin main`
-2. `git subtree split --prefix kit origin/main -b wolfpack-<release>` (from the merged `main`, never the release branch: the squash merge is what the marketplace carries)
-3. `git tag <plugin>--v<x.y.z> wolfpack-<release>`, once per bumped plugin (tags go on the split branch, never on the source repo's own commits)
-4. `git push git@github.com:alexander-astrand/wolfpack.git wolfpack-<release>:main` (no force: if it isn't a fast-forward of the last publish, stop and say so)
-5. `git push git@github.com:alexander-astrand/wolfpack.git <every tag from step 3>`
-6. `claude plugin marketplace update wolfpack`
-7. In each folder that installed a bumped plugin: `claude plugin update <plugin>@wolfpack --scope <project|user>`. Step 6 only refreshes the marketplace; an installed plugin stays on its old version until this runs.
-
-A release that changes the kit copies these steps into its PR's "Human steps afterwards", filled in, one command per line (`carousel` does it).
+The kit is its own repo, so publishing is the merge of its release PR to `main`. After the merge, `scripts/live-sync.sh` moves `~/wolfpack-live` (the checkout every session loads) onto `origin/main`; on the Air the launchd job above does the same every 30 minutes, and `future-ted` runs it at a kit wrap. A kit release bumps the plugin versions it changed (`scripts/bump.mjs`) and puts the one `live-sync.sh` line in its PR's "Human steps afterwards" (`carousel` does it).
 
 ## Full auto from the installed kit (database 1.1.0)
 

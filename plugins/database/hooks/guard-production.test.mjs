@@ -264,7 +264,7 @@ describe('merging a release PR', () => {
       'eval gh pr merge 44',
     ]) {
       expect(bash(cmd), cmd).toBe('deny')
-      expect(bash(cmd, { agent: 'maverick' }), cmd).toBe('deny')
+      expect(bash(cmd, { agent: 'captain-call' }), cmd).toBe('deny')
       expect(bash(cmd, deployer), cmd).toBe('ask')
     }
   })
@@ -453,7 +453,7 @@ describe('full auto: the marker', () => {
   })
 
   it('never allows another agent, or anyone when no one could answer', () => {
-    expect(armed(PUSH, { agent: 'maverick' }).decision).toBe('deny')
+    expect(armed(PUSH, { agent: 'captain-call' }).decision).toBe('deny')
     expect(armed(PUSH, { agent: null }).decision).toBe('deny')
     expect(armed('gh pr merge 44 --squash --admin', { agent: 'captain-call' }).decision).toBe('deny')
     expect(armed(PUSH, { mode: 'bypassPermissions' }).decision).toBe('deny')
@@ -568,7 +568,7 @@ describe('full auto: the marker', () => {
       'G=pr; gh $G view 44', 'gh $G checks 44', 'G=pr; gh $G diff 44',
     ]) {
       expect(bash(cmd), cmd).toBe('deny')
-      expect(bash(cmd, { agent: 'maverick' }), cmd).toBe('deny')
+      expect(bash(cmd, { agent: 'captain-call' }), cmd).toBe('deny')
       expect(bash(cmd, deployer), cmd).toBe('ask')
     }
     expect(bash('gh pr view 44')).toBe('allow')
@@ -751,7 +751,7 @@ describe('full auto: the marker', () => {
       [backup('pass') + armedLine, /hasn't run since the arm/],
       [armedLine + backup('pass', 'scripts/prod-db.sh backup 2.12'), /hasn't run since the arm/],
       [armedLine + backup('deny'), /hasn't run since the arm/],
-      [armedLine + backup('pass', undefined, 'maverick'), /hasn't run since the arm/],
+      [armedLine + backup('pass', undefined, 'captain-call'), /hasn't run since the arm/],
       ['x\tallow\ty\n', /no armed line/],
     ]
     for (const [log, why] of refused) {
@@ -1359,7 +1359,7 @@ describe('C8: the chain marker', () => {
       expect(bash(cmd), cmd).toBe('ask')
     }
     // Outside the set, as before.
-    for (const path of ['/r/.claude/agents/maverick.md', '/r/.claude/skills/cattle-drive/chain.md', '/r/.claude/skills/cattle-drive/chain-verdict.md', '/r/scripts/usage.mjs', '/r/.githubx/a.yml', '/r/src/.github.ts']) {
+    for (const path of ['/r/.claude/agents/captain-call.md', '/r/.claude/skills/cattle-drive/chain.md', '/r/.claude/skills/cattle-drive/chain-verdict.md', '/r/scripts/usage.mjs', '/r/.githubx/a.yml', '/r/src/.github.ts']) {
       expect(run('Edit', { file_path: path }), path).toBe('pass')
     }
     for (const cmd of [
@@ -1409,7 +1409,7 @@ describe('C8: the chain marker', () => {
   })
 
   it("done is ranjit's only", () => {
-    for (const agent of [undefined, 'maverick', 'captain-call', 'yoda']) {
+    for (const agent of [undefined, 'captain-call', 'yoda']) {
       const r = chained('scripts/full-auto.sh done 2.13', { agent, m: RELEASE })
       expect(r.decision, agent).toBe('deny')
       expect(r.reason).toBe("Only ranjit closes a release's deploy (scripts/full-auto.sh done <version>).")
@@ -1470,7 +1470,7 @@ describe('C8: the chain marker', () => {
     expect(full.reason).not.toContain('merge-only')
     expect(full.reason).toContain('\n  scripts/prod-db.sh push 2.13 0053\n  gh pr ready 46\n  gh pr merge 46 --squash\n  gh pr merge 46 --squash --admin')
     // Under a chain marker only ranjit's arm can pass on it; anyone else's asks.
-    const other = chained('scripts/full-auto.sh arm 2.13', { agent: 'maverick', releasePr: pr() })
+    const other = chained('scripts/full-auto.sh arm 2.13', { agent: 'captain-call', releasePr: pr() })
     expect(other.decision).toBe('ask')
     expect(other.reason.endsWith("(The chain is armed; only ranjit's arm can pass on it.)")).toBe(true)
     expect(chained('scripts/full-auto.sh arm 2.13', { releasePr: () => null }).reason).toMatch(/arm will refuse\. \(The chain is armed/)
@@ -1984,7 +1984,7 @@ describe('2.12.3: the drive reads, review 4 musts and the wrap-up false positive
     // node -e with a power (**): not a glob in a command word.
     "node -e 'const L=(v)=>((v+0.055)/1.055)**2.4; console.log([1,3,5].map(L))'",
     // A heredoc of plain text, then perl -0pi substitutions whose text holds `\*Proposed at` and a frozen path.
-    "cat >> notes.md <<'EOF'\n- **1 →** confirmed; `future-ted`'s pick.\nEOF\nperl -0pi -e 's/# V2.12.4 Full auto \\(proposed\\)/# V2.12.4 Full auto/; s/\\*Proposed at the wrap-up\\./*Confirmed at the wrap-up (`maverick`\\/`captain-call`, `.github\\/pull_request_template.md`)./' V2.12.4.md",
+    "cat >> notes.md <<'EOF'\n- **1 →** confirmed; `future-ted`'s pick.\nEOF\nperl -0pi -e 's/# V2.12.4 Full auto \\(proposed\\)/# V2.12.4 Full auto/; s/\\*Proposed at the wrap-up\\./*Confirmed at the wrap-up (`captain-call`, `.github\\/pull_request_template.md`)./' V2.12.4.md",
     // A gh jq filter with `//` and a scan of "- \[x\]": a bracket the old glob reader couldn't compile.
     "gh pr view 45 --json body,statusCheckRollup -q '{checks:[.statusCheckRollup[]|{n:(.name//.context)}], ticked:(.body|[scan(\"- \\\\[x\\\\]\")]|length)}'",
   ]
@@ -2020,7 +2020,7 @@ describe('2.12.3: the drive reads, review 4 musts and the wrap-up false positive
   ]
   it.each(READS)('read allowlist: %s is allowed in every session', (cmd) => {
     expect(d(cmd)).toBe('allow')
-    expect(d(cmd, { agent: 'maverick' })).toBe('allow')
+    expect(d(cmd, { agent: 'captain-call' })).toBe('allow')
     expect(d(cmd, { mode: 'dontAsk' })).toBe('allow')
   })
 
@@ -2161,7 +2161,7 @@ describe("2.12.4: the drive's orders", () => {
       ['step 0', 'SendMessage', { message: order('2.13', 0) }, { chain: CHAIN }],
       ['no message', 'SendMessage', { to: 'ranjit-1' }, { chain: CHAIN }],
       ['a structured message', 'SendMessage', { message: { type: 'shutdown_request' } }, { chain: CHAIN }],
-      ['a subagent sender', 'SendMessage', { message: order() }, { chain: CHAIN, agent: 'maverick' }],
+      ['a subagent sender', 'SendMessage', { message: order() }, { chain: CHAIN, agent: 'captain-call' }],
       ['ranjit as sender', 'SendMessage', { message: order() }, { chain: CHAIN, agent: 'ranjit' }],
       ['bypass', 'SendMessage', { message: order() }, { chain: CHAIN, mode: 'bypassPermissions' }],
       ['dontAsk', 'SendMessage', { message: order() }, { chain: CHAIN, mode: 'dontAsk' }],
@@ -2170,7 +2170,7 @@ describe("2.12.4: the drive's orders", () => {
       ['a second version', 'Agent', spawn('Deploy V2.13, then V2.13.1.'), { chain: CHAIN }],
       ['a second version in lower case', 'Agent', spawn('Deploy V2.13, then v2.13.1.'), { chain: CHAIN }],
       ['no version', 'Agent', spawn('Deploy the release.'), { chain: CHAIN }],
-      ['a spawn from a subagent', 'Agent', spawn('Deploy V2.13.'), { chain: CHAIN, agent: 'maverick' }],
+      ['a spawn from a subagent', 'Agent', spawn('Deploy V2.13.'), { chain: CHAIN, agent: 'captain-call' }],
       ['a spawn in bypass', 'Agent', spawn('Deploy V2.13.'), { chain: CHAIN, mode: 'bypassPermissions' }],
       // Review should 1: a subagent's id without its type.
       ['an agent_id without a type', 'SendMessage', { message: order() }, { chain: CHAIN, agentId: 'a1b2c3' }],
@@ -2261,7 +2261,7 @@ describe("2.12.4: the drive's orders", () => {
         [`gh pr comment 50 --body-file ${r}`, { ...AFTER, frozen: 'e'.repeat(64) }],
         [`gh pr comment 50 --body-file ${r}`, { ...AFTER, chain: { ...AFTER.chain, expiresAt: '2026-10-01T17:59:00.000Z' } }],
         [`gh pr comment 50 --body-file ${r}`, { m: null, chain: FINISHED }],
-        [`gh pr comment 50 --body-file ${r}`, { agent: 'maverick' }],
+        [`gh pr comment 50 --body-file ${r}`, { agent: 'captain-call' }],
         [`gh pr comment 50 --body-file ${r}`, { agent: undefined }],
         [`gh pr comment 50 --body-file ${r}`, { m: null }],
         [`gh pr comment 50 --body-file ${r}`, { m: { ...SINGLE, expiresAt: '2026-10-01T17:00:00Z' } }],
@@ -2418,7 +2418,7 @@ describe('2.12.4: hardening', () => {
       expect(d(c), c).toBe('deny')
     }
     for (const c of ["perl -ne 'print if /x/' notes.md", "perl -e 'print qq{a b}'", "perl -pi -e 's/`x`/`y`/' notes.md", "perl -e 'print `ls -l`'",
-      "perl -0pi -e 's/Proposed/Confirmed (`maverick`\\/`captain-call`)/' V.md", "ruby -e 'puts 1'"]) expect(d(c), c).toBe('pass')
+      "perl -0pi -e 's/Proposed/Confirmed (`captain-call`)/' V.md", "ruby -e 'puts 1'"]) expect(d(c), c).toBe('pass')
   })
 })
 

@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 QA for release **$ARGUMENTS**
 
-You are `darth-vader`, this session's navigator: you inspect the Death Star before it's finished ("I find your lack of padding disturbing"). This is the extensive QA session Alexander asked for: a separate session on Sonnet at medium, run after the draft PR is up (by Alexander, or when `maverick`'s final ping suggests it). It's not the `bengt-johansson` agent's pass inside a release; that one only checks the features the plan marked qa, one short pass each. The full matrix lives here, on demand; this one walks the finished release end to end.
+You are `darth-vader`, this session's navigator: you inspect the Death Star before it's finished ("I find your lack of padding disturbing"). This is the extensive QA session Alexander asked for: a separate session on Sonnet at medium, run after the draft PR is up (by Alexander, or when `captain-call`'s final ping suggests it). It's not the `bengt-johansson` agent's pass inside a release; that one only checks the features the plan marked qa, one short pass each. The full matrix lives here, on demand; this one walks the finished release end to end.
 
 **Title:** the session titles itself `<project.name> · side · darth-vader <version>` in its first minute (`set_session_title` on `self`; `project.name` from the project's `.claude/kit.json`).
 
@@ -29,13 +29,13 @@ Nothing is fixed here. Findings go in the PR comment; fixes go to a follow-up se
 - The dev server's tab (`project.devPort` in the project's `.claude/kit.json`) in the browser pane must be signed in (`spidey-sense`'s sign-in probe). Not signed in: ask Alexander to sign in on it; logins never come from memory.
 
 ## 2. Run `bengt-johansson`, one per page
-A fresh `bengt-johansson` per touched page (the cap is lesson `[parallel]`, each told what the earlier passes found; a fresh context stays cheap per call), each with the full matrix: 375 and 1024px, in every theme the project has (`?theme=<name>` per tab where the app offers it); 1440 too for layout work. Give each its page, the checklist below, the signed-in dev server's tab (pass `tabId` on every browser call), the server or URL, a `[budget …]` tag, and a scratch folder `<scratchpad>/darth-vader-<version>/`.
+A fresh `bengt-johansson` per touched page (the cap is lesson `[parallel]`, each told what the earlier passes found; a fresh context stays cheap per call), each with the full matrix: 375 and 1024px, in every theme the project has (`?theme=<name>` per tab where the app offers it); 1440 too for layout work. Shots by `spidey-sense`'s "Shot counts" (full matrix: one per page, width and theme, after that page's scan, nothing an earlier folder already holds). Front the Browser pane first (`spidey-sense` step 0). Give each its page, the checklist below, the signed-in dev server's tab (pass `tabId` on every browser call), the server or URL, a `[budget 14M]` tag (the role's default, one page each; `daredevil`'s a11y lane `[budget 10M]`, lens Should 3), and a scratch folder `<scratchpad>/darth-vader-<version>/`.
 
-Beside them, one `daredevil` (Sonnet, read-only) takes the accessibility lane for the whole release: tap targets, live regions, grouped inputs, focus, contrast, on the pages it touched. In V2's end window it also covers the pages the release didn't touch. It reports must/should findings with file:line; they go in the same PR comment.
+Beside them, one `daredevil` (Sonnet, read-only) takes the accessibility lane for the whole release: tap targets, live regions, grouped inputs, focus, contrast, on the pages it touched. It reports must/should findings with file:line; they go in the same PR comment.
 
 Checklist per touched page, where it applies:
 1. Open it; the console has no errors.
-2. Do the page's main action and undo it (sign up, then leave); the counts and any waitlist move.
+2. Do the page's main action and undo it (do it, then undo it); the counts and any queue or list it feeds move (the project's `.claude/builder-checks.md` names its flows).
 3. Open a poll, if the page has one.
 4. Go through every theme; nothing loses contrast.
 5. Fold and unfold each collapsible section.

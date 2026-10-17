@@ -24,7 +24,9 @@
 // Usage: node scripts/check.mjs [kitDir] [--project <dir>] — prints `file:line  reason` per
 // problem and exits 1, or a one-line summary and exits 0.
 
+import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { checkDrift } from './drift.mjs'
@@ -241,6 +243,24 @@ function checkSecrets(kitDir, values, problems, rel) {
   }
 }
 
+// The kit's lessons keep one rule a line, ≤ 300 characters; figures go to
+// lessons-numbers.md, which only future-ted and /inception's sizing read.
+// Every navigator reads lessons.md on each call, so its length is paid
+// for over and over (kit 1.5, H3: one line had grown to 930).
+const LESSON_MAX = 300
+
+export function checkLessons(kitDir, problems, rel) {
+  const file = join(kitDir, 'plugins', 'core', 'lessons.md')
+  if (!existsSync(file)) return
+  readFileSync(file, 'utf8')
+    .split('\n')
+    .forEach((text, i) => {
+      // Count characters, not UTF-16 units, so an arrow or a dash is one.
+      const n = [...text].length
+      if (n > LESSON_MAX) problems.push(`${rel(file)}:${i + 1}  lesson line over ${LESSON_MAX} characters (${n})`)
+    })
+}
+
 export function checkKit(kitDir, { values = [], base = process.cwd() } = {}) {
   const problems = []
   const rel = (p) => relative(base, p) || '.'
@@ -255,7 +275,39 @@ export function checkKit(kitDir, { values = [], base = process.cwd() } = {}) {
   for (const dir of plugins) versions.set(dir, checkPlugin(dir, problems, rel))
   checkMarketplace(kitDir, versions, problems, rel)
   checkSecrets(kitDir, values, problems, rel)
+  checkLessons(kitDir, problems, rel)
   return { problems, plugins: plugins.length }
+}
+
+// How far the checkout sessions load (`~/wolfpack-live`) is behind `origin/main`
+// (kit 1.5, H1). `git` is injected so the test needs no repo; null when the
+// folder is missing (CI) or git can't tell, so the line is simply not printed.
+export function liveBehind(liveDir = join(homedir(), 'wolfpack-live'), git = defaultGit) {
+  if (!existsSync(liveDir)) return null
+  try {
+    const n = Number.parseInt(git(liveDir, ['rev-list', '--count', 'HEAD..origin/main']), 10)
+    return Number.isNaN(n) ? null : n
+  } catch {
+    return null
+  }
+}
+
+// The project's `kit.version` against core's plugin.json (kit 1.5, council L5):
+// one info line when they differ, null when they match or either is unreadable.
+// Never a failure: a project updates the kit when it chooses to.
+export function kitVersionNote(project, kitDir) {
+  try {
+    const mine = JSON.parse(readFileSync(join(project, '.claude', 'kit.json'), 'utf8'))?.kit?.version
+    const core = JSON.parse(readFileSync(join(kitDir, 'plugins', 'core', '.claude-plugin', 'plugin.json'), 'utf8'))?.version
+    if (!mine || !core || mine === core) return null
+    return `kit.version is ${mine} here but the kit is ${core}`
+  } catch {
+    return null
+  }
+}
+
+function defaultGit(dir, args) {
+  return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -279,4 +331,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   for (const p of problems) console.log(p)
   if (problems.length) process.exit(1)
   console.log(plugins ? `kit ok: ${plugins} plugin${plugins === 1 ? '' : 's'}` : 'no plugins yet')
+  const note = project ? kitVersionNote(project, kitDir) : null
+  if (note) console.log(note)
+  const behind = liveBehind()
+  if (behind !== null) console.log(`live is ${behind} behind main`)
 }

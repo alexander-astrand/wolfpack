@@ -1,6 +1,6 @@
 ---
 name: the-trail
-description: Edit the shared roadmap page (a claude.ai data artifact) by writing rows - a status, a card, a section or the header is one ArtifactData write, never a republish. Use whenever the roadmap page needs a status, entry or note changed, including from /badger and /maverick.
+description: Edit the shared roadmap page (a claude.ai data artifact) by writing rows - a status, a card, a section or the header is one ArtifactData write, never a republish. Use whenever the roadmap page needs a status, entry or note changed, including from /badger and /captain-call.
 ---
 
 **Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · the-trail <subject>` (norms.md).
@@ -14,7 +14,7 @@ the-trail · the wagon master (The Oregon Trail) · "ford the river", "the wagon
 - wrap: "Camp made. The trail's up to date."
 Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfpack `design` plugin, which ships the card).
 
-The roadmap page is a private claude.ai artifact (since 2.14.6.2 a data page). **Name it by its id from memory `project_roadmap.md`, or by `pages.roadmap` in `.claude/kit.json` when a private repo fills it**; in a session without either, ask Alexander. A public repo leaves `pages.roadmap` empty: the roadmap link is never in a public repo (the deck and team map links may be). And **private projects never go on the page** (they live on the `/war-room`, never on the roadmap page).
+The roadmap page is a private claude.ai artifact (since 2.14.6.2 a data page). **Name it by its id from memory `project_roadmap.md`, or by `pages.roadmap` in `.claude/kit.json` when a private repo fills it**; in a session without either, ask Alexander. **Which roadmap is the record** (one rule for every skill that reads or writes it; lens Must 9, kit 1.5): `.claude/kit.json`'s `roadmap` wins. `page` (or no key): this page. `file`: `<plans>roadmap.md` is the record, and a `pages.roadmap` link beside it (hejtide has both) is only a view, written here only when Alexander asks for it by name. `none` (the dojo): the project keeps no roadmap; nothing is written, and the skill asks which project's roadmap the idea belongs on. A public repo leaves `pages.roadmap` empty: the roadmap link is never in a public repo (the deck and team map links may be). And **private projects never go on the page** (they live on the `/war-room`, never on the roadmap page).
 
 The page's shape is `page.html` beside this file (no content in it). Everything you read on the page lives in the artifact's `db` as rows. Alexander and Anton (Editors) change a card's status right on the page; only the owner and Editors can write (`write: "admin"`).
 

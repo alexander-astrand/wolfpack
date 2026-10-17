@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, test } from 'node:test'
-import { checkKit, projectValues } from './check.mjs'
+import { checkKit, kitVersionNote, liveBehind, projectValues } from './check.mjs'
 
 const roots = []
 after(() => roots.forEach((r) => rmSync(r, { recursive: true, force: true })))
@@ -130,4 +130,35 @@ test("production's URL and its bare host are project values", () => {
   const values = projectValues(join(valuesKit({}, { prod: 'https://wombat-nights.example' }), '.claude', 'kit.json'))
   assert.deepEqual(values, ['https://wombat-nights.example', 'wombat-nights.example'])
   assert.equal(flagged(values, 'see wombat-nights.example/events'), 1)
+})
+
+test('a lessons line over 300 characters fails with its line and length; 300 passes', () => {
+  const ok = `- **[fine]** ${'a'.repeat(300 - 13)}`
+  const long = `- **[long]** ${'→'.repeat(301 - 13)}`
+  const root = kit({
+    ...good,
+    'plugins/core/.claude-plugin/plugin.json': { name: 'core', version: '0.1.0', description: 'Core' },
+    'plugins/core/lessons.md': `# Lessons\n\n${ok}\n${long}\n`,
+  })
+  const { problems } = checkKit(root, { base: root })
+  assert.deepEqual(problems.filter((p) => p.includes('lesson')), [
+    'plugins/core/lessons.md:4  lesson line over 300 characters (301)',
+  ])
+})
+
+test('live-behind counts commits through an injected git, and is silent without the folder', () => {
+  const live = kit({ 'README.md': 'x' })
+  assert.equal(liveBehind(live, () => '5\n'), 5)
+  assert.equal(liveBehind(live, () => 'nonsense'), null)
+  assert.equal(liveBehind(live, () => { throw new Error('no origin/main') }), null)
+  assert.equal(liveBehind(join(live, 'missing'), () => '5'), null)
+})
+
+test("the project's kit.version is compared to core's; a difference is one info line, never a failure", () => {
+  const core = kit({ 'plugins/core/.claude-plugin/plugin.json': { name: 'core', version: '1.5.0', description: 'c' } })
+  const proj = (v) => kit({ '.claude/kit.json': { kit: { version: v } } })
+  assert.equal(kitVersionNote(proj('1.5.0'), core), null)
+  assert.match(kitVersionNote(proj('1.4.0'), core), /1\.4\.0.*1\.5\.0/)
+  assert.equal(kitVersionNote(kit({ '.claude/kit.json': {} }), core), null)
+  assert.equal(kitVersionNote(join(core, 'missing'), core), null)
 })

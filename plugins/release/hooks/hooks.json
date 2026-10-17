@@ -10,6 +10,27 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "mcp__ccd_session__start_session",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/start-gate.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/ask-to-start.mjs\"",
+            "timeout": 5
+          }
+        ]
       }
     ]
   }

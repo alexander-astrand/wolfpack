@@ -10,7 +10,7 @@
 // (this plugin's scripts/usage.mjs), so it stops agents on the numbers the PR reports.
 //
 //   - The budget is the `[budget 20M]` tag at the end of the Agent description
-//     maverick spawned it with (the subagent's .meta.json keeps it), else the
+//     captain-call spawned it with (the subagent's .meta.json keeps it), else the
 //     role's default from `.claude/kit.json` (`budgets`; at most 100M), else
 //     the built-in table below. A SendMessage follow-up that carries its own tag
 //     sets the agent's new total: the meta file keeps the first one forever,
@@ -28,15 +28,18 @@
 //     is warned at 100% and stopped at 150% (a half-done migration costs more
 //     than the tokens).
 //
+//   - Every Agent spawn, the navigator's too, passes two checks first (kit 1.5,
+//     "spawns" below): none after the draft is done, and none without a name.
+//
 // Like the Commissioner it never approves anything: it either says nothing,
 // adds a note, or denies. It fails open: any error of its own allows the call
 // and is logged, so a bug here can't stop the team.
 
-import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, writeFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { pathToFileURL } from 'node:url'
-import { agentName, parseEntries, tallyEntries, totalTokens } from '../scripts/usage.mjs'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { agentName, parseEntries, resolveLocalId, tallyEntries, totalTokens } from '../scripts/usage.mjs'
 import { projectOwns } from './step-aside.mjs'
 
 // An agent shipped in a plugin runs as `<plugin>:<agent>` (`release:chris-de-kok`),
@@ -68,7 +71,6 @@ export const DEFAULT_BUDGETS = {
   // 45M → 15M with oceans-eleven's one Budgets table (`[playbook]`: a big migration is cut in two).
   'the-playbook': 15 * M,
   kissochbajslowski: 15 * M,
-  yoda: 10 * M,
   'admiral-ackbar': 10 * M,
   // The senior planner (2.12 wrap-up): Fable, plans the releases whose mistakes spread.
   'dom-cobb': 20 * M,
@@ -86,7 +88,7 @@ export const DEFAULT_BUDGETS = {
 // skill's table): the Fable designer explores wider and is given more room.
 // Before the transcript shows a model, the Opus (smaller) numbers apply.
 export const MODEL_DEFAULTS = {
-  'mosbius-designs': { opus: { budget: 8 * M, shots: 6 }, fable: { budget: 12 * M, shots: 10 } },
+  'mosbius-designs': { opus: { budget: 5 * M, shots: 6 }, fable: { budget: 12 * M, shots: 10 } },
 }
 const modelFamily = (model) => (/fable/i.test(model || '') ? 'fable' : 'opus')
 const OTHER_BUDGET = 15 * M
@@ -127,7 +129,7 @@ const TYPICAL_PER_CALL = {
   'chris-de-kok': 160_000, 'ahmed-och-ahmed': 160_000, 'saul-goodman': 160_000, 'jeff-winger': 160_000,
   'troy-and-abed': 160_000, 'jesse-pinkman': 160_000, 'the-playbook': 185_000, 'bengt-johansson': 140_000,
   kissochbajslowski: 85_000, 'mosbius-designs': 120_000, 'c-3po': 135_000, 'lorenzo-von-matterhorn': 40_000,
-  'romeo-olsson': 10_000, yoda: 90_000, ranjit: 85_000,
+  'romeo-olsson': 10_000, ranjit: 85_000,
 }
 const OTHER_PER_CALL = 120_000
 
@@ -281,7 +283,9 @@ function messageText(message) {
  * @returns {{ decision: 'deny' | 'note', reason: string } | null}  null = say nothing
  */
 export function decide(input, env = {}) {
-  if (!input?.agent_id) return watchNavigator(input, env) // never a deny
+  const spawn = checkSpawn(input, env)
+  if (spawn) return spawn
+  if (!input?.agent_id) return watchNavigator(input, env) // never a deny but for the spawn checks above
   if (ALWAYS_ALLOWED.has(input.tool_name)) return null
   const log = env.log ?? (() => {})
   const stateDir = env.stateDir ?? defaultStateDir(input)
@@ -360,6 +364,113 @@ export function decide(input, env = {}) {
     }
   }
   return null
+}
+
+// ---------------------------------------------------------------- spawns
+
+// Two checks on every Agent spawn, the navigator's included (kit 1.5):
+//   - H2: after the draft, the navigator spawns nothing more. Its final ping
+//     writes `<plans>V<v>.draft-done` (line 1 its transcript id, line 2 the
+//     follow-up session's name); a release that idled on in the navigator after
+//     the draft cost 60 to 90M (hejtide 0.4, job-hunt 0.3, portfolio 0.2).
+//   - M4: never a nameless agent. general-purpose ran 15 times for 82.3M with
+//     no tools list, no voice and Hank's default budget only.
+const SPAWN_TOOLS = new Set(['Agent', 'Task'])
+export const NAMELESS = new Set(['general-purpose', 'Explore', 'Plan', 'claude'])
+export const NAMELESS_REASON =
+  'Never general-purpose: a job with no row goes to lorenzo-von-matterhorn (find), c-3po (write) or the next free builder (oceans-eleven, Routing).'
+export const draftDoneReason = (followUp) =>
+  `The draft is done; this navigator spawns nothing more. Send it to ${followUp || 'the follow-up session'} (the follow-up session).`
+
+const HOOKS_DIR = dirname(fileURLToPath(import.meta.url))
+
+const expandHome = (p) => (typeof p === 'string' && p.startsWith('~') ? join(homedir(), p.slice(1)) : p)
+
+/** The plans folder: `plans` in the project's `.claude/kit.json`, else ~/.claude/plans/. */
+export function plansDirFor(input) {
+  const plans = readJson(kitPathFor(input), {})?.plans
+  return expandHome(typeof plans === 'string' && plans ? plans : join(homedir(), '.claude', 'plans'))
+}
+
+// Line 1 should be the transcript id (the hook's session_id), but a navigator
+// that wrote `get_session self`'s `local_<uuid>` still counts: it's resolved
+// to the transcript id through the app's session files (kit 1.5 review M2).
+const markerId = (first, sessionsDir) => {
+  if (!first.startsWith('local_')) return first
+  try {
+    return resolveLocalId(first, sessionsDir)
+  } catch {
+    return first
+  }
+}
+
+/** The follow-up session named by a draft-done marker for this session, or null. */
+export function draftDoneFor(sessionId, plansDir, sessionsDir) {
+  if (!sessionId) return null
+  let files = []
+  try {
+    files = readdirSync(plansDir).filter((f) => f.endsWith('.draft-done'))
+  } catch {
+    return null
+  }
+  for (const f of files) {
+    try {
+      const [first = '', second = ''] = readFileSync(join(plansDir, f), 'utf8').split('\n')
+      if (markerId(first.trim(), sessionsDir) === sessionId) return second.trim()
+    } catch {
+      // an unreadable marker is no marker
+    }
+  }
+  return null
+}
+
+const mdNames = (dir) => {
+  try {
+    return readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3))
+  } catch {
+    return []
+  }
+}
+const subdirs = (dir) => {
+  try {
+    return readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => join(dir, d.name))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Every kit and project agent name: the plugins' `agents/*.md` (beside this
+ * plugin in the repo, `plugins/<plugin>/agents`, or in the marketplace cache,
+ * `<marketplace>/<plugin>/<version>/agents`), the project's `.claude/agents/*.md`,
+ * and the budget table's roles as a floor.
+ */
+export function agentNames(input, env = {}) {
+  const names = new Set([...Object.keys(DEFAULT_BUDGETS), ...Object.keys(MODEL_DEFAULTS), 'ranjit'])
+  const pluginRoot = env.pluginRoot ?? dirname(HOOKS_DIR)
+  const pluginDirs = [...subdirs(dirname(pluginRoot)), ...subdirs(dirname(dirname(pluginRoot))).flatMap(subdirs)]
+  for (const dir of pluginDirs) for (const n of mdNames(join(dir, 'agents'))) names.add(n)
+  const project = process.env.CLAUDE_PROJECT_DIR || input?.cwd
+  if (project) for (const n of mdNames(join(project, '.claude', 'agents'))) names.add(n)
+  return names
+}
+
+/** A deny for an Agent spawn the kit forbids, or null. Fails open. */
+export function checkSpawn(input, env = {}) {
+  if (!SPAWN_TOOLS.has(input?.tool_name)) return null
+  try {
+    const followUp = draftDoneFor(input.session_id, env.plansDir ?? plansDirFor(input), env.sessionsDir)
+    if (followUp !== null) return { decision: 'deny', reason: draftDoneReason(followUp) }
+    const type = input.tool_input?.subagent_type
+    if (type && !NAMELESS.has(type)) return null
+    const first = /^\s*([a-z0-9:-]+)/i.exec(input.tool_input?.description ?? '')?.[1] ?? ''
+    // "saul-goodman: step 2" or "release:saul-goodman: step 2": the trailing colon goes first.
+    if (agentNames(input, env).has(bareAgentType(first.replace(/:$/, '')))) return null
+    return { decision: 'deny', reason: NAMELESS_REASON }
+  } catch (err) {
+    env.log?.(`spawn check error, allowed: ${err?.stack ?? err}`)
+    return null
+  }
 }
 
 // ---------------------------------------------------------------- navigator

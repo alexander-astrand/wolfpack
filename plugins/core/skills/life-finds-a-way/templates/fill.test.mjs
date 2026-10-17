@@ -35,6 +35,7 @@ describe('fill.mjs', () => {
     expect(r.stderr).toBe('')
     expect(r.status).toBe(0)
     for (const m of MAP) {
+      if (m.when) continue // the deployer: its own test below
       const dest = m.to.startsWith('plans:') ? join(tmp, 'plans', m.to.slice(6)) : join(tmp, 'proj', m.to)
       expect(existsSync(dest), dest).toBe(true)
     }
@@ -50,6 +51,10 @@ describe('fill.mjs', () => {
     const v01 = readFileSync(join(tmp, 'plans', 'V0.1.md'), 'utf8')
     expect(v01).toContain('- the snack list page: Code\n- the weekly reminder text: Chat')
     expect(readFileSync(join(tmp, 'proj', '.claude', 'taste.md'), 'utf8')).toContain('Why: big thumbs')
+    // The kit's grep-able taste rules start every design project's builder checks (H4).
+    const checks = readFileSync(join(tmp, 'proj', '.claude', 'builder-checks.md'), 'utf8')
+    expect(checks).toContain('whole pixels')
+    expect(checks).toContain('navigator.share')
   })
 
   it('fails naming the file and key when a value is missing, and writes nothing', () => {
@@ -74,10 +79,45 @@ describe('fill.mjs', () => {
     expect(readFileSync(join(tmp, 'proj', 'CLAUDE.md'), 'utf8')).not.toContain('npm run dev')
     expect(existsSync(join(tmp, 'proj', '.claude', 'launch.json'))).toBe(false)
     expect(existsSync(join(tmp, 'proj', '.claude', 'taste.md'))).toBe(false)
+    expect(existsSync(join(tmp, 'proj', '.claude', 'builder-checks.md'))).toBe(false)
     expect(JSON.parse(readFileSync(join(tmp, 'proj', '.claude', 'kit.json'), 'utf8')).project.devPort).toBe(null)
   })
 
   const read = (...p) => readFileSync(join(tmp, 'proj', ...p), 'utf8')
+
+  it('the deployer: Supabase production gets the full ranjit, on-merge the no-database one, none and no ref get none', () => {
+    const ranjit = join(tmp, 'proj', '.claude', 'agents', 'ranjit.md')
+    const fresh = () => {
+      rmSync(join(tmp, 'proj'), { recursive: true, force: true })
+      rmSync(join(tmp, 'plans'), { recursive: true, force: true })
+    }
+    const supa = { ...fixture('node'), refs: { dev: 'abcdefghijklmnopqrst', prod: 'tsrqponmlkjihgfedcba' } }
+    expect(run(supa).stderr).toBe('')
+    const full = readFileSync(ranjit, 'utf8')
+    expect(full).toContain('Runs a toy-node release')
+    expect(full).toContain("production has every player's real data")
+    expect(full).toContain('prod-db.sh')
+    expect(full).not.toMatch(/(?<!\$)\{\{/)
+
+    fresh()
+    expect(run({ ...supa, packs: ['release', 'design'] }).status).toBe(0)
+    expect(existsSync(ranjit)).toBe(false) // no database pack, no Supabase deployer
+
+    fresh()
+    expect(run({ ...fixture('node'), production: 'on-merge' }).stderr).toBe('')
+    const merge = readFileSync(ranjit, 'utf8')
+    expect(merge).toContain('**toy-node has no database**')
+    expect(merge).not.toContain('prod-db.sh push')
+    const mergeKit = JSON.parse(read('.claude', 'kit.json'))
+    expect(mergeKit.production).toBe('on-merge')
+    expect(mergeKit.deployer).toBe('ranjit')
+
+    for (const values of [fixture('node'), { ...supa, production: 'none' }]) {
+      fresh()
+      expect(run(values).status).toBe(0)
+      expect(existsSync(ranjit)).toBe(false)
+    }
+  })
 
   it('ships nowhere: CI skips drafts and kit.json says so; a project that deploys keeps CI on drafts', () => {
     expect(run(fixture('node')).status).toBe(0)

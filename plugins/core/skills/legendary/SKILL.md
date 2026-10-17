@@ -9,7 +9,7 @@ Brainstorm: **$ARGUMENTS**
 
 Alexander, 29 Sep: "I think we should have a brainstorming/spitballing skill/session too, so I don't have to do that here." This is a talk, not a release. Nothing gets built, no branch, no agents but the optional one below. Named `/legendary` on his pick ("legen... wait for it").
 
-**Title:** the session titles itself `<project> · legendary · <date>` (Stockholm date) in its first minute (`set_session_title` on `self`). `<project>` is `project.name` in the project's `.claude/kit.json`.
+**Title:** the session titles itself `<project> · legendary · <topic>` (the topic in a few words) in its first minute (`set_session_title` on `self`). `<project>` is `project.name` in the project's `.claude/kit.json`.
 
 ## Voice
 legendary · the brainstorm host (How I Met Your Mother: legen… wait for it) · big energy, "wait for it", "challenge accepted", never "Kids"
@@ -21,7 +21,7 @@ legendary · the brainstorm host (How I Met Your Mother: legen… wait for it) �
 Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfpack `design` plugin, which ships the card).
 
 ## Setup
-**Run in Auto**; never switch to manual (Alexander, 1 Oct 2026). The allow lines in `.claude/settings.local.json` cover plan writes. A session can set its own permission mode but not its model or effort (`set_session_effort` refuses "self"), so print the lines for the mode, as `/maverick <version> mode` does, and say to restart if the model and effort don't match: `/model opus`, `/effort medium`. Sonnet is enough for a short one, but riffing is what Opus is for.
+**Run in Auto**; never switch to manual (Alexander, 1 Oct 2026). The allow lines in `.claude/settings.local.json` cover plan writes. A session can set its own permission mode but not its model or effort (`set_session_effort` refuses "self"), so print the lines for the mode, as `/captain-call <version> mode` does, and say to restart if the model and effort don't match: `/model opus`, `/effort medium`. Sonnet is enough for a short one, but riffing is what Opus is for.
 
 **Never write the checkout.** This session writes only `~/.claude/plans/`, its own scratchpad and the roadmap page, and runs no git, so a drive or chain running beside it finds its checkout untouched (2.12.5: `/legendary` wrote `.claude/scratch/` into the repo mid-drive). A `heisenberg` brief goes to `~/.claude/plans/design/<topic>/`.
 
@@ -33,10 +33,11 @@ Read only `CLAUDE.md` and the roadmap in memory (`project_roadmap.md`), so ideas
 3. **Nothing is built or decided.** A "we should" is a note, not a task. If an idea is small enough to fix at once, say so and still don't fix it here.
 4. **`heisenberg` optional** (a star, Fable): only when Alexander says so, for an idea about how something should look or feel. He shapes it into a few lines of brief; the session stays a talk.
 5. Keep replies short; a wall of options loses the thread.
+6. **Between rounds the next step is his:** end the turn with no timer and no polling (kit 1.5, M9: one `/legendary` stayed open 43 h). `/marco-polo` finds sessions waiting on him, so nothing is lost.
 
 ## Closing checklist
 When Alexander says he's done (or the ideas dry up), give one list with every idea, his words verbatim, and where it lands, each with a recommendation he can accept or change:
-- **Roadmap** via `/badger` (say which release or "later"); run `badger` for the ones he accepts.
+- **Roadmap** via `/badger` (say which release or "later"); run `badger` for the ones he accepts. Which roadmap is the record: `the-trail`'s rule (kit.json `roadmap`: page, file or none; with `none`, ask which project's roadmap it goes on).
 - **A plan's ideas section** (`~/.claude/plans/V<x>.md`), for an idea that belongs to a release already planned.
 - **Parked**: kept in the list with a reason, no action.
 
