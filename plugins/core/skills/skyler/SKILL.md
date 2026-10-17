@@ -30,7 +30,7 @@ The running release is the newest `.jsonl` (by modified time) under `~/.claude/p
 - The books: `node <release plugin>/scripts/usage.mjs --timeline <session id>` from the repo root (`--dir <path>` for another folder). Add `--commits N` (`git log --oneline main..HEAD | wc -l` on the release branch) only when asked.
 
 ## 3. Print, short
-- **Meter:** the weekly percentage now, against the release target (≤5% per big release, `oceans-eleven`), and the pace: percent per day since the release started.
+- **Meter:** the weekly percentage now, against the release target (≤5% per big release, `oceans-eleven`), and the pace: percent per day since the release started. The release's own share is the script's `Week:` line: its tokens ÷ `tokensPerPoint` (kit.json `meter.tokensPerPoint`, else 46M a point).
 - **Per model:** the table's rows (part, model, calls, tokens, share) and the total.
 - **Per agent:** one line each from `--timeline` (description, model, active minutes, calls, tokens), largest first, by the agent's name (`chris-de-kok`, `the-playbook`, ...).
 - **The navigator's share:** `maverick`'s or `captain-call`'s tokens as a percentage of the total, against 21% in 2.12 and 38% in 2.12.1.

@@ -22,12 +22,12 @@ This session's own transcript is the newest `.jsonl` in the project's transcript
 node <release plugin>/scripts/usage.mjs --commits <N> <session-id>
 ```
 
-Add `--timeline` for one row per agent (description, type, model, start/end, active minutes, calls, screenshots, tokens) and a wall-clock line per session; `--chart <out.html>` also writes it as a swimlane page (the wrap-up publishes that one).
+Add `--timeline` for one row per agent (description, type, model, start/end, active minutes, calls, screenshots, tokens) and a wall-clock line per session. No chart: wrap-ups publish none, and `/memento` draws the one lane chart for a chain (H5, kit 1.5).
 
 Session IDs may be a short prefix. If the release spans more than one session (a `/compact`, a resumed session), pass every session ID on one command line; the totals combine.
 
 ## The meter
-Read the claude.ai weekly usage meter with `mcp__ccd_session_mgmt__get_usage`, before the release starts and now, and report both numbers as a ceiling only: **a release's % is its own sessions' Skyler total ÷ 27M** (`[meter]`), and the meter delta also counts every other session open on that meter, so name those beside it (2.12.5's delta included beside-sessions). Judge the ≤5% target on the tokens. Compare per-commit tokens with the last two releases' rows in `.claude/lessons.md` and the PR Usage sections.
+Read the claude.ai weekly usage meter with `mcp__ccd_session_mgmt__get_usage`, before the release starts and now, and report both numbers as a ceiling only: **a release's % is the `Week:` line Skyler prints**: its own sessions' total ÷ `tokensPerPoint` in `usage.mjs` (kit.json `meter.tokensPerPoint`, else 46M a point; `[meter]`, H5 C2), never a number of your own, and the meter delta also counts every other session open on that meter, so name those beside it (2.12.5's delta included beside-sessions). Judge the ≤5% target on the tokens. Compare per-commit tokens with the last two releases' rows in `.claude/lessons.md` and the PR Usage sections.
 
 ## The PR section
 Keep it short:

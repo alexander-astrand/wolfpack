@@ -23,6 +23,53 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 
+// The meter figure's one home (kit 1.5, H5 C2): real tokens to 1% of the
+// weekly all-models meter. car-wash, the-tower and daily-budget read it from
+// here; none keeps its own number (car-wash said 27M, Hutzup's tower 27e6,
+// the global CLAUDE.md 46M, so a PR's Usage % read about 1.7x high).
+export const DEFAULT_TOKENS_PER_POINT = 46e6
+// Fable is measured on its own (one reading, 32.9M against 66% -> 70% on
+// 6 Oct): the meter charges it about 3x Opus a token. Sonnet and Haiku are
+// unmeasured and derived from the Opus figure by list price (tokensPerPoint below).
+const FABLE_POINT = 8e6
+// $ per million tokens (input, cache write, cache read, output), Claude API list prices of Sep 2026.
+const PRICE = {
+  opus: { inp: 4, cc: 5, cr: 0.2, out: 20 },
+  sonnet: { inp: 2, cc: 2.5, cr: 0.2, out: 10 },
+  haiku: { inp: 1, cc: 1.25, cr: 0.1, out: 5 },
+}
+// How a session's tokens split across the four fields: 6 Oct, three sessions,
+// 1.05B tokens, almost all cache reads, so cache-read prices decide the comparison.
+const MIX = { inp: 0.0001, cc: 0.0094, cr: 0.9887, out: 0.0019 }
+const dollarsPerToken = (p) => Object.keys(MIX).reduce((sum, k) => sum + MIX[k] * p[k], 0)
+
+// Tokens to 1% of the week for one model family (default the all-models
+// figure). `kitJson` is the parsed `.claude/kit.json` (or null): its
+// `meter.tokensPerPoint` wins when set, as a number or per family
+// (`{ "opus": 46000000 }`, what meter-calibrate.mjs prints).
+export function tokensPerPoint(kitJson, family = 'opus') {
+  const set = kitJson?.meter?.tokensPerPoint
+  const own = (f) => {
+    const n = typeof set === 'number' ? set : set && typeof set === 'object' ? set[f] : undefined
+    return typeof n === 'number' && n > 0 ? n : null
+  }
+  if (own(family)) return own(family)
+  const opus = own('opus') ?? DEFAULT_TOKENS_PER_POINT
+  if (family === 'fable') return FABLE_POINT
+  if (!PRICE[family] || family === 'opus') return opus
+  // A family we haven't measured costs a point where it has spent what an Opus point costs.
+  return Math.round((opus * dollarsPerToken(PRICE.opus)) / dollarsPerToken(PRICE[family]) / 1e6) * 1e6
+}
+
+// The project's .claude/kit.json, parsed, or null.
+export function readKit(dir = process.cwd()) {
+  try {
+    return JSON.parse(readFileSync(join(dir, '.claude', 'kit.json'), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
 export function projectDir(dir) {
   if (dir) return dir
   return join(homedir(), '.claude', 'projects', process.cwd().replace(/\//g, '-'))
@@ -394,6 +441,10 @@ function main() {
   const grandTotal = parts.reduce((sum, p) => sum + p.tokens, 0)
   const byModel = new Map()
   for (const p of parts) byModel.set(p.model, (byModel.get(p.model) || 0) + p.tokens)
+  // The release's share of the week: its own tokens over the one meter figure
+  // (`[meter]`); car-wash copies this line rather than dividing by its own number.
+  const perPoint = tokensPerPoint(readKit())
+  const weekPct = grandTotal / perPoint
 
   if (chart) {
     const md = decisions ? readFileSync(decisions, 'utf8') : ''
@@ -407,6 +458,8 @@ function main() {
       byModel: Object.fromEntries(byModel),
       commits,
       perCommit: commits ? grandTotal / commits : null,
+      tokensPerPoint: perPoint,
+      weekPct,
     }
     if (wantTimeline) {
       out.timeline = timeline.map(({ spans, ...r }) => ({
@@ -436,6 +489,7 @@ function main() {
       .map(([model, tokens]) => `${model} ${fmtPct(tokens, grandTotal)}`)
       .join(', '),
   )
+  console.log(`Week: ${weekPct.toFixed(1)}% of the weekly meter (${fmtM(grandTotal)} / ${fmtM(perPoint)} a point, kit.json meter.tokensPerPoint or the kit's default)`)
   if (wantTimeline) {
     console.log('')
     console.log(timelineTable(timeline, sessions))

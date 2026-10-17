@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { countCalls, hhmm, resolveLocalId, tallyEntries, totalTokens } from './usage.mjs'
+import { countCalls, hhmm, resolveLocalId, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
 const line = (id, block) => ({
@@ -46,6 +46,24 @@ describe('resolveLocalId', () => {
 
   it('says so when no file matches', () => {
     expect(() => resolveLocalId('local_nope', base)).toThrow(/No session file for "local_nope"/)
+  })
+})
+
+describe('tokensPerPoint', () => {
+  it('is 46M a point without a meter key', () => {
+    expect(tokensPerPoint(null)).toBe(46e6)
+    expect(tokensPerPoint({ project: {} })).toBe(46e6)
+  })
+
+  it('takes kit.json meter.tokensPerPoint, per family or as one number', () => {
+    expect(tokensPerPoint({ meter: { tokensPerPoint: { opus: 40e6 } } })).toBe(40e6)
+    expect(tokensPerPoint({ meter: { tokensPerPoint: 30e6 } }, 'sonnet')).toBe(30e6)
+  })
+
+  it('keeps Fable measured and derives Sonnet and Haiku from the Opus figure', () => {
+    expect(tokensPerPoint(null, 'fable')).toBe(8e6)
+    expect(tokensPerPoint(null, 'sonnet')).toBeGreaterThan(46e6)
+    expect(tokensPerPoint(null, 'haiku')).toBeGreaterThan(tokensPerPoint(null, 'sonnet'))
   })
 })
 
