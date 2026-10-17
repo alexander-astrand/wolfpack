@@ -60,10 +60,10 @@ The shared crew and the habits every project follows: planning before a big rele
 - Skills: `88-mph`, `badger`, `beam-me-up`, `car-wash`, `cloud-city`, `dependabot-report`, `don-draper`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `oracle`, `previously-on`, `skyler`, `tesseract`, `the-trail`, `war-room`, `watson`, `wilson`
 
 ### release
-A release end to end: `/captain-call <version>` (with `fable allowance=high planner=dom-cobb pick=me stars=3` for the big ones) plans it, spawns the builders, reviews, opens the draft PR and pings you. The deploy skills take it to production, and `/cattle-drive` runs release and deploy on one yes. Hank (`hooks/budget-cap.mjs`) holds every agent to the budget in its task description; Skyler (`scripts/usage.mjs`) counts the tokens.
+A release end to end: `/captain-call <version>` (with `fable allowance=high planner=dom-cobb pick=me stars=3` for the big ones) plans it, spawns the builders, reviews, opens the draft PR and pings you. After your merge go (`/one-ring`), `/special-delivery` deploys it automatically in its own session (`/skinny-pete` only for a manual or broken case), and `/cattle-drive` runs release and deploy on one yes. Hank (`hooks/budget-cap.mjs`) holds every agent to the budget in its task description; Skyler (`scripts/usage.mjs`) counts the tokens.
 
 - Agents: `admiral-ackbar`, `ahmed-och-ahmed`, `barney-stinson`, `c-3po`, `chris-de-kok`, `dom-cobb`, `jeff-winger`, `jesse-pinkman`, `kissochbajslowski`, `mace-windu`, `mike-ehrmantraut`, `r2-d2`, `saul-goodman`, `three-eyed-raven`, `troy-and-abed`
-- Skills: `black-box`, `captain-call`, `carousel`, `cattle-drive`, `ill-be-back`, `its-a-trap`, `jedi-council`, `kids-im-home`, `night-watch`, `no-half-measures`, `oceans-eleven`, `one-ring`, `skinny-pete`, `the-tower`, `you-shall-not-pass`
+- Skills: `black-box`, `captain-call`, `carousel`, `cattle-drive`, `ill-be-back`, `its-a-trap`, `jedi-council`, `kids-im-home`, `night-watch`, `no-half-measures`, `oceans-eleven`, `one-ring`, `skinny-pete`, `special-delivery`, `the-tower`, `you-shall-not-pass`
 
 ### design
 Briefs, mock-ups and QA for anything the app shows: browser checks at phone and desktop widths in both themes, an accessibility review, and a full QA pass. It also carries `voice-card.md` (the shape of every agent's `## Voice` card) and `taste-template.md` (start your project's `.claude/taste.md` from it).
@@ -80,7 +80,7 @@ For Supabase projects. The production guard (the Slap Bet Commissioner, `hooks/g
 A project that registers its own copy of a hook in `.claude/settings.json` keeps it; the kit's copy steps aside (Hutzup 3.3.3). That holds for the guard, Hank and the denied-call log (`hooks/step-aside.mjs`): only when the project's settings register its copy under `.claude/hooks/` for every matcher the kit uses and the file is there; anything else, including a settings file that won't parse, runs the kit's copy.
 
 ### Per project: the deployer and the senior adviser
-A deployer (Hutzup's `ranjit`, named by `deployer` in `.claude/kit.json`) and a senior adviser (Hutzup's `yoda`) are per project: they carry the project's own people, refs and history, so the kit doesn't ship them. A project that wants them keeps its own in `.claude/agents/` (the guard treats both files as frozen).
+A deployer (Hutzup's `ranjit`, named by `deployer` in `.claude/kit.json`) and a senior adviser (Hutzup's `yoda`) are per project: they carry the project's own people, refs and history, so the kit doesn't ship them. A project that wants them keeps its own in `.claude/agents/` (the guard treats both files as frozen). With a deployer, every deploy runs through `/special-delivery`: parked at the release's start, woken by `/one-ring`, one arm tap, then `ranjit` runs the steps under the marker. A project with no deployer (`production` `none` or `on-merge`) merges and ships in `/one-ring` itself.
 
 ## What your project provides: `.claude/kit.json`
 
