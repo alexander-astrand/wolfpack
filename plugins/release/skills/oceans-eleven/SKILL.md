@@ -74,7 +74,7 @@ Each row: job → agent, model, effort.
 
 ## Budgets
 
-Every Agent `description` ends with the step's budget, e.g. `[budget 20M]`. **A tag is real tokens, written ×1:** Hank counts what Skyler counts (since 2.14.6), so there is no ×1.8 to scale by. Hank (`${CLAUDE_PLUGIN_ROOT}/hooks/budget-cap.mjs`) reads it from the subagent's meta file and counts the agent's real tokens with Skyler's parser: a note at 80%, every call but the final report denied at 100%. A SendMessage follow-up carries its own tag, the agent's new total. Without a tag the role's default holds. **Since 2.14.6 the defaults live in `.claude/kit.json`** (`budgets`, per agent, `"*"` for the rest; Hank ignores a value above 100M and logs it, and falls back to its own table when the file is missing or malformed); the table below mirrors it, so change both together:
+Every Agent `description` ends with the step's budget, e.g. `[budget 12M]`. **A tag is real tokens, written ×1:** Hank counts what Skyler counts (since 2.14.6), so there is no ×1.8 to scale by. Hank (`${CLAUDE_PLUGIN_ROOT}/hooks/budget-cap.mjs`) reads it from the subagent's meta file and counts the agent's real tokens with Skyler's parser: a note at 80%, every call but the final report denied at 100%. A SendMessage follow-up carries its own tag, the agent's new total. Without a tag the role's default holds. **Since 2.14.6 the defaults live in `.claude/kit.json`** (`budgets`, per agent, `"*"` for the rest; Hank ignores a value above 100M and logs it, and falls back to its own table when the file is missing or malformed); the table below mirrors it, so change both together:
 
 | Role | Default | Role | Default |
 |---|---|---|---|
@@ -196,7 +196,7 @@ Hard stops are the same in every allowance and never a senior's call.
 |---|---|---|
 | Fable autopilot | big releases whose mistakes spread (the kit, full auto, a design system); the navigator is `captain-call` | `/captain-call <version>` (Fable, high, Auto; sets itself up where it can) |
 | Opus autopilot | M–L releases with a clear spec | `/model opus`, `/effort high`, Auto |
-| Driver | taste-heavy work Alexander steers | `/model opus`, `/effort medium`, default permissions |
+| Driver | taste-heavy work Alexander steers | `/model opus`, `/effort medium`, Auto |
 | Planning | before a chain or an important release (required), or triage and roadmap | `/model opus`, `/effort medium`, `/inception <version> [chain …]`; longer range: `/model fable`, `/effort high`, `/inception horizon <from>–<to>` |
 
 `/maverick <version> mode` prints the lines; restart if the model/effort don't match (a session can set its own permission mode but not its model or effort; those are typed or set from outside). Speed, `stars=`, `allowance=`, `<role>=<model>` and `pick=` are `/maverick` arguments too (see Speed settings, Allowances, Overrides above); `/night-watch` = slow + away. `.claude/lessons.md` holds the newest tuning lessons, rewritten by `/future-ted`.
