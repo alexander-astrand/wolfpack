@@ -33,6 +33,7 @@ Read only `CLAUDE.md` and the roadmap in memory (`project_roadmap.md`), so ideas
 3. **Nothing is built or decided.** A "we should" is a note, not a task. If an idea is small enough to fix at once, say so and still don't fix it here.
 4. **`heisenberg` optional** (a star, Fable): only when Alexander says so, for an idea about how something should look or feel. He shapes it into a few lines of brief; the session stays a talk.
 5. Keep replies short; a wall of options loses the thread.
+6. **Between rounds the next step is his:** end the turn with no timer and no polling (kit 1.5, M9: one `/legendary` stayed open 43 h). `/marco-polo` finds sessions waiting on him, so nothing is lost.
 
 ## Closing checklist
 When Alexander says he's done (or the ideas dry up), give one list with every idea, his words verbatim, and where it lands, each with a recommendation he can accept or change:
