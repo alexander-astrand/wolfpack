@@ -1,28 +1,28 @@
 ---
 name: oceans-eleven
-description: "Who does what: the routing table `captain-call` applies when handing out work, with model and effort per kind of job, escalation, the star limit and the speed settings. Read when planning a release or choosing an agent."
+description: "Who does what: the routing table `captain-call` applies when handing out work, with model and effort per kind of job, budgets, escalation, the star limit and the speed settings. Read by section when planning a release or choosing an agent."
 ---
 
 # The team (`oceans-eleven`, was the `team` skill)
 
 **Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · oceans-eleven <subject>` (norms.md).
 
-## Why a table, not pickers
-
-The design had five "pickers" choosing a worker per job, but a subagent has no Agent tool, so a picker can't spawn anyone. A picker layer would also re-read every work order on top of `captain-call`, while the builders are the cost, so `captain-call` applies this table itself and passes `model` on each spawn.
+**Read it by section, never whole** (kit 1.5, H3: it was 40 KB re-sent on every navigator call). `grep -n '^## '` this file, then read only the ranges you need: **Routing table** and **Budgets** at a release's start; Escalation, Seniors, Stars, Overrides, Speed settings or Allowances when an argument or a step calls for them. The roster table, the slash list, full auto and the reasons behind the table are in `reference.md` beside this file, for a person or a planner, not for a running release. Session modes live in norms.md, "Which Claude for what".
 
 ## Routing table
 
-Each row: job → agent, model, effort.
+Each row: job → agent, model, effort. `captain-call` applies it itself and passes `model` on each spawn (a subagent has no Agent tool, so no picker layer).
+
+**Never `general-purpose`:** a job with no row goes to `lorenzo-von-matterhorn` (find), `c-3po` (write) or the next free builder; Hank denies a nameless spawn (kit 1.5, M4: 15 nameless runs cost 82M).
 
 **Plan**
 - A release plan, or a design decision when `captain-call` runs Sonnet → `admiral-ackbar`, Opus, high.
 - The plan of a chain or a release whose mistakes spread (the kit, full auto, a design system, a new project) → `dom-cobb`, Fable, high, inside `/inception` only, before the release starts; never inside a running release. The once-a-window audits have their own: `/jedi-council` is led by `mace-windu`, `/black-box` is `barney-stinson`'s.
-- A step marked important design, or a plan `captain-call` doubts → a senior (below).
+- A step marked important design, or a plan `captain-call` doubts → the senior ladder (Seniors, below).
 
 **Design**
-- A page or component whose layout is the question → `mosbius-designs`, Opus, medium, 8M, 6 shots: two options, one agent; it reports the screenshot paths and picks itself, and `captain-call` publishes the gallery page from them (under `/superlab`, the studio session does).
-- **Sized to the job:** `designer=fable` applies only to drawn things and steps marked important design. A placement or wording tweak gets no designer (the builder shows two variants in one shot); an ordinary layout gets Opus `mosbius-designs` at 8M and 6 shots.
+- A page or component whose layout is the question → `mosbius-designs`, Opus, medium, 5M, 6 shots: two options, one agent; it reports the screenshot paths and picks itself, and `captain-call` publishes the gallery page from them (under `/superlab`, the studio session does). The tag is 5M (kit 1.5, M7: 72 runs used 3.2 to 4.0M of an 8M tag).
+- **Sized to the job:** `designer=fable` applies only to drawn things and steps marked important design. A placement or wording tweak gets no designer (the builder shows two variants in one shot).
 - **Drawn things** (icons, badges, illustrations) → `mosbius-designs` with `model: "fable"` (a star), never straight from a text brief to a builder: three directions at real size (16, 20, 48px, both themes) beside what they replace, in a gallery `captain-call` publishes; the builder then traces the pick. The gallery goes in the final ping even with `pick=designer`, so Alexander can overturn it (icons built from a text brief alone came out unreadable).
 - A whole page's layout marked "important design" → `mosbius-designs` with `model: "fable"`; counts as a star.
 - **A `/superlab` designer order** (`[shots]`) carries an exact shot list with one spare, `shot.mjs` headless on its own port, the mock skeleton to reuse, what must go, constants checked in code and a typeface as a drawing; `save-shot.mjs` refuses images older than the pass.
@@ -32,18 +32,20 @@ Each row: job → agent, model, effort.
 - Small UI steps with a clear spec, or docs → `jesse-pinkman`, Sonnet, medium, at most 2–3 steps per agent. A process first commit of more than five items is split by lane, one `jesse-pinkman` per lane; a worktree lane's order says to use relative paths inside the worktree only: one Sonnet hit its budget alone on a page and again on nine process items.
 - Page-sized steps, logic, the waitlist, access rules, anything touching the shared helpers → the builder pool, Opus, medium: `chris-de-kok`, `ahmed-och-ahmed`, `saul-goodman`, `jeff-winger`, `troy-and-abed` (Alexander: "Five different opus builders maybe who can run parallel? Fun with more names too!"). The same prompt under five names, so the timeline says who built what; `captain-call` hands the next free name to the next lane.
 - **A sweep of 20+ files** (`[sweep]`) gets 25-30M or two lanes; its order greps for what the page shows, not one code pattern, and a class-name sweep greps its own diff, over the whole tree, for glued tokens.
-- **Lanes:** parallel builders only on files no other agent touches (one page or folder each), each in a worktree the navigator makes outside `.claude` (`~/Desktop/<Project>-lanes/<lane>`, the release branch as base; `captain-call`, "Parallel lanes"), its path in the order, set up per the `tesseract` skill; never `isolation: "worktree"` (`[lane-home]`, kit 1.5, H2). `captain-call` merges each worktree before a step that touches its files. **When builders run side by side, each order names the owner of any helper they share** (`[parallel]`: 2.13.2 wrote "Playing this now" twice).
+- **Lanes:** parallel builders only on files no other agent touches (one page or folder each), each in a worktree the navigator makes outside `.claude` (`~/Desktop/<Project>-lanes/<lane>`, the release branch as base; `captain-call`, "Parallel lanes"), its path in the order, set up per the `tesseract` skill; never `isolation: "worktree"` (`[lane-home]`, kit 1.5, H2). `captain-call` merges each worktree before a step that touches its files; `tesseract` cleans them up at the release's end. **When builders run side by side, each order names the owner of any helper they share** (`[parallel]`: 2.13.2 wrote "Playing this now" twice).
+- **Browser lanes in one session** (`[one-session]`): each lane runs its own dev port (`npm run dev -- --port 51NN --strictPort`), signed in at the start; a fixed QA layout group nobody toggles, named in the order; restart the lane's server after any `package.json` change.
 - **A builder's own check before QA covers the `[builder-checks]` list:** pages under the size cap; no secret in a URL and no private or spoiler text in push or email; typed text escaped in email HTML; tests that reach the Supabase client mock it; every button shows the pointer and matches its type.
-- A review finding, a CI failure, or a first try at a bug → `jesse-pinkman`, with the finding and file:line (`chris-de-kok` when it's in the shared helpers or logic); after two failed tries, an Opus builder at xhigh with both earlier reports in its order. No separate fixer agent — it would be the builder with a different prompt.
+- **Every page order carries a "Fixtures" block** (`[fixtures]`): the QA group ids (a club one, a non-club one), seed URLs, the measured stack heights, the existing components and tokens to reuse (the navigator greps them before writing the order), and where each new button leads. A wrap-up page order carries the exact lines or array to change.
+- A review finding, a CI failure, or a first try at a bug → `jesse-pinkman`, with the finding and file:line (`chris-de-kok` when it's in the shared helpers or logic); after two failed tries, an Opus builder at xhigh with both earlier reports in its order. No separate fixer agent: it would be the builder with a different prompt.
 - A step needing a file over ~500 lines gets a builder of its own.
 - A whole page is one step for `chris-de-kok`, never two.
 - An audit (every toast, every confirm) gets its file list from `lorenzo-von-matterhorn` first, and the order names the files.
-- A fresh builder every 2–3 steps, or once its calls pass ~150k tokens.
+- A fresh builder every 2–3 steps, or once its calls pass ~150k tokens; reuse one through SendMessage only for follow-ups on the same files. Small edits stay with the navigator.
 - **Paths in an order are a literal list** (2.14.6.1, confirmed at `/memento`): one path per line or a zsh array, never a space-separated variable; zsh doesn't split it, and three builders of 2.14.6.1 lost calls on that.
 - **A silent lane is stopped** (`[watchdog]`, the `captain-call` skill's Build has the steps): while anything runs the navigator never ends a turn without a background `sleep` timer that wakes it; on each wake it checks each lane's last commit and file write and each session's last event, stops one silent for 20 minutes and hands its files to a fresh agent of the same role, and does a step stuck on a prompt itself. Every work order carries "never run a command that doesn't exit on its own; a refused call is never retried; edit with Edit or Write, scratch files by absolute path".
+- **Every order lists what the guard refuses in a shell call** (`[frozen]`, `[guard-noise]`): a shell line naming `prod-db.sh`, `full-auto.sh` or the plugins' `hooks/`, or writing `${…}`, is refused, so use Read, Grep or Edit for those; a nested `claude` is refused in Bypass; hook tests run as `npx vitest run` on the hooks folder, never `node --test`. Under a chain marker it also carries "no `cd` into a folder built at run time" (chain 3.0: seven guard refusals, all one shape).
 - **Commits in an order are path-scoped:** `git commit -- <paths>`, never a bare `git commit` after `git add` (`[parallel]`: three ride-alongs in 3.1, one lane's commit carrying another's staged files). An order for a page that writes data names the query keys it invalidates (3.1's club cache).
-- **Every lane order under a chain marker carries the edit rule** (`[guard-noise]`, `[orders]`; chain 3.0: seven guard refusals, all one shape): "edit with Edit or Write, never a `python3`/`node -e` heredoc; no `cd` into a folder built at run time".
-- **No skill or agent ships unnamed or unvoiced:** the step that adds one writes its `## Voice` card from the `design` plugin's `voice-card.md` in the same commit (2.14.6.2).
+- **No skill or agent ships unnamed or unvoiced:** the step that adds one writes its `## Voice` card from the `design` plugin's `voice-card.md` in the same commit (2.14.6.2). A procedure that comes up twice becomes a skill (`.claude/skills/<name>/SKILL.md`), listed in the PR's "Notes for review"; improve an existing skill over a near-duplicate.
 
 **Find**
 - "Where is X" → `lorenzo-von-matterhorn`, Haiku, low.
@@ -55,7 +57,7 @@ Each row: job → agent, model, effort.
 - The full matrix → only on demand, as `/darth-vader`.
 - `bengt-johansson` is the single-feature pass. A release with several UI features or any layout work sends the Bengan Boys instead, one per lane: `magnus-wislander` (1024/1440), `staffan-olsson` (375), `stefan-lovgren` (interactions), then `tomas-svensson` last against `.claude/taste.md`; each in its own tab. QA's share target is ≤10% of the release.
 - The pre-merge review of a finished branch → `kissochbajslowski`, Sonnet, high; give it the screenshot folders. Every reviewer and QA pass gets the builders' and earlier passes' shot folders in its order, so it shoots only what they lack (portfolio 0.3: four QA passes took 15 shots of the same two pages, none handed the earlier ones).
-- A whole-part review splits into a database lane and an app lane, one `kissochbajslowski` each (`[turns]`: it hit its 60-turn cap twice on whole parts in 3.3; W1's split didn't).
+- A whole-part review splits into a database lane and an app lane, one `kissochbajslowski` each (`[turns]`: one reviewer runs out of turns on a whole part).
 - The second reviewer, for design and accessibility → `daredevil`, Sonnet, high, read-only, in every release with UI.
 
 **Database**
@@ -67,7 +69,7 @@ Each row: job → agent, model, effort.
 - A bug that survived two attempts → an Opus builder at xhigh with both earlier reports in its order.
 
 **Deploy**
-- Production steps → the project's own `ranjit`, Opus, high, only through `/skinny-pete` (or `/one-ring`, the same run with `merge` set); one `ranjit` for both phases, relayed by `skinny-pete`, the deploy session's navigator.
+- Production steps → the project's own `ranjit`, Opus, high, through `/special-delivery` after each merge go (`/skinny-pete` only when a manual run is needed; `/one-ring` merges first).
 
 **Docs**
 - The README update, the PR description and its Usage section, the-trail edits → `c-3po`, Sonnet, medium, from the plan file, the commit log and `captain-call`'s notes; used by `carousel` and `captain-call`'s step 6.
@@ -80,14 +82,14 @@ Every Agent `description` ends with the step's budget, e.g. `[budget 12M]`. **A 
 |---|---|---|---|
 | `lorenzo-von-matterhorn`, `romeo-olsson` | 2M | the builder pool (all five) | 25M each |
 | `c-3po` | 10M | `the-playbook` | 15M (stopped at 150%; a migration with a cron job is cut in two, not given a bigger tag: `[playbook]`) |
-| `yoda`, `admiral-ackbar` | 10M; `dom-cobb` 20M | `mosbius-designs` (Opus 8M, Fable 12M) | 8M |
+| `admiral-ackbar` | 10M; `dom-cobb` 20M | `mosbius-designs` (Opus 5M, Fable 12M) | 5M |
 | `heisenberg` | 8M | `daredevil` | 3M |
 | `bengt-johansson` (per feature) | 14M | `ranjit` | logged only |
 | `jesse-pinkman`, `kissochbajslowski`, others | 15M | the four Bengan Boys (as `bengt-johansson`) | 14M |
 | `mike-ehrmantraut` | 30M | `daredevil` whole-app (e.g. `/darth-vader`'s a11y lane, one page family per call) | 10M |
 | `three-eyed-raven` | 8M | | |
 
-**The ceiling and the target.** 15M is the ceiling for any build or fix order's tag; a step that sizes over it is cut at `/inception`, never given a bigger tag (the audits `mike-ehrmantraut` 30M and `dom-cobb` 20M, and the pool's untagged default, are the only rows above it). The target is ≤ 5% of the weekly meter per release, deploy included, unless Alexander sets another; the daily-window rule (14% finish, 7% step down) is in `~/.claude/CLAUDE.md`'s "Usage and budget", not repeated here. A project's `.claude/kit.json` `budgets` mirror this table; a project whose kit.json still has the old rows (the 45M `the-playbook`, `boba-fett`, `farbror-vattenmelon`) updates them in its next guard release.
+**The ceiling and the target.** 15M is the ceiling for any build or fix order's tag; a step that sizes over it is cut at `/inception`, never given a bigger tag (the audits `mike-ehrmantraut` 30M and `dom-cobb` 20M, and the pool's untagged default, are the only rows above it). Turn caps are `maxTurns` in the agent files, so an order carries no turn line (`[turns]`: every 20M step in 3.1.1 hit `maxTurns` 90). The target is ≤ 5% of the weekly meter per release, deploy included, unless Alexander sets another; the daily-window rule (14% finish, 7% step down) is in `~/.claude/CLAUDE.md`'s "Usage and budget", not repeated here. A project's `.claude/kit.json` `budgets` mirror this table; a project whose kit.json still has old rows (the 45M `the-playbook`, retired roles) updates them in its next guard release.
 
 `the-protagonist` is a session (the chain's conductor), never a spawned agent, so Hank has no budget for it; its usage is read from its session.
 
@@ -97,16 +99,16 @@ Screenshot caps: the QA roles (`bengt-johansson`, `tomas-svensson`, `magnus-wisl
 
 ## Escalation
 
-- An agent that fails twice at its step goes one model up (Haiku → Sonnet → Opus → Fable), with the previous attempt's report in the new order so it doesn't start from nothing.
-- Opus failing twice goes to an Opus builder at xhigh with both earlier reports in its order for a bug, or to a senior for a decision.
-- Fable only within the star limit.
+- An agent that fails twice at its step goes one model up (Haiku → Sonnet → Opus → Fable), with the previous attempt's report in the new order so it doesn't start from nothing; after the hard part, back down.
+- Opus failing twice goes to an Opus builder at xhigh with both earlier reports in its order for a bug, or up the senior ladder for a decision.
+- xhigh or max only where a mistake is expensive (production, stubborn bugs, a senior's decision). Fable only within the star limit.
 - `captain-call` notes each escalation in the PR's "Notes for review".
 
 ## Seniors
 
-The kit ships no senior adviser; a project may have its own `yoda` (Opus, max, adviser only: no reviews, deploy-plan reads or verdicts; Alexander, 30 Sep: he is "just supposed to be the senior adviser for the navigator"). For `captain-call` the ladder is `yoda` (where the project has one), then Alexander. **With `fable`** (a Fable navigator on a release whose mistakes spread) it goes straight to Alexander with the navigator's own recommendation; he decides (Alexander, 29 Sep, 30 Sep). A senior asked for a decision doesn't count against `stars=` (it stands in for a ping, not a worker), and every ping names the senior it asked (`yoda` said …). Person-only items (secrets, the Keychain, dashboards, production) skip the seniors and go straight to Alexander.
+The kit ships no senior adviser. For `captain-call` the ladder is the project's senior adviser, when it has one (Opus, max, adviser only: no reviews, deploy-plan reads or verdicts; Alexander, 30 Sep: "just supposed to be the senior adviser for the navigator"), then Alexander. **With `fable`** (a Fable navigator on a release whose mistakes spread) it goes straight to Alexander with the navigator's own recommendation; he decides (Alexander, 29 Sep, 30 Sep). A senior asked for a decision doesn't count against `stars=` (it stands in for a ping, not a worker), and every ping names the senior it asked. Person-only items (secrets, the Keychain, dashboards, production) skip the seniors and go straight to Alexander.
 
-**In a chain link** nobody is there to ping, so a call goes straight to `three-eyed-raven`, which decides and logs it in the chain log for `/memento` (Alexander, 2 Oct: "raven alone"); its order carries the navigator's question, the options and its recommendation, and what the plan, `CLAUDE.md` and the roadmap say (the raven decides even when one is missing, and names it). Not a star. Taste, drawn things and anything on production never go to it: a taste pick parks as `TASTE WAIT` for `/memento`.
+**In a chain link** nobody is there to ping, so a call goes straight to `three-eyed-raven`, which decides and logs it in the chain log for `/memento` (Alexander, 2 Oct: "raven alone"); its order carries the navigator's question, the options and its recommendation, and what the plan, `CLAUDE.md` and the roadmap say (the raven decides even when one is missing, and names it). Not a star. Taste, drawn things and anything on production never go to it: a taste pick parks as `TASTE WAIT` for `/memento`. Hard stops are the same in every allowance and never a senior's call.
 
 A senior is read-only. The order gives it the question, the options, the relevant files and what the roadmap and `CLAUDE.md` say. Its answer and the choice go in the PR under "Decided on the way".
 
@@ -116,13 +118,13 @@ A star is a Fable worker: `heisenberg`, `mosbius-designs` on Fable, or any build
 
 - `stars=1` per release session by default; `/captain-call <version> stars=N` overrides it; `quick` sets 0.
 - `captain-call` keeps the count in the PR body ("Stars used: 1/1") and never goes over it without a ping.
-- A Fable navigator isn't a star; that's the session mode. The big releases are `/captain-call <version> fable allowance=high planner=dom-cobb pick=me stars=3` (the skill's "Arguments for the big release"; kit 1.5 folded the second navigator skill into it).
+- A Fable navigator isn't a star; that's the session mode. The big releases are `/captain-call <version> fable allowance=high planner=dom-cobb pick=me stars=3` (the skill's "Arguments for the big release").
 
 ## Overrides
 
 `/captain-call <version> <role>=<model>...` targets specific roles for the whole run, on top of the routing table above, e.g. `/captain-call 2.9 opus designer=fable`, `builder=opus`, `qa=quick`, `reviewer=opus`, `db=xhigh`; plain words work too ("fable designer"). `captain-call` applies each override wherever that role is spawned and lists them in the PR's first lines. `designer=fable` reaches only drawn things and steps marked important design (see Design). A Fable override counts against `stars` (raise it to fit if needed, and say so in the PR). The same `role=model` form typed in chat mid-release ("from now on builder=opus") applies for the rest of the run, same rules.
 
-`pick=me|designer|navigator` says who picks between a designer's options. Default is `pick=designer`: it picks itself and says why, whichever model it runs on — except **drawn things and taste picks (icons, logos, a page's look), where the default is `pick=me`** (Alexander: the designer's pick was overturned twice); under away, overnight or in a chain link, `/superlab`'s step 5 is the rule: wait up to 2 hours for him, then build the designer's (or `heisenberg`'s) pick with the runner-up ready as a one-commit swap; the gallery stays open for him. `pick=me` pings Alexander with the gallery; `pick=navigator` has `captain-call` pick from the designer's recommendation instead. `pick=me` under `/ill-be-back` waits until the end and the rest of the run builds around it. Either way, the gallery link and who picked go in the PR's "Decided on the way", so a pick can be overturned.
+`pick=me|designer|navigator` says who picks between a designer's options. Default is `pick=designer`: it picks itself and says why, whichever model it runs on, except **drawn things and taste picks (icons, logos, a page's look), where the default is `pick=me`** (Alexander: the designer's pick was overturned twice); under away, overnight or in a chain link, `/superlab`'s step 5 is the rule: wait up to 2 hours for him, then build the designer's (or `heisenberg`'s) pick with the runner-up ready as a one-commit swap; the gallery stays open for him. `pick=me` pings Alexander with the gallery; `pick=navigator` has `captain-call` pick from the designer's recommendation instead. `pick=me` under `/ill-be-back` waits until the end and the rest of the run builds around it. Either way, the gallery link and who picked go in the PR's "Decided on the way", so a pick can be overturned.
 
 ## Speed settings
 
@@ -138,7 +140,7 @@ An argument to `/captain-call` (default normal); `/night-watch <version>` is slo
 
 Parallel saves wall-clock, not tokens: Hank's per-agent budgets are the same at every speed, and side-by-side agents still keep to separate lanes and tabs.
 
-Speed only sets how many agents run at once; how careful and how costly the run is belongs to `allowance=` (above). Neither changes the safety rules: the backup before a production database change, the guard hook, green checks before a commit.
+Speed only sets how many agents run at once; how careful and how costly the run is belongs to `allowance=` (below). Neither changes the safety rules: the backup before a production database change, the guard hook, green checks before a commit.
 
 ## Allowances
 
@@ -152,7 +154,7 @@ Speed only sets how many agents run at once; how careful and how costly the run 
 | Efforts | medium | as in the table | one step up; `the-playbook` xhigh on policies | as high as fits |
 | Stars | 0 | 1 | 2 | no cap |
 | Checking | one reviewer; QA on qa-marked features only | the table | `daredevil` runs in every release with UI, whatever the allowance; QA on every feature; `/darth-vader`'s matrix before the PR | as high |
-| Seniors | only when stuck | as in Seniors | a senior reads every plan (`yoda`, where the project has one) | on every doubt |
+| Seniors | only when stuck | as in Seniors | the project's senior adviser, when it has one, reads every plan | on every doubt |
 
 - Hank can't read this table: the navigator scales every `[budget …]` tag by the multiplier when it writes the tag. Unlimited keeps the tags (with the note) and Hank's role defaults, and the run logs usage without stopping for it.
 - The targets are reported, not enforced: the navigator reads the meter at the start and after the draft PR, as in `captain-call`'s plan step.
@@ -165,88 +167,4 @@ Every agent, whatever its model: decide it yourself when it is reversible and in
 
 ## The navigator stays lean
 
-`taste.md` (the kit's and the project's) and `library.md` are read by the sections the order names (`grep -n '^## '`, then those ranges), never whole; a designer brief reads the topic's rows and the Leans section. The navigator never reads a file or page over ~20k characters itself: `lorenzo-von-matterhorn` or `c-3po` reads it and returns the part it needs. The roadmap page is read by `c-3po` and `the-trail`, never in full by the navigator. A QA finding goes to its fixer in one order with file:line, not relayed piecemeal. `c-3po` drafts the PR description before `its-a-trap` runs. The navigator's own budget is ≈ 2.2M a step (`[sizing]`: 33 steps ≈ 73M in 3.1.1); `c-3po` fills the PR body's Budget and Usage tables, not the navigator. The navigator takes no screenshots and runs no probes itself (a headless paint or scroll probe, a Lighthouse median, a re-check after a fix): each goes to `romeo-olsson` with the script, the port and what passes, and comes back as a line of numbers. portfolio 0.3's navigator was 55% of the release at the draft, much of it its own shots and probes.
-
-## Speaking in character
-
-Alexander, 29 Sep: "I love when you have small easter eggs of speaking a little bit like your character ... especially when starting an agent or wrapping up. Just small bits would make it very cool!" Every agent and every skill that speaks carries a `## Voice` card near the top of its file (since 2.14.6.1; a project's own `ranjit` and `yoda` carry theirs). Each speaks as its own character, never another's: "Kids, …" is `future-ted`'s alone. At most one short in-character line, at the start or the end of a report or ping; never in commits, PR descriptions, code, or anything in the PR; clarity first, and the facts stay plain. Alexander is The Dude and Anton is The Jesus on voice surfaces only (pings such as "Your go, Dude", sign-offs); never in rules, ADRs, the guard hook, commits or PRs. The card's shape and rules are in `.claude/voice-card.md`; the app's own outward voice (briefs, store text, anything a member or stranger reads) is `.claude/house-voice.md`.
-
-## Full auto (`/cattle-drive`, ADR 0009)
-
-**Mode 1, built in 2.12.1:** `/cattle-drive <version>` runs the release as `/captain-call <version> away`, then, in a new session in Auto mode (Opus; high with `wrap`), the deploy as `/skinny-pete <version> merge` under the full-auto marker, and stops for Alexander's `/future-ted` (with `wrap`: runs its numbers part and leaves his notes open). The PR stays a draft until `ranjit` marks it ready under the marker, right before the merge; the arm is Alexander's only yes. Before the arm, `ranjit` (xhigh) plans and the plan-vs-PR script check reads the plan against the PR; a person's one tap on `scripts/full-auto.sh arm <version>` is the go; the guard then lets only `ranjit` run only the PR's listed commands, logged. The skill holds the preflight and the hard stops; a stall on any prompt falls back to `/skinny-pete <version> merge` in manual mode.
-**Chain mode, built in 2.12.2:** `/cattle-drive <version> chain` also runs the wrap-up and the next release, a fresh session per link (`the-protagonist` conducts); a chain link's calls go straight to `three-eyed-raven`, and `/memento` reviews the chain afterwards. A chain runs with a tap per release (`arm-chain` authorises the order of versions; each release's arm still asks Alexander); the one-tap arm is built (2.12.4).
-Hard stops are the same in every allowance and never a senior's call.
-
-**Waiting costs nothing when done right:** the chain conductor's tick is a background `sleep` and one short message, on Sonnet with `chain.md` only (the tick itself is `chain.md` step 6); a Vercel wait is one script call, never a polling loop; a talk session ends its turn instead of polling.
-
-## Sessions, modes and handoffs (moved from CLAUDE.md)
-
-- **Sessions:** one per release. `/captain-call <version> [mode] [away]` is the go for the whole release, to the draft PR and final ping. After the draft, everything (questions, follow-ups, a toy run, a live look, a publish) goes to the **follow-up session, Opus medium**, that `captain-call` starts parked in its first turn and wakes at the final ping; a message to the release session gets one line, "→ <follow-up session>", and no work (`captain-call`, "One follow-up session"; kit 1.5, H2). `/future-ted <version>` runs after the deploy, in its own new session (Opus, high); `/skinny-pete` in manual permission mode. The next release starts a new session. Compact only mid-release, saying what to keep.
-- **A navigator never ends its turn waiting on a sibling** (3.3.2's part 1 did, and parts 3 and 4 started 2.5 h late): a question to a sibling goes by `send_message`, the asker carries on, and the answer arrives as a hand-back. A send that comes back queued isn't delivered until the target's events show it acted (`[send-confirmed]`).
-- **One session per release to the draft PR** (`[release-session]`): parts only when the stamped plan names them, opened by the navigator with `start_session` in its first turn and logged under `## Release sessions`; never a handoff, offer card or follow-up card; work outside the scope may start in its own session mid-run (norms.md "Starting sessions") and is named in "Not in this release", otherwise an unrelated message gets a line or `/badger`; the follow-up session is started parked in the first turn and woken at the draft. The app's session tools outside a release: norms.md, "The app's session tools".
-- **Autopilot** pings only for a decision the roadmap and CLAUDE.md don't settle, something only a person can do, a blocker the Opus escalation couldn't clear, a must-fix finding with several fixes, and the finished PR. Run it in Auto permission mode; `checkpoint` stops once before the review; marking the PR ready is Alexander's call. `/ill-be-back` (or `/captain-call <version> away`) holds pings/questions to the job's end, taking the recommended option instead; `/kids-im-home` ends it.
-- **Plans outside a release** use plan mode, and approving one is not a go: finish the planning work, summarise, recommend; build on an explicit "go".
-- **Say how much checking a change needs** ("No browser check" for a text tweak); database, waitlist or access-rule changes get the full dev test. Batch feedback; screenshots beat descriptions.
-- **Connectors per task:** Supabase and Claude Docs by default; switch the others on in the app only for a session that needs them. A denied connector's tools still take space in every request; only the app's switch removes them.
-- **Usage target:** see Budgets above (stated once). `/captain-call` reads `.claude/lessons.md` and the meter at the start and after the draft, and budgets each step.
-
-### Session modes
-
-| Mode | When | Type |
-|---|---|---|
-| Fable autopilot | big releases whose mistakes spread (the kit, full auto, a design system); the navigator is `captain-call` with `fable` | `/captain-call <version> fable allowance=high planner=dom-cobb pick=me stars=3` (Fable, high, Auto) |
-| Opus autopilot | M–L releases with a clear spec | `/model opus`, `/effort high`, Auto |
-| Driver | taste-heavy work Alexander steers | `/model opus`, `/effort medium`, Auto |
-| Planning | before a chain or an important release (required), or triage and roadmap | `/model opus`, `/effort medium`, `/inception <version> [chain …]`; longer range: `/model fable`, `/effort high`, `/inception horizon <from>–<to>` |
-
-`/captain-call <version> mode` prints the lines; restart if the model/effort don't match (a session can set its own permission mode but not its model or effort; those are typed or set from outside). Speed, `stars=`, `allowance=`, `<role>=<model>` and `pick=` are `/captain-call` arguments too (see Speed settings, Allowances, Overrides above); `/night-watch` = slow + away. `.claude/lessons.md` holds the newest tuning lessons, rewritten by `/future-ted`.
-
-### Agents and handoffs
-
-The main session is the navigator, **`captain-call`**: it talks with you, plans, and hands jobs to the specialists in the kit's `agents/` (the wolfpack plugins), each on its own model and effort (its own mode is above). Alexander, 17 Oct 2026: "Lets rename maverick to captain call, that is my favorite name and driver anywyas"; the big releases whose mistakes spread run the same skill on Fable with its arguments. The other sessions are named after their skills (the full list is at the end of this file); `${CLAUDE_PLUGIN_ROOT}/scripts/usage.mjs` is Skyler, the budget hook Hank.
-
-| Agent | Old name | Model, effort | Gets |
-|---|---|---|---|
-| `lorenzo-von-matterhorn` | scout | Haiku, low | "where is X"; file:line lists |
-| `r2-d2` | sweeper (new, 2.14.6.1) | Haiku, low | `/jedi-council`'s file sweeps: sizes, counts, greps, file:line tables; Read/Grep/Glob only, no shell; 4M a sweep, `maxTurns` 40 (a 29-file sweep, not a scout's 15) |
-| `admiral-ackbar` | planner | Opus, high | a plan or design decision when `captain-call` runs Sonnet |
-| `dom-cobb` | senior planner (new) | Fable, high | writes or takes apart the plan of a release whose mistakes spread (the kit, full auto, a new project); a star |
-| `mace-windu` | head of the Jedi Council (new, 2 Oct) | Fable, high | leads `/jedi-council`: judges the team last, as an auditor, findings only; a star |
-| `barney-stinson` | auditor (new) | Fable, high (lanes 2–3 on Opus) | the three lanes of `/black-box`, read and report; lane 1 is a star |
-| `heisenberg` | creative director (new) | Fable, high | a creative brief before a taste-heavy release, briefs `mosbius-designs`, reviews the result; a star |
-| `chris-de-kok`, `ahmed-och-ahmed`, `saul-goodman`, `jeff-winger`, `troy-and-abed` | builder | Opus, medium | the builder pool: page-sized steps, shared helpers and tricky logic, about one commit each; one name per lane |
-| `jesse-pinkman` | builder (Sonnet) | Sonnet, medium | small UI steps with a clear spec, and docs; at most 2–3 steps per agent |
-| `mosbius-designs` | designer | Opus, medium | two layout options for one page or component, in a worktree, before it's built |
-| `the-playbook` | db-engineer | Opus, high | migrations, RLS, SQL tests, types, Edge Functions, on dev |
-| `romeo-olsson` | test-runner | Haiku, low | `/you-shall-not-pass` by hand (autopilot runs `scripts/check.sh` itself) |
-| `kissochbajslowski` | release-reviewer | Sonnet, high | the pre-merge review of a release branch |
-| `daredevil` | a11y-reviewer (new) | Sonnet, high | the design and accessibility review of a release with UI, beside `kissochbajslowski`; also `/darth-vader`'s a11y lane; read-only |
-| `mike-ehrmantraut` | codebase-auditor (new) | Opus, high | `/no-half-measures`, the maintainability audit in V2's end window; read-only, a star |
-| `c-3po` | documenter | Sonnet, medium | the README update, the PR description and Usage section, the-trail edits |
-| `ranjit` (the project's own, not shipped by the kit) | prod-deployer | Opus, high | production steps, only through `/skinny-pete` (with `merge`: also marks the PR ready and merges it, on the same go) |
-| `yoda` (the project's own, where it has one) | senior-opus | Opus, max | adviser to an Opus `captain-call` on a decision it doubts, before any ping; never a review, deploy-plan read or verdict; read-only |
-| `three-eyed-raven` | senior-decider (new) | Fable, high | chain mode only: decides a chain link's tough calls in Alexander's place, logs them for `/memento`; never taste or production; not a star |
-| `doc-brown` | researcher (new, 2.14.6.2) | Opus, medium | `/88-mph` medium and large runs: works from the run's scope, searches wide then deep, writes one findings file (or one lane's notes) under `~/.claude/plans/research/`, and runs the counter pass and the check; 6M a run or lane |
-| `bengt-johansson` | qa | Sonnet, medium | features the plan marks qa (new pages, sign-up/waitlist/access/link flows): a fresh one per feature, budget from the order; full matrix via `/darth-vader` |
-
-- **Use the names, always** (Alexander: it cheers him up): in chat, pings, PR comments, reports and task descriptions, say "`captain-call` here", "`ranjit` is taking the backup", "`yoda` says…", "handing it to `chris-de-kok`", not "the deployer" or "a builder"; the nicknames too (Slap Bet Commissioner for the guard hook). Old role names only in the table's "Old name" column.
-- **Only `captain-call` hands out work**, one editing agent per lane (a lane = files no other agent touches: one page or folder), side by side as far as interference allows (`oceans-eleven` skill).
-- **Lanes beside the main checkout run in worktrees the navigator makes** under `~/Desktop/<Project>-lanes/` from the release branch, never `isolation: "worktree"` (`[lane-home]`; `captain-call`, "Parallel lanes"): the order names the path and follows the `tesseract` skill (env, ports, the database self-link). `captain-call` merges each lane before a step that touches its files. `tesseract` owns cleaning them up at the release's end.
-- Reuse an agent through SendMessage for follow-ups on the same files, but a builder for at most 2–3 steps: its context grows with every step and is re-read on every call. Screenshots only when a feature is finished, taken once by the `bengt-johansson` agent. Small edits stay with the navigator.
-- **Every job carries a budget** (`[budget NM]` at the end of its description); Hank (`${CLAUDE_PLUGIN_ROOT}/hooks/budget-cap.mjs`) enforces it.
-- **The work order carries everything** (the step, the 3–5 files to read, shared components to use, how to check it, the branch): specialists don't see the conversation, and stop with questions for the navigator to ask you.
-- **Turn caps are `maxTurns` in the agent files** (90 for the long roles), so an order carries no turn line. **No order is tagged over 15M:** a step that sizes to 20M is cut in two at `/inception` (`[turns]`: every 20M step in 3.1.1 hit `maxTurns` 90).
-- **Every page order carries a "Fixtures" block** (`[fixtures]`: ten of 3.1.1's sixteen "cheaper next time" lines asked for it): the QA group ids (a club one, a non-club one), seed URLs, the measured stack heights, the existing components and tokens to reuse (the navigator greps them before writing the order), and where each new button leads. A wrap-up page order carries the exact lines or array to change.
-- **Browser lanes in one session (`[one-session]`):** each lane runs its own dev port (`npm run dev -- --port 51NN --strictPort`), signed in at the start; a fixed QA layout group nobody toggles, named in the order; restart the lane's server after any `package.json` change.
-- **A step that adds a server route (Vercel middleware, an edge path) is checked on Vercel before review:** the builder curls the Vercel preview with Vercel's protection-bypass header (the secret is the Keychain item named `keychain.vercelBypass` in `.claude/kit.json`), never only the dev build, which doesn't run it (`[edge-route]`: a middleware that passed on Vite answered 500 on every event link for ≈ 18 min).
-- **Every order lists what the guard refuses in a shell call** (`[frozen]`, `[guard-noise]`, 2.14.7): a shell line naming `prod-db.sh`, `full-auto.sh` or the plugins' `hooks/`, or writing `${…}`, is refused, so use Read, Grep or Edit for those; no route lets an agent copy the three production scripts (a person copies them from the database plugin into `scripts/` once; a drive's preflight stops without them); a nested `claude` is refused in Bypass. Hook tests run as `npx vitest run` on the hooks folder, never `node --test`.
-- **Capture skills:** a procedure that comes up twice becomes `.claude/skills/<name>/SKILL.md`, listed in the PR's "Notes for review". Improve an existing skill over a near-duplicate.
-- **Effort:** xhigh/max only where a mistake is expensive (production, stubborn bugs, seniors). `the-playbook` runs at high; for policy rewrites and private events it writes the test first (see its prompt). Failing twice goes one model up, per the `oceans-eleven` skill; after the hard part, back down.
-
-**Slash commands: the one list** (the wolfpack plugins' `skills/`; CLAUDE.md and the other skills name only the few they need and point here). By plugin, name and argument hint from each skill's frontmatter:
-
-- **release:** `/captain-call <version> [checkpoint] [mode|fable] [away] [slow|normal|quick] [stars=N] [allowance=…] [<role>=<model>…] [planner=dom-cobb] [pick=designer|me|navigator]`, `/cattle-drive <version> [wrap|chain|chain dry]`, `/night-watch <version>`, `/skinny-pete <version> [check|merge]`, `/one-ring <version>`, `/carousel`, `/its-a-trap [version]`, `/you-shall-not-pass [app|db|local|all]`, `/ill-be-back [reason] [until]`, `/kids-im-home`, `/black-box <version>`, `/jedi-council <version>`, `/no-half-measures <version>`, `/the-tower [install|test|remove]`; `oceans-eleven` (this skill) is read, not typed.
-- **core:** `/inception <version> [chain …] | horizon <from>–<to>`, `/future-ted <version>`, `/memento <first> [<last>]`, `/legendary <topic>`, `/oracle <question>`, `/wilson <question>`, `/beam-me-up <skill or command>`, `/don-draper <for chat|agent|person> <subject>`, `/88-mph <small|medium|large> <topic>`, `/badger <idea>`, `/watson <adr|doc|deck|team|page> <subject>`, `/war-room [add|plan|show]`, `/skyler [refresh]`, `/leon [quick|deep] [dry]`, `/life-finds-a-way <name> [small|medium|large] | adopt`, `/dependabot-report`, `/cloud-city`. Used by Claude as needed: `the-trail`, `car-wash`, `tesseract`.
-- **design:** `/heisenberg <topic>`, `/superlab <topic> [pages…] [in-chain]`, `/darth-vader <version> [preview-url]`; `spidey-sense` as needed.
-- **database:** `bro-code` as needed.
-- **Run by scheduled tasks (and by hand):** `groundhog-day` (daily about 07:45), `previously-on` (Sunday about 18:30), `leon` (quick daily about 09:00, deep the 1st), `dependabot-report` (Monday about 07:40, so the 08:00 brief can read it; the app jitters minutes). In the dojo, from `dojo-template/`: `/mr-miyagi`.
+`taste.md` (the kit's and the project's), `library.md` and this skill are read by the sections the order names (`grep -n '^## '`, then those ranges), never whole; a designer brief reads the topic's rows and the Leans section. The navigator never reads a file or page over ~20k characters itself: `lorenzo-von-matterhorn` or `c-3po` reads it and returns the part it needs. The roadmap page is read by `c-3po` and `the-trail`, never in full by the navigator. A QA finding goes to its fixer in one order with file:line, not relayed piecemeal. `c-3po` drafts the PR description before `its-a-trap` runs. The navigator's own budget is ≈ 2.2M a step (`[sizing]`: 33 steps ≈ 73M in 3.1.1); `c-3po` fills the PR body's Budget and Usage tables, not the navigator. The navigator takes no screenshots and runs no probes itself (a headless paint or scroll probe, a Lighthouse median, a re-check after a fix): each goes to `romeo-olsson` with the script, the port and what passes, and comes back as a line of numbers. portfolio 0.3's navigator was 55% of the release at the draft, much of it its own shots and probes. A talk session ends its turn instead of polling, and a wait on Vercel is one script call, never a loop.

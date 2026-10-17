@@ -51,6 +51,8 @@ A line without the mark is an open note. Notes are never deleted, reordered or r
 | Driver | taste-heavy work Alexander steers | `/model opus`, `/effort medium`, Auto |
 | Planning | before a chain or an important release (required), or triage and roadmap | `/model opus`, `/effort medium`, `/inception <version> [chain …]`; longer range: `/model fable`, `/effort high`, `/inception horizon <from>–<to>` |
 
+`/captain-call <version> mode` prints the lines to type; a session can't set its own model or effort, so restart when they don't match. In every session: switch connectors on in the app only for a session that needs them (a denied connector's tools still take space in every request); compact only mid-release, saying what to keep; say how much checking a change needs ("No browser check" for a text tweak; database, waitlist or access changes get the full dev test). Moved from `oceans-eleven` (kit 1.5, H3).
+
 ## Recommended plugins
 - **context7** for library and framework docs: look them up rather than answer from memory.
 
