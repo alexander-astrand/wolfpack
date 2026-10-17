@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { countCalls, hhmm, readEntries, resolveLocalId, sessionCommand, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
+import { countCalls, hhmm, projectFolderName, readEntries, resolveLocalId, sessionCommand, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
 const line = (id, block) => ({
@@ -102,5 +102,13 @@ describe('tokensPerPoint', () => {
 describe('hhmm', () => {
   it('prints UTC with a trailing Z', () => {
     expect(hhmm(Date.parse('2026-10-03T08:05:59Z'))).toBe('08:05Z')
+  })
+})
+
+describe('projectFolderName', () => {
+  it('turns every character outside A-Z, a-z, 0-9 into a dash, the way Claude Code names transcript folders', () => {
+    expect(projectFolderName('/Users/a/wolfpack/.claude/worktrees/kit-1-5-771956'))
+      .toBe('-Users-a-wolfpack--claude-worktrees-kit-1-5-771956')
+    expect(projectFolderName('/Users/a/Desktop/my_app')).toBe('-Users-a-Desktop-my-app')
   })
 })

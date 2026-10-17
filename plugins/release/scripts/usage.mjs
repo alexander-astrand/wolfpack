@@ -70,9 +70,16 @@ export function readKit(dir = process.cwd()) {
   }
 }
 
+// Claude Code names a project's transcript folder after its path with every
+// character outside [A-Za-z0-9] turned into "-", so a worktree under
+// `.claude/worktrees/` gets "--claude-" (kit 1.5: Skyler failed there).
+export function projectFolderName(cwd) {
+  return cwd.replace(/[^A-Za-z0-9]/g, '-')
+}
+
 export function projectDir(dir) {
   if (dir) return dir
-  return join(homedir(), '.claude', 'projects', process.cwd().replace(/\//g, '-'))
+  return join(homedir(), '.claude', 'projects', projectFolderName(process.cwd()))
 }
 
 // The desktop app's `get_session self` gives `local_<uuid>`, not the transcript
