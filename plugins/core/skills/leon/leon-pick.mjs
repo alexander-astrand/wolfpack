@@ -4,7 +4,11 @@
 // idle hours, so the rules live here and the model only archives what this
 // prints. When in doubt a session is left: a missing or odd value never archives.
 //
-//   node scripts/leon-pick.mjs --list <file> --self <id> --root <repo> [--now <ISO>] [--plans <dir>] [--json]
+//   node scripts/leon-pick.mjs --list <file> --self <id> (--root <repo> | --all-projects) [--untitled-hours <h>] [--now <ISO>] [--plans <dir>] [--json]
+//
+// --all-projects drops the one-repo rule: every project's sessions are considered.
+// --untitled-hours <h> lets a session whose title isn't three parts go too, once it
+// has been idle that long (default: never, they stay).
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
@@ -22,7 +26,7 @@ const hours = (ms) => (ms / 3600000).toFixed(1)
 const inside = (path, dir) => path === dir || path.startsWith(dir.endsWith(sep) ? dir : dir + sep)
 
 // `worktrees` includes the repo root itself (git lists it first).
-export function pick({ sessions, now, self, worktrees = [], openLogs = [] }) {
+export function pick({ sessions, now, self, worktrees = [], openLogs = [], allProjects = false, untitledHours = null }) {
   const roots = worktrees.map((w) => resolve(w))
   const archive = []
   const left = []
@@ -40,9 +44,11 @@ export function pick({ sessions, now, self, worktrees = [], openLogs = [] }) {
     if (s.pinned) { leave('pinned'); continue }
     if (s.unread) { leave('unread'); continue }
     const cwd = s.cwd || s.originCwd
-    if (!cwd || !roots.some((r) => inside(resolve(cwd), r))) { leave('other project'); continue }
+    if (!allProjects && (!cwd || !roots.some((r) => inside(resolve(cwd), r)))) { leave('other project'); continue }
     const parts = title.split(' · ').map((p) => p.trim())
-    if (parts.length !== 3 || parts.some((p) => !p)) { leave('untitled'); continue }
+    if (parts.length !== 3 || parts.some((p) => !p)) {
+      if (untitledHours === null || idleMs === null || idleMs < untitledHours * 3600000) { leave('untitled'); continue }
+    }
     if (idleMs === null || idleMs < DAY_MS) { leave('idle <24 h'); continue }
     if (openLogs.some((log) => log.includes(s.sessionId) || log.includes(title))) { leave('open chain'); continue }
     archive.push({ sessionId: s.sessionId, title, idle })
@@ -85,10 +91,11 @@ function main(argv) {
   const opt = {}
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--json') opt.json = true
+    else if (argv[i] === '--all-projects') opt.allProjects = true
     else if (argv[i].startsWith('--')) opt[argv[i].slice(2)] = argv[++i]
   }
-  if (!opt.list || !opt.root || !opt.self) {
-    console.error('usage: leon-pick.mjs --list <file> --self <id> --root <repo> [--now <ISO>] [--plans <dir>] [--json]')
+  if (!opt.list || !opt.self || (!opt.root && !opt.allProjects)) {
+    console.error('usage: leon-pick.mjs --list <file> --self <id> (--root <repo> | --all-projects) [--untitled-hours <h>] [--now <ISO>] [--plans <dir>] [--json]')
     process.exit(2)
   }
   const sessions = JSON.parse(readFileSync(opt.list, 'utf8'))
@@ -99,7 +106,9 @@ function main(argv) {
     sessions,
     now,
     self: opt.self,
-    worktrees: gitWorktrees(resolve(opt.root)),
+    worktrees: opt.root ? gitWorktrees(resolve(opt.root)) : [],
+    allProjects: !!opt.allProjects,
+    untitledHours: opt['untitled-hours'] === undefined ? null : Number(opt['untitled-hours']),
     openLogs: readOpenLogs(opt.plans || join(homedir(), '.claude', 'plans')),
   })
   console.log(opt.json ? JSON.stringify(result, null, 2) : render(result))
