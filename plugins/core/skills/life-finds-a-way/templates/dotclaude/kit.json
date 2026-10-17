@@ -10,7 +10,7 @@
   "backupRoot": "",
   "ci": { "workflow": ".github/workflows/ci.yml", "jobs": ["Checks"] },
   "reviewer": "{{reviewer}}",
-  "pages": { "roadmap": "", "teamMap": "", "commandDeck": "" },
+  "pages": { "roadmap": "", "teamMap": "https://claude.ai/artifact/FYfMpboL4tv4bGYBTdPQEg", "commandDeck": "https://claude.ai/artifact/PVFEK3fFPJ2bhYxMDqbgjJ" },
   "conventions": "",
   "names": {},
   "budgets": {},

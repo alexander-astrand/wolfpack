@@ -4,6 +4,8 @@ Our way of working with Claude Code, packaged as plugins. One session is the **n
 
 The agents have names and voices (`captain-call` the navigator, `chris-de-kok` a builder, `the-playbook` the database engineer, Hank the budget hook). It's how we tell them apart in chat, in PRs and in the usage tables.
 
+Two pages describe the whole kit and are the same for every project, refreshed from the kit's files at each kit release: the [Wolfpack Command Deck](https://claude.ai/artifact/PVFEK3fFPJ2bhYxMDqbgjJ) (every command, its options and when to use it) and the [Wolfpack Agent Team](https://claude.ai/artifact/FYfMpboL4tv4bGYBTdPQEg) (who does what, the hooks, how a release flows).
+
 ## Install
 
 ```
