@@ -15,7 +15,15 @@ import { pathToFileURL } from 'node:url'
 
 export const REASON = 'Start it yourself: start_session with initiation user_asked (norms.md, Starting sessions). If the app refuses, say so in one line.'
 
-// Asked outright, in any sentence.
+// Only a sentence that names a session counts: "Want me to start the deploy?"
+// or "Shall I open the PR?" are his go-questions, not session asks (kit 1.5
+// review M1, 17 Oct 2026).
+const NAMES_SESSION = /\bsessions?\b|\bfollow-up\b/i
+// A sentence naming a slash command is a step only he can type (a user-only
+// command, such as "open a new session and type /one-ring 1.5"), never a miss.
+// Lowercase and ending at a word gap, so a path like /Users/x or /tmp/x isn't one.
+const SLASH_COMMAND = /(?:^|[\s`'"(])\/[a-z][a-z0-9-]*(?=[\s`'".,:;?!)]|$)/
+// Asked outright.
 const ASKS = [/\b(?:want|like) me to (?:start|open|spin up|kick off)\b/i, /\b(?:shall|should) I (?:start|open|spin up|kick off)\b/i]
 // Asking only as a question or a request to him; "I'll start a new session for X" is fine.
 const NEW_SESSION = /\b(?:start|open|spin up) (?:a )?new session\b/i
@@ -25,6 +33,7 @@ const TO_HIM = /\?\s*$|^\s*(?:please\s+)?(?:start|open|spin up)\b|\byou\b/i
 export function asksToStart(text) {
   if (typeof text !== 'string' || !text) return false
   for (const sentence of text.split(/(?<=[.?!])\s+|\n+/)) {
+    if (!NAMES_SESSION.test(sentence) || SLASH_COMMAND.test(sentence)) continue
     if (ASKS.some((re) => re.test(sentence))) return true
     if (NEW_SESSION.test(sentence) && TO_HIM.test(sentence)) return true
   }
