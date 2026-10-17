@@ -41,7 +41,7 @@ If the subject doesn't fit a row, say which rows it's between and ask; don't pic
 **An ADR is written when the decision is made, not after.** If the decision isn't made yet, its Status is Proposed and it says what's still open; it becomes Accepted in place until it's merged, never after (an Accepted one on `main` is never edited: a change of mind is a new file).
 
 1. **Number:** `ls docs/decisions/` right before writing; the next free number, four digits. Two lanes can race for a number, so look again just before the commit and renumber yours if it's taken.
-2. **Shape:** copy `docs/decisions/0026-*.md` exactly: an `# NNNN Title` heading that states the decision, then the bullets in this order, nothing else:
+2. **Shape:** copy the shape of the project's latest ADR in `docs/decisions/` (none yet: this one sets it): an `# NNNN Title` heading that states the decision, then the bullets in this order, nothing else:
    - **Status:** Proposed, Accepted, or Superseded by NNNN
    - **Context:** what forced a choice, with the release
    - **Decision:** what we do, specifically (files, names, the one command)
