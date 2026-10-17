@@ -12,7 +12,6 @@
   "reviewer": "{{reviewer}}",
   "pages": { "roadmap": "", "teamMap": "", "commandDeck": "" },
   "conventions": "",
-  "names": {},
   "budgets": {},
   "plans": "{{plans}}{{project.name}}/",
   "roadmap": "{{roadmap}}",

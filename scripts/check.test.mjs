@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, test } from 'node:test'
-import { checkKit, liveBehind, projectValues } from './check.mjs'
+import { checkKit, kitVersionNote, liveBehind, projectValues } from './check.mjs'
 
 const roots = []
 after(() => roots.forEach((r) => rmSync(r, { recursive: true, force: true })))
@@ -152,4 +152,13 @@ test('live-behind counts commits through an injected git, and is silent without 
   assert.equal(liveBehind(live, () => 'nonsense'), null)
   assert.equal(liveBehind(live, () => { throw new Error('no origin/main') }), null)
   assert.equal(liveBehind(join(live, 'missing'), () => '5'), null)
+})
+
+test("the project's kit.version is compared to core's; a difference is one info line, never a failure", () => {
+  const core = kit({ 'plugins/core/.claude-plugin/plugin.json': { name: 'core', version: '1.5.0', description: 'c' } })
+  const proj = (v) => kit({ '.claude/kit.json': { kit: { version: v } } })
+  assert.equal(kitVersionNote(proj('1.5.0'), core), null)
+  assert.match(kitVersionNote(proj('1.4.0'), core), /1\.4\.0.*1\.5\.0/)
+  assert.equal(kitVersionNote(kit({ '.claude/kit.json': {} }), core), null)
+  assert.equal(kitVersionNote(join(core, 'missing'), core), null)
 })

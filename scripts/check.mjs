@@ -292,6 +292,20 @@ export function liveBehind(liveDir = join(homedir(), 'wolfpack-live'), git = def
   }
 }
 
+// The project's `kit.version` against core's plugin.json (kit 1.5, council L5):
+// one info line when they differ, null when they match or either is unreadable.
+// Never a failure: a project updates the kit when it chooses to.
+export function kitVersionNote(project, kitDir) {
+  try {
+    const mine = JSON.parse(readFileSync(join(project, '.claude', 'kit.json'), 'utf8'))?.kit?.version
+    const core = JSON.parse(readFileSync(join(kitDir, 'plugins', 'core', '.claude-plugin', 'plugin.json'), 'utf8'))?.version
+    if (!mine || !core || mine === core) return null
+    return `kit.version is ${mine} here but the kit is ${core}`
+  } catch {
+    return null
+  }
+}
+
 function defaultGit(dir, args) {
   return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
 }
@@ -317,6 +331,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   for (const p of problems) console.log(p)
   if (problems.length) process.exit(1)
   console.log(plugins ? `kit ok: ${plugins} plugin${plugins === 1 ? '' : 's'}` : 'no plugins yet')
+  const note = project ? kitVersionNote(project, kitDir) : null
+  if (note) console.log(note)
   const behind = liveBehind()
   if (behind !== null) console.log(`live is ${behind} behind main`)
 }
