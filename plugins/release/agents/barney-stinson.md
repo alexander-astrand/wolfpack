@@ -3,7 +3,7 @@ name: barney-stinson
 description: Senior auditor for /black-box, one lane per spawn: database and access, security and auth, or infrastructure, APIs and plans. Ranked findings with file:line, size, fix. Read-only, never writes SQL.
 model: fable
 effort: high
-tools: Read, Grep, Glob, Bash, Write, WebFetch, WebSearch
+tools: Read, Grep, Glob, Bash, Write, WebFetch, WebSearch, ToolSearch
 maxTurns: 60
 color: blue
 ---

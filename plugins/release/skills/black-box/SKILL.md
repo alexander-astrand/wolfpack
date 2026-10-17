@@ -28,8 +28,13 @@ Once per big version window (V2, V3, V4), near its end, beside `/jedi-council`, 
 
 ## 1. Prepare
 - Check `git branch --show-current` and a clean tree; the reports go on the release branch.
-- Facts for the orders come from `lorenzo-von-matterhorn` (Haiku), with the rest of the window's audits (the plan's step 1).
 - The current baseline: the advisors' standing findings at the last deploy (V2.13.6's First commit item 2: about 90, by category). A diff against that list is cheaper than reading it whole.
+- **The facts step, before any lane** (kit 1.5, lens Must 3: the lanes and `lorenzo-von-matterhorn` can't run these, and 3 of 4 barney lines asked for them). You run each command yourself and write the results to `~/.claude/plans/audits-<version>/facts.md`, one section each, summaries not full output:
+  - the diff since the last audit: `git log --oneline <last audit's commit>..HEAD` and `git diff --stat <same>..HEAD`;
+  - `npm outdated` and `npm audit --omit=dev` (counts by severity, the packages named);
+  - the advisors on dev (the Supabase MCP's read-only advisor tool, through ToolSearch), diffed against the baseline; "no database" when the project has none;
+  - `npx knip` and the 20 biggest source files by line count (`wc -l`).
+  Every lane's order names `facts.md`; a lane reads it and doesn't re-run a command in it. `lorenzo-von-matterhorn` only greps for what's left.
 
 ## 2. Audit: three lanes, side by side (wave 1)
 Each lane is a `barney-stinson` spawn with the version, its lane, the baseline and its private report path. Lanes 2 and 3 set `model: opus` on the spawn; only lane 1 counts as a star.
