@@ -58,6 +58,29 @@ describe('leon-pick', () => {
     expect(reason(run({}, { openLogs: [`| x | ${base.title} |`] }))).toBe('open chain')
     expect(run({}, { openLogs: [] }).archive).toHaveLength(1)
   })
+
+  it('allProjects takes sessions from any folder', () => {
+    expect(reason(run({ cwd: '/work/other' }))).toBe('other project')
+    expect(run({ cwd: '/work/other' }, { allProjects: true }).archive).toHaveLength(1)
+    expect(run({ cwd: undefined }, { allProjects: true }).archive).toHaveLength(1)
+  })
+
+  it('untitledHours archives an untitled session only once it has been idle that long', () => {
+    const untitled = { title: 'Side chat' }
+    expect(reason(run({ ...untitled, lastActivityAt: ago(60) }))).toBe('untitled')
+    expect(reason(run({ ...untitled, lastActivityAt: ago(47) }, { untitledHours: 48 }))).toBe('untitled')
+    expect(run({ ...untitled, lastActivityAt: ago(48) }, { untitledHours: 48 }).archive).toHaveLength(1)
+    expect(reason(run({ ...untitled, lastActivityAt: undefined }, { untitledHours: 48 }))).toBe('untitled')
+  })
+
+  it('untitledHours never overrides running, pinned, unread, an open chain or the 24 h rule', () => {
+    const old = { title: 'Side chat', lastActivityAt: ago(60) }
+    expect(reason(run({ ...old, isRunning: true }, { untitledHours: 48 }))).toBe('running')
+    expect(reason(run({ ...old, pinned: true }, { untitledHours: 48 }))).toBe('pinned')
+    expect(reason(run({ ...old, unread: true }, { untitledHours: 48 }))).toBe('unread')
+    expect(reason(run(old, { untitledHours: 48, openLogs: ['| s1 |'] }))).toBe('open chain')
+    expect(reason(run({ title: 'Side chat', lastActivityAt: ago(20) }, { untitledHours: 12 }))).toBe('idle <24 h')
+  })
 })
 
 describe('leon-pick on the real list shape', () => {
