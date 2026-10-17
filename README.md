@@ -24,9 +24,9 @@ claude plugin install database@wolfpack --scope project
 
 Five agents run on `model: fable` (`heisenberg`, `barney-stinson`, `dom-cobb`, `mace-windu`, `three-eyed-raven`) and need a plan that has that model.
 
-**Kit edits:** a kit edit made from any project's session edits `~/wolfpack` and commits there, the project named in the subject (`… (Hutzup 3.3.3)`); pushing to GitHub is the backup and the way to share it; projects see the change on their next session. General lessons live in `core/lessons.md` and Alexander's general taste in `design/taste.md`; each project's `.claude/lessons.md` and `.claude/taste.md` keep only its own, and readers read both.
+**Kit edits:** a kit edit is made in a fresh worktree off the kit's `main`, committed on a branch with the project named in the subject (`... (Hutzup 3.3.3)`) and merged by PR, never in a checkout a session loads; projects see the change on their next session, once `scripts/live-sync.sh` has moved the loaded checkout onto `main`. General lessons live in `core/lessons.md` and Alexander's general taste in `design/taste.md`; each project's `.claude/lessons.md` and `.claude/taste.md` keep only its own, and readers read both.
 
-Source of truth: this checkout (`~/wolfpack`); every project loads it live, so an edit here reaches them all on their next session.
+Source of truth: the kit's `main` on GitHub. Every project loads `<kit>` (`~/wolfpack-live` on Alexander's machines, detached at `origin/main`), so a merged change reaches them all on their next session after `scripts/live-sync.sh` runs.
 
 `scripts/user-commands.mjs` lists the skills marked `disable-model-invocation: true` and, with `--write`, rewrites the marked block under "Commands only I type" in `~/.claude/CLAUDE.md`; `future-ted` runs it when a skill is added or renamed.
 

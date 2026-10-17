@@ -10,7 +10,7 @@ Alexander's design taste that holds for any app he builds: buttons, colour and c
 
 The worst sendback is a repeat. "Please be better at self learning here, it's an identical situation" (shelf, 2.10). When one page has solved something (the event page's scrolling, the polls row's drag), every later page copies that solution.
 
-`future-ted` adds each new sendback at the wrap-up: the rule, then (page, release: what was sent back). No entry without a source. A rule that would hold in any app goes here (a kit edit, committed in `~/wolfpack`); one that names the project's page, kind or component goes in the project's file.
+`future-ted` adds each new sendback at the wrap-up: the rule, then (page, release: what was sent back). No entry without a source. A rule that would hold in any app goes here (a kit edit, made in a worktree off the kit's `main` and merged by PR); one that names the project's page, kind or component goes in the project's file.
 
 ## Scrolling and columns
 - One scrollbar per page. A two-column page scrolls like the event page: the main column moves with the page, the side column is sticky and scrolls on its own with no visible bar. (Profile, 2.12.1: two visible scrollbars; "Scrolls showing on both columns should be obvious not to do, should have learned from event page"; "The Profile page should NEVER pass through in its current state")
