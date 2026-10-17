@@ -28,7 +28,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 ## Steps
 
-Times are Europe/Stockholm. `<date>` is today and `<monday>` is this week's Monday, both as `yyyy-mm-dd` and worked out from your context, never from a shell command. A scheduled run is unattended: one plain command per call (no pipes, chained commands, heredocs or redirections), the Read, Glob and Grep tools for reading and the Write tool for the note (`dojo-template/routine-template.md`).
+Times are Europe/Stockholm. `<date>` is today and `<monday>` is this week's Monday, both as `yyyy-mm-dd` and worked out from your context, never from a shell command. A scheduled run is unattended: one plain command per call (no pipes, chained commands, heredocs or redirections), the Read, Glob and Grep tools for reading and the Write tool for the note (the dojo's routine rules: `~/dojo/.claude/skills/mr-miyagi`).
 
 1. **Shipped this week:** `gh pr list --state merged --search "merged:>=<monday>" --json number,title,mergedAt`. One line per PR: `#<n> <title> (merged <weekday>)`. None: "Nothing merged this week."
 2. **The meter:** `mcp__ccd_session_mgmt__get_usage`'s week (all models) figure; if the tool isn't there, the newest row of the table under `## Baseline for I3` in `~/.claude/plans/legendary-2026-10-04.md`, saying so. Note when the meter's week resets: it doesn't line up with Monday.
@@ -41,7 +41,7 @@ Times are Europe/Stockholm. `<date>` is today and `<monday>` is this week's Mond
    No `xargs`, loop or `$ids` variable: an unattended run can't save a pipe or a loop, zsh doesn't split an unquoted variable into words, and the guard refuses `bash -c` while a drive is armed. Name each project from its folder's name: the part after `-Desktop-` (`-Users-<you>-Desktop-hejtide` is hejtide; a worktree folder, `-Users-<you>-Desktop-Burrow--claude-worktrees-<x>`, counts to its project); a folder outside `~/Desktop` is named by its last part (`-Users-<you>-dojo` is dojo).
 4. **The week receipt:** each project's share = its tokens / all projects' tokens, and its slice of the meter = that share × the week figure from step 2. Round to whole percent. Say once, under the table, that a session is counted whole if it started before Monday and that tokens weigh models alike while the meter doesn't, so the slices are an estimate.
 5. **Next week's draft rows:** one row per active project (any tokens this week, plus the next one in `~/.claude/plans/projects-after-kit.md` if a slot looks free). This project's next step is the roadmap's next card, read as `groundhog-day` step 3 reads it (the record kit.json's `roadmap` names, never a `project_roadmap.md` memory). `planned_for` is a day next week (`yyyy-mm-dd`), spread so no day gets two big steps. These are drafts: `/war-room` is where the owner keeps or moves them.
-6. **Write** `~/dojo/inbox/<date>-<project>-week.md`, overwriting a note from earlier today. Shape (`docs/dojo-inbox.md`), headings in this order:
+6. **Write** `~/dojo/inbox/<date>-<project>-week.md`, overwriting a note from earlier today. Shape (`~/dojo/routines/daily-note/TEMPLATE.md`), headings in this order:
 
 ````
 # <Project> week, <d> – <d> <Month>

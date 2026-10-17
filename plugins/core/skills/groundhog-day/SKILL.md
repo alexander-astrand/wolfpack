@@ -26,13 +26,13 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 ## Steps
 
-Times are Europe/Stockholm. `<date>` is today as `yyyy-mm-dd`, taken from your context, never from a shell command. A scheduled run is unattended: one plain command per call (no pipes, chained commands, heredocs or redirections), the Read, Glob and Grep tools for reading and the Write tool for the note (`dojo-template/routine-template.md`).
+Times are Europe/Stockholm. `<date>` is today as `yyyy-mm-dd`, taken from your context, never from a shell command. A scheduled run is unattended: one plain command per call (no pipes, chained commands, heredocs or redirections), the Read, Glob and Grep tools for reading and the Write tool for the note (the dojo's routine rules: `~/dojo/.claude/skills/mr-miyagi`).
 
 1. **Open PRs:** `gh pr list --json number,title,isDraft,statusCheckRollup`. One line per PR: `#<n> <title>` + `(draft)` if a draft + its CI as `green` (every check SUCCESS, NEUTRAL or SKIPPED), `red` (any FAILURE, CANCELLED or TIMED_OUT, named), `running` (any pending) or `no checks`. The rollup mixes two shapes: check runs carry `name`/`status`/`conclusion`, status contexts (Vercel) carry `context`/`state`; read both. When red and running at once, say both ("red: Type-check…; DB tests running"). None open: "No open PRs."
 2. **Yesterday on main:** `git fetch -q`, then `git log origin/main --since=yesterday.midnight --until=today.midnight --oneline`. Copy the lines as they are. None: "No commits on main yesterday."
 3. **Next on the roadmap:** the record `the-trail` names ("Which roadmap is the record", kit.json `roadmap`; lens Must 9, kit 1.5). `file`: Grep `<plans>roadmap.md` (`<plans>` is kit.json's `plans`) for its `## Next` heading and copy the row under it. `page`: ArtifactData `list` the `cards/*` rows and copy the lowest-`order` card whose `status` is `in-progress` or `planned` (`ver` and `title`). `none`: "No roadmap kept here." Never a project's `project_roadmap.md` memory, which only Hutzup has.
 4. **The meter:** `mcp__ccd_session_mgmt__get_usage` (week all models, week Fable, 5-hour, when the week resets). If the tool isn't there (scheduled runs may not have it), take the newest row of the table under `## Baseline for I3` in `~/.claude/plans/legendary-2026-10-04.md` and say it's from that table and when it was read.
-5. **Write** `~/dojo/inbox/<date>-<project>.md`, overwriting a note from earlier today. Shape (`docs/dojo-inbox.md`):
+5. **Write** `~/dojo/inbox/<date>-<project>.md`, overwriting a note from earlier today. Shape (`~/dojo/routines/daily-note/TEMPLATE.md`):
 
 ```
 # <Project>, <weekday> <d> <Month>

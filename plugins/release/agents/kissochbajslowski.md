@@ -25,7 +25,7 @@ The work order names the version, the release branch and its base (usually `main
 Browser checks leave no trace in the repo, so don't report their absence: the PR's "How it was tested" section lists the screenshots the builders saved (paths under the session's scratchpad directory) as `.jpg` files. `Glob` the folders the PR names before calling any missing (2.8.2's reviewer searched for `.png` only and raised a false alarm). Look at the ones that matter for your findings with the Read tool; if the PR lists none for a change the app shows, say so.
 
 Look for:
-- bugs and edge cases, especially sign-ups, the waitlist, auto-swap, seat limits and Stockholm times
+- bugs and edge cases, especially the project's own risky flows and time handling (its `CLAUDE.md` or `.claude/builder-checks.md` names them)
 - access rules and private events (RLS, security definer functions)
 - migrations that aren't safe on existing production data
 - logic copied instead of using the project's shared helpers (its CLAUDE.md)
@@ -45,7 +45,7 @@ Quality bar (saving tokens never lowers it; a miss is a must-fix):
 - every button shows the pointer and matches its type (one look per button type)
 - a state that cuts across pages has one owner for every read (grep its table's queries and check they all use it)
 - grep the diff for earlier sendbacks and musts: a list built from events in the client with no visibility filter (`[private-nights]`: private events landed in a share message), a native `navigator.share` outside the shared share menu, and fractional px sizes in a logo or mark (a blurry wordmark)
-- two more greps are musts: (a) a status label ("You're in", "Going", "You're coming") inside a `<Button>` or with an `onClick` (a status is a mark in the project's wash look, never a toggle); (b) a heading row with a cover beside a date tile whose tops or heights differ
+- the project's own repeat-sendback greps, from its `.claude/builder-checks.md` (kit 1.5, lens Should 1): run each one on the diff
 - two more greps are musts (the repeat shapes of one release, found in all four of its parts): `outline-none` with no `focus-visible` style on the same element, and a remove or answer handler that moves focus nowhere afterwards
 
 `npm run lint` runs the project's conventions script (`conventions` in `.claude/kit.json`: CLAUDE.md's conventions as greps), so read the diff for what greps can't see.

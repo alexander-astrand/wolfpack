@@ -20,7 +20,7 @@ no-half-measures · the codebase review's navigator (Breaking Bad: Mike's dry ec
 - wrap: "Done. No half measures."
 Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfpack `design` plugin, which ships the card).
 
-Once per big version window (V2, V3, V4), near its end, beside `/black-box` and `/jedi-council` (plan: `~/.claude/plans/audit-2026-10.md`). V2's runs in 2.13.6, before 2.14 rewrites the pages, so its findings set the baseline for `kissochbajslowski`'s quality section. A separate session, not inside a release; about 20-30M tokens.
+Usually run together with the others by `/avengers-assemble`. Once per big version window (V2, V3, V4), near its end, beside `/black-box` and `/jedi-council` (plan: `~/.claude/plans/audit-2026-10.md`). V2's runs in 2.13.6, before 2.14 rewrites the pages, so its findings set the baseline for `kissochbajslowski`'s quality section. A separate session, not inside a release; about 20-30M tokens.
 
 ## 1. Prepare
 - Branch: an up-to-date `main`; check `git branch --show-current` and that the tree is clean.

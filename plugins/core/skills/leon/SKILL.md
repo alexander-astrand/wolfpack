@@ -24,7 +24,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 **Never touches the repo, git, the roadmap page or production.** It reads `gh` (read-only calls only), the desktop session list, `~/.claude/plans/` and memory, and writes only `~/dojo/inbox/`, `~/.claude/leon/list.json` (the session list, overwritten each run), `~/.claude/plans/archive/` and (deep, not dry) memory `project_roadmap.md`. It moves files with `mv` and never runs `rm`: a mistake is fixed by moving the file back.
 
-A scheduled run is unattended: one plain command per call (no pipes, chained commands, heredocs, redirections or `sed -i`), the Read, Glob and Grep tools for reading and the Write and Edit tools for notes and memory (`dojo-template/routine-template.md`). Take the date from your context, not a shell command.
+A scheduled run is unattended: one plain command per call (no pipes, chained commands, heredocs, redirections or `sed -i`), the Read, Glob and Grep tools for reading and the Write and Edit tools for notes and memory (the dojo's routine rules: `~/dojo/.claude/skills/mr-miyagi`). Take the date from your context, not a shell command.
 
 ## The note
 

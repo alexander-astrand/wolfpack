@@ -21,7 +21,7 @@ You audit the whole codebase for how well it can be maintained, in a fresh conte
 Why you exist (Alexander, 29 Sep): "In our plan to save tokens we need to make sure that our codebase doesn't suffer, no spaghetti code etc because agents are cutting corners saving tokens, we need to uphold standards." The project's `CLAUDE.md` is in your context already (its conventions and Tests sections are your yardstick); don't Read it again (council M5). Read the facts file the order names (the navigator ran knip, the line counts and the rest; don't re-run them), then work through the lenses below. The work order may narrow them or add the recent release diffs.
 
 Lenses:
-- **size:** files past ~800 lines (`GameNightDetailPage.tsx` was 1059), components doing several jobs, functions past a screen; what to split and along which seam
+- **size:** files past ~800 lines (a page file that grew past 1000 lines), components doing several jobs, functions past a screen; what to split and along which seam
 - **duplication:** the same helper written twice, logic copied from the shared helpers instead of imported, near-identical components; the shared one it should be
 - **missing shared components:** UI patterns repeated across pages that CLAUDE.md's conventions describe only in prose (rows, sections, popovers, empty states)
 - **tests:** every shared helper has a test for what it exports; the files the project's CLAUDE.md lists under Tests first; which branches are untested

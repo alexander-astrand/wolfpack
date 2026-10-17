@@ -1,6 +1,6 @@
 ---
 name: bro-code
-description: Write or extend a database test in supabase/tests/ - fixture users and groups in one transaction that always rolls back and reports PASS or FAIL. Use for any change to RLS, grants, database functions, the waitlist or group rules.
+description: Write or extend a database test in supabase/tests/ - fixture users and groups in one transaction that always rolls back and reports PASS or FAIL. Use for any change to RLS, grants, database functions, or the project's group and ordering rules.
 ---
 
 ## Voice
@@ -28,8 +28,8 @@ A new file only for a new area, in the same style: the header comment says what 
 - **End:** the `do $$ … raise exception 'PASS …' / E'FAIL …\n%' … $$` block from the bottom of an existing suite.
 
 ## Gotchas
-- **Everything in one transaction shares `now()`**, so waitlist order (`created_at`) ties. Move earlier rows back a minute after each sign-up (`pg_temp.tick`).
-- **Since 0030, new functions have no PUBLIC execute, `pg_temp` ones included.** Call `pg_temp` helpers as postgres, and switch roles inside them.
+- **Everything in one transaction shares `now()`**, so any order by `created_at` ties. Move earlier rows back a minute after each insert that order depends on (`pg_temp.tick`).
+- **New functions have no PUBLIC execute, `pg_temp` ones included** (once the project has revoked it by default). Call `pg_temp` helpers as postgres, and switch roles inside them.
 - **The deferred "group needs an owner" check:** `set constraints public.group_members_need_owner immediate` inside a `DO` block to test it.
 - **SQL-inserted auth users lack `instance_id`/`aud`**, so GoTrue admin calls (deleteUser) say "User not found" for them. To test Edge Functions, make accounts through `invite-user`, accept via SQL (`accept_group_invites()` as that user), and delete them afterwards.
 - `supabase db query` returns errors as JSON; the PASS/FAIL text is inside the message.

@@ -27,7 +27,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 ## Where to look
 
 - The repo: `README.md` (what the app does), the source folders its CLAUDE.md names, `docs/decisions/` (why).
-- The kit: `CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/lessons.md`, `.claude/hooks/`.
+- The project's setup: `CLAUDE.md` and whichever of `.claude/skills/`, `.claude/agents/`, `.claude/lessons.md`, `.claude/hooks/` it has. The shared kit lives in the wolfpack plugins (`plugins/<plugin>/skills/`, `agents/`).
 - The plans: `~/.claude/plans/V<x>.md` (one release each) and its siblings.
 - Memory: `project_roadmap.md` for the roadmap. Never fetch the roadmap page in full; the memory file is the pointer and the status.
 

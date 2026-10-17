@@ -21,7 +21,7 @@ A lane lives outside `.claude`, in `~/Desktop/<Project>-lanes/<lane>`, never und
 2. **Env:** copy `.env.local` from the main checkout into the worktree.
 3. **Its own port and tab:** run the dev server on its own vite port (not `project.devPort` from `.claude/kit.json`) and open its own browser tab, so it doesn't collide with the main session's preview.
 4. **Push:** `git pull --rebase origin V<x>` first, then `git push origin HEAD:V<x>` (a plain `git push` would try to push `<lane-branch>`, not `V<x>`). Or leave it unpushed when the order says the navigator merges the lane's branch.
-5. **Database lanes link themselves:** a worktree can't inherit `supabase/.temp` (the Slap Bet Commissioner refuses copying it, by design), so `the-playbook` in a worktree links itself instead: `supabase link --project-ref <refs.dev from .claude/kit.json>`.
+5. **Database lanes link themselves:** a worktree can't inherit `supabase/.temp` (the project's guard hook refuses copying it, by design), so `the-playbook` in a worktree links itself instead: `supabase link --project-ref <refs.dev from .claude/kit.json>`.
 
 `captain-call` merges each lane's branch into the release branch before any step that touches its files.
 - A worktree lane edits only files under its own worktree root, by relative path (2.12.2: a lane's edits to agent files landed unpushed in the main checkout).
