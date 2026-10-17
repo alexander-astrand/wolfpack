@@ -27,7 +27,7 @@ Kit 1.5 (skills lens S2): `darth-vader`, `bengt-johansson` and `oceans-eleven` e
 - **Not counted:** a frame shot for `scroll` coordinates or to wake the pane (`scale` ≤ 0.25).
 
 ## The run
-`<design>` in the commands below is the design plugin's folder: `~/.claude/plugins/marketplaces/wolfpack/plugins/design`.
+`<design>` in the commands below is the design plugin's folder: `~/wolfpack-live/plugins/design` (the kit sessions load via `CLAUDE_CODE_PLUGIN_DIRS`; the plugin cache under `~/.claude/plugins` is stale). Defined here once; the agents point at this line.
 
 0. **Front the Browser pane first.** `tabs_context` says whether the pane is displayed; if it's hidden, `tabs_select` your tab (`preview_start` opens it). A hidden pane can't screenshot, stalls clicks and sheets, and draws nothing until woken (stefan lost about a dozen turns to one; seven agents' cheaper lines asked for this). A navigator fronts it before it spawns a QA agent. If it stays hidden, run the scan and the shots headless (`batch-shots.mjs`, pages that need no sign-in) and read the rest as text.
 1. Start the dev server with `preview_start` (`npm run dev` on `project.devPort` from the project's `.claude/kit.json`; configured in `.claude/launch.json`) and use the signed-in dev server's tab in the browser pane: the dev browser tab stays signed in as the test user between checks, so no login step is needed. **The sign-in probe:** ask the app's own auth client for the user with the javascript tool (`tabId` of the dev server's tab); the project's CLAUDE.md says where the client lives (a Supabase app: `const m = await import('<client path>'); (await m.supabase.auth.getUser()).data.user`). If it isn't signed in, stop and tell the navigator; never reach for a login from memory. **One signed-in session serves at most two browser lanes** (`[one-session]`: a shared session was signed out twice, once by four lanes refreshing the same token, once by a click by position on a hidden desktop Sign out at phone width): QA picks controls by aria-label (`find`, `read_page`), never by position, and never clicks in the header blind. **Each browser lane runs its own dev port** (`npm run dev -- --port 51NN --strictPort`), signed in at the start of the lane, so lanes never share a server; restart the lane's server after any `package.json` change. The layout QA group is a fixed one that nobody toggles (the work order names it).
@@ -51,7 +51,7 @@ const src = await (await fetch('/qa/page-scan.js')).text(); JSON.parse(await eva
 The screenshot tool returns the image and writes no file, but the image is kept in the transcript. Right after taking one (scale 1, so it's full size), run:
 
 ```
-node ~/.claude/plugins/marketplaces/wolfpack/plugins/design/skills/spidey-sense/save-shot.mjs <scratchpad>/<step>-<width>-<theme>.jpg [--since <ISO time>]
+node <design>/scripts/qa/save-shot.mjs <scratchpad>/<step>-<width>-<theme>.jpg [--since <ISO time>]
 ```
 
 QA passes note the time they start (`date -u +%Y-%m-%dT%H:%M:%SZ`) and give it as `--since`: the script then exits 1 and saves nothing when the newest image was taken before it (3.3: three of four Hut shots were the designer's mocks, saved as if fresh). Without the flag it saves the newest image whatever its age; builders may leave it out.
