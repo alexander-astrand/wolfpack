@@ -22,7 +22,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 **Why Sonnet:** splitting the meter across projects and drafting one sensible next step per project needs a little judgment Haiku gets wrong; it runs once a week, so the cost is small.
 
-**Read-only on the repo.** No git writes, no checkout, no branch change: a chain may be running in this checkout. Skyler (`scripts/usage.mjs`) only reads transcripts. The one file you write is the note.
+**Read-only on the repo.** No git writes, no checkout, no branch change: a chain may be running in this checkout. Skyler (`<kit>/plugins/release/scripts/usage.mjs`) only reads transcripts. The one file you write is the note.
 
 **Not in it:** AI or Claude Code news. That belongs to a separate Chat scheduled task.
 
@@ -36,10 +36,11 @@ Times are Europe/Stockholm. `<date>` is today and `<monday>` is this week's Mond
    first list the transcripts touched this week:
    `find <folder> -maxdepth 1 -name '*.jsonl' -newermt '<monday> 00:00'`
    then give Skyler their ids (each file's name without `.jsonl`), written out in full in the one command, and keep `grandTotal` from its JSON (skip a folder with no transcripts):
-   `node scripts/usage.mjs --json --dir <folder> <id> <id>`
-   No `xargs`, loop or `$ids` variable: an unattended run can't save a pipe or a loop, zsh doesn't split an unquoted variable into words, and the guard refuses `bash -c` while a drive is armed. Name each project by the map in `~/dojo/miyagi/projects.md` (kept in the dojo, not the repo); a folder not in the map is "other".
+   `node <kit>/plugins/release/scripts/usage.mjs --json --dir <folder> <id> <id>`
+   `<kit>` is the kit the session loads, the plugin root's parent's parent (`${CLAUDE_PLUGIN_ROOT}/../..`), written out as an absolute path (`~/wolfpack-live` on Alexander's machines): the allow list matches the command as typed, and `scripts/usage.mjs` exists only in Hutzup (lens Must 6, kit 1.5). `<folder>` is absolute too (`~/.claude/projects/<name>`, `~` written out).
+   No `xargs`, loop or `$ids` variable: an unattended run can't save a pipe or a loop, zsh doesn't split an unquoted variable into words, and the guard refuses `bash -c` while a drive is armed. Name each project from its folder's name: the part after `-Desktop-` (`-Users-<you>-Desktop-hejtide` is hejtide; a worktree folder, `-Users-<you>-Desktop-Burrow--claude-worktrees-<x>`, counts to its project); a folder outside `~/Desktop` is named by its last part (`-Users-<you>-dojo` is dojo).
 4. **The week receipt:** each project's share = its tokens / all projects' tokens, and its slice of the meter = that share × the week figure from step 2. Round to whole percent. Say once, under the table, that a session is counted whole if it started before Monday and that tokens weigh models alike while the meter doesn't, so the slices are an estimate.
-5. **Next week's draft rows:** one row per active project (any tokens this week, plus the next one in `~/.claude/plans/projects-after-kit.md` if a slot looks free). This project's next step is the clause after `NEXT:` in the `description:` of `project_roadmap.md` in the project's memory folder (under `~/.claude/projects/`; read the frontmatter only; never the roadmap page). `planned_for` is a day next week (`yyyy-mm-dd`), spread so no day gets two big steps. These are drafts: `/war-room` is where the owner keeps or moves them.
+5. **Next week's draft rows:** one row per active project (any tokens this week, plus the next one in `~/.claude/plans/projects-after-kit.md` if a slot looks free). This project's next step is the roadmap's next card, read as `groundhog-day` step 3 reads it (the record kit.json's `roadmap` names, never a `project_roadmap.md` memory). `planned_for` is a day next week (`yyyy-mm-dd`), spread so no day gets two big steps. These are drafts: `/war-room` is where the owner keeps or moves them.
 6. **Write** `~/dojo/inbox/<date>-<project>-week.md`, overwriting a note from earlier today. Shape (`docs/dojo-inbox.md`), headings in this order:
 
 ````
