@@ -4,7 +4,7 @@
 // and writes nothing to disk, but every image is kept in the session (or
 // subagent) transcript as base64, so the file can be recovered from there.
 //
-//   node ${CLAUDE_PLUGIN_ROOT}/skills/spidey-sense/save-shot.mjs <out.jpg> [--minutes 5] [--since <ISO time>] [--repo <main checkout>]
+//   node ${CLAUDE_PLUGIN_ROOT}/scripts/qa/save-shot.mjs <out.jpg> [--minutes 5] [--since <ISO time>] [--repo <main checkout>]
 //
 // Looks at every transcript under ~/.claude/projects/<this project>/ (the
 // session files and their subagents/) modified in the last N minutes and

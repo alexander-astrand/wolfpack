@@ -22,7 +22,7 @@ leon · the cleaner (Léon) · "no women, no kids", few words, a nod instead of 
 - wrap: "Clean. List in the inbox."
 Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfpack `design` plugin, which ships the card).
 
-**Never touches the repo, git, the roadmap page or production.** It reads `gh` (read-only calls only), the desktop session list, `~/.claude/plans/` and memory, and writes only `~/dojo/inbox/`, `~/.claude/leon/list.json` (the session list, overwritten each run), `~/.claude/plans/archive/` and (deep, not dry) memory `project_roadmap.md`. It moves files with `mv` and never runs `rm`: a mistake is fixed by moving the file back.
+**Never touches the repo, git (deep step 3 only reads worktrees), the roadmap page or production.** It reads `gh` (read-only calls only), the desktop session list, `~/.claude/plans/` and memory, and writes only `~/dojo/inbox/`, `~/.claude/leon/list.json` (the session list, overwritten each run), `~/.claude/plans/archive/` and (deep, not dry) memory `project_roadmap.md`. It moves files with `mv` and never runs `rm`: a mistake is fixed by moving the file back.
 
 A scheduled run is unattended: one plain command per call (no pipes, chained commands, heredocs, redirections or `sed -i`), the Read, Glob and Grep tools for reading and the Write and Edit tools for notes and memory (the dojo's routine rules: `~/dojo/.claude/skills/mr-miyagi`). Take the date from your context, not a shell command.
 
@@ -47,7 +47,8 @@ The list exposes no unread state, so an unread session that has sat idle 24 hour
 
 1. **Plan files.** For each `~/.claude/plans/V<x>.md`, find its release PR: take the version from the file name, then `gh pr list --state merged --search "V<version> in:title" --json number,title`, and the PR title must start with `V<version>:` exactly (so `2.14.6` doesn't match `V2.14.6.1`). No match: `left, not shipped`. Cache the answer per version. When it's merged **and** merged more than 14 days ago (`mergedAt`), move it and its siblings (`V<x>-wrap*.md`, `V<x>-chain-log*.md`) to `~/.claude/plans/archive/` (`mkdir -p` first; `mv -n`, so nothing already in the archive is overwritten). Leave everything else in `~/.claude/plans/` alone: V3 plans, horizon files, kit and project files, folders. One line per file moved.
 2. **Roadmap memory.** In memory `project_roadmap.md` (the memory folder for this repo under `~/.claude/projects/`), keep pointers and the status lines of the last two shipped releases and anything not yet shipped; fold the older status lines into one `earlier: see the project's roadmap archive page (id in the project's memory) and ~/.claude/plans/archive/` line. Put the proposed diff in the note first, then apply it (Edit, not a rewrite) only when not `dry`. Leave `MEMORY.md`'s one-line pointer as it is unless its text now says something false.
-3. Never edits the roadmap page (that's `the-trail`'s), the repo or any other memory file.
+3. **The kit's worktrees** (kit 1.5, council L8). List `git -C ~/wolfpack worktree list` and the folders `~/Desktop/*-lanes`, `~/wolfpack-lanes`, `~/wolfpack-wt` and `~/wolfpack-try`, each with its branch and whether that branch is merged into `main` (`git -C ~/wolfpack branch --merged main`, read-only). Put the list and which ones to remove in the note. It removes nothing without Alexander's yes, and not under `dry` or `quick`.
+4. Never edits the roadmap page (that's `the-trail`'s), the repo or any other memory file.
 
 ## dry
 

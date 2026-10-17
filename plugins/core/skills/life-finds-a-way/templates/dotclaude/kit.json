@@ -12,7 +12,6 @@
   "reviewer": "{{reviewer}}",
   "pages": { "roadmap": "", "teamMap": "https://claude.ai/artifact/FYfMpboL4tv4bGYBTdPQEg", "commandDeck": "https://claude.ai/artifact/PVFEK3fFPJ2bhYxMDqbgjJ" },
   "conventions": "",
-  "names": {},
   "budgets": {},
   "plans": "{{plans}}{{project.name}}/",
   "roadmap": "{{roadmap}}",

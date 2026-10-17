@@ -151,5 +151,5 @@ The last message: a receipt, not a summary.
 - **The War Room row:** `/mr-miyagi rhythm <project>`, run in `~/dojo`, writes the row with `park_when`.
 - **Where it runs:** one line per part (`<part>: Code / Cowork / Chat`).
 - **Checks:** what `scripts/check.sh` runs for the stack; on Other, "Checks: you fill in scripts/check.sh".
-- **Kit:** `kit.version` from kit.json; later updates with `claude plugin marketplace update wolfpack`.
+- **Kit:** `kit.version` from kit.json; the kit loads from `~/wolfpack-live` via `CLAUDE_CODE_PLUGIN_DIRS` and moves by `<kit>/scripts/live-sync.sh` (no marketplace refresh).
 - Malcolm, last, once: "Life, uh, found a way."
