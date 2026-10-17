@@ -31,6 +31,14 @@ function setup() {
 
 const sync = (live) => spawnSync('sh', [SCRIPT, live], { encoding: 'utf8' })
 
+// carousel and norms run <kit>/scripts/live-sync.sh directly (kit 1.5 review M3).
+test('the script is executable and runs directly', () => {
+  assert.equal(spawnSync('test', ['-x', SCRIPT]).status, 0)
+  const { live } = setup()
+  const r = spawnSync(SCRIPT, [live], { encoding: 'utf8' })
+  assert.equal(r.status, 0, r.stderr)
+})
+
 test('a clean checkout moves onto origin/main and says how far behind it was', () => {
   const { live } = setup()
   const r = sync(live)

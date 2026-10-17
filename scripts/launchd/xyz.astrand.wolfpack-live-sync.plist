@@ -10,7 +10,7 @@
   <array>
     <string>/bin/sh</string>
     <string>-c</string>
-    <string>exec "$HOME/wolfpack-live/scripts/live-sync.sh"</string>
+    <string>exec /bin/sh "$HOME/wolfpack-live/scripts/live-sync.sh"</string>
   </array>
   <key>StartInterval</key>
   <integer>1800</integer>
