@@ -41,5 +41,9 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
    - a creative question: `/heisenberg <topic>`
    - a different session's model or effort: `/beam-me-up <skill>`
    - a brief for a chat, agent or person: `/don-draper <for chat|agent|person> <subject>`
-   - `/88-mph` and the rest of the newer commands: read the Slash commands line in the `oceans-eleven` skill (the wolfpack `release` plugin) for the current list.
+   - `/88-mph` and the rest of the newer commands: the "Slash commands" section of `reference.md` in the `oceans-eleven` skill's folder (the wolfpack `release` plugin).
 5. Close with one line: where to read more.
+
+## A talk, not a watch
+- **When the next step is Alexander's, end the turn with no timer** and no polling (kit 1.5, M9: one dojo `/oracle` stayed open 19 h for 46M). `/marco-polo` finds the sessions waiting on him, so nothing is lost.
+- **Ceiling: about 20M** (lens Should 3: one session took 143M over 344 minutes). Past it, stop: say what this session has used, give a five-line summary of where the talk stands, and offer a fresh `/oracle` that starts from it. Carry on only on his word.
