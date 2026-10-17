@@ -64,7 +64,19 @@ export const MAP = [
   { from: 'github/dependabot.yml', to: '.github/dependabot.yml' },
   { from: 'roadmap.md', to: 'plans:roadmap.md' },
   { from: 'V0.1.md', to: 'plans:V0.1.md' },
+  // The deployer (council M10, kit 1.5): the database plugin's templates, so the kit keeps
+  // one ranjit instead of a hand copy per project. A Supabase production gets the full one;
+  // a project whose merge to main is the deploy gets the no-database one.
+  { from: 'ranjit.md', root: 'database', to: '.claude/agents/ranjit.md', pack: 'database', when: (v) => supabaseProduction(v) },
+  { from: 'ranjit-no-database.md', root: 'database', to: '.claude/agents/ranjit.md', when: (v) => v.production === 'on-merge' },
 ]
+
+// Templates another plugin ships, by `root` in MAP: plugins/<root>/templates/.
+const ROOTS = { database: join(HERE, '..', '..', '..', '..', 'database', 'templates') }
+const templatePath = (m) => join(m.root ? ROOTS[m.root] : HERE, m.from)
+
+// Supabase-shaped production: a production ref and no other production mode.
+export const supabaseProduction = (v) => Boolean(v.refs?.prod) && !['none', 'on-merge'].includes(v.production)
 
 // PROTO. The database plugin's guard refuses an agent's write to its frozen names at
 // any depth (`.github/`, `.claude/kit.json`, `scripts/check.sh`, …), so a toy an agent
@@ -284,6 +296,7 @@ export function fill(values, target, { plansDir, force = false, adopt = false, p
     if (m.pack && !(packs ?? []).includes(m.pack)) continue
     if (m.stack && !m.stack.includes(values.stack)) continue
     if (m.ui && !ui) continue
+    if (m.when && !m.when(values)) continue
     const plans = m.to.startsWith('plans:')
     if (plans && !plansRoot) {
       errors.push(`${m.from}: no plans folder (values.plans and project.name, or --plans)`)
@@ -300,8 +313,8 @@ export function fill(values, target, { plansDir, force = false, adopt = false, p
     const renamed = proto && !plans && isGuarded(m.to)
     const dest = renamed ? join(target, m.from) : real
     if (renamed) moves.push({ from: dest, to: real })
-    const text = readFileSync(join(HERE, m.from), 'utf8')
-    const r = renderText(text, values, { file: 'templates/' + m.from, json: m.from.endsWith('.json'), ui })
+    const text = readFileSync(templatePath(m), 'utf8')
+    const r = renderText(text, values, { file: (m.root ? `${m.root}/` : '') + 'templates/' + m.from, json: m.from.endsWith('.json'), ui })
     errors.push(...r.errors)
     writes.push({ dest, out: r.out, exec: m.exec })
   }
