@@ -12,7 +12,7 @@
   "pages": { "roadmap": "", "teamMap": "", "commandDeck": "" },
   "conventions": "",
   "names": {},
-  "budgets": { "*": "15M" },
+  "budgets": {},
   "plans": "{{plans}}{{project.name}}/",
   "roadmap": "{{roadmap}}",
   "kit": { "version": "{{kit.version}}" }

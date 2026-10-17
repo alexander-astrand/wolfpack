@@ -41,7 +41,7 @@ For scale: 1% of the week is about 46M, so even a full large run stays under 1%.
 ## Where it runs
 
 - **small** runs where it's called.
-- **medium and large get their own session.** Started from a side session (`oracle`, `wilson`, any `· side ·` title), don't run it there: start a session (`start_session` with `user_asked`, under the session-starts trial in norms.md) whose prompt is the whole order (`/88-mph <size> <topic>`, the decision, the person's questions verbatim, today's date), then stop. Hejtide's large run ran inside an `oracle` side session: the side question framed the order and nobody saw the scope.
+- **medium and large get their own session.** Started from a side session (`oracle`, `wilson`, any `· side ·` title), don't run it there: start a session (norms.md "Starting sessions") on Opus at medium (when it starts below that, raise it from here with `set_session_model` and `set_session_effort`), whose prompt is the whole order (`/88-mph <size> <topic>`, the decision, the person's questions verbatim, today's date) and ends "When done or blocked, SendMessage your starter (<your id>) once: what's done and the next step." Then end your turn; the report wakes you. Hejtide's large run ran inside an `oracle` side session: the side question framed the order and nobody saw the scope.
 - From a release or planning session it runs inside that session, as the plan says (`[release-session]`).
 
 ## Small

@@ -1,6 +1,7 @@
 ---
 name: cloud-city
 description: What a Claude Code cloud session (claude.ai/code, the app's Code tab, Cloud in the desktop app, `claude --cloud`) can and can't do on this repo, and how we use them. Read when starting or planning work in the cloud.
+disable-model-invocation: true
 ---
 
 ## Voice
