@@ -125,7 +125,7 @@ Ping: "`maverick`: V<version> is built: <n> commits by <agents, e.g. `chris-de-k
 - Under `/cattle-drive`, before the final ping, run the arm preview (`scripts/full-auto.sh preview <version>`) as its own call and check every production step is on the arm list (`[preview]`), then append one line to `<plans>V<version>.md`: `Leg 1 done at <full head sha>` (the PR's `headRefOid`); the deploy leg refuses to start without it. Then, instead of waiting for anyone, hand on as the `cattle-drive` skill's "Leg 1's last act" says. Do it yourself, not a spawned agent:
   1. `set_session_model` Opus and `set_session_effort` (high with `wrap`, else medium) on the deploy session logged under `## Drive sessions`;
   2. `send_message` it `/cattle-drive <version> [wrap] FROM <your id>…`;
-  3. end the turn.
+  3. keep a `[watchdog]` timer running until the deploy session's first event shows it acted on the order (the `cattle-drive` skill's "Leg 1's last act", step 4), then end the turn.
 
   When the plan says the release will be deployed by `/cattle-drive <version> in place` (no deploy session opened at the start), write the same `Leg 1 done at <sha>` line at the final ping and skip the hand-on: Alexander types the drive himself, and it refuses to start without that line (2.12.4's deploy had to ask for it once).
 

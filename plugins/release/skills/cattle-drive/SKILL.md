@@ -64,10 +64,10 @@ After `Leg 1 done at <sha>` is in the plan, the navigator itself (never a spawne
 2. `mcp__ccd_session_mgmt__set_session_effort`: `high` with `wrap`, `medium` without.
 3. `mcp__ccd_session_mgmt__send_message` to its id, exactly:
 ```
-/cattle-drive <version> [wrap] FROM <leg 1 id>. Leg 1 is done at <sha>: PR <url>, draft, CI green. Read ${CLAUDE_PLUGIN_ROOT}/skills/cattle-drive/SKILL.md as a file and run its deploy leg.
+/cattle-drive <version> [wrap] FROM <leg 1 id>. Leg 1 is done at <sha>: PR <url>, draft, CI green. Read ${CLAUDE_PLUGIN_ROOT}/skills/cattle-drive/SKILL.md as a file and run its deploy leg. When done or blocked, SendMessage your starter (<leg 1 id>) once: what's done and the next step.
 ```
    The result must say `delivered` or `queued`. Anything else is a hard stop: ping with the error and the manual fallback (open the deploy session and type the command).
-4. A short line in leg 1's session saying where the drive went (the session's title), then end the turn. There is no PushNotification here; nobody needs to act.
+4. A short line in leg 1's session saying where the drive went (the session's title). Then keep a `[watchdog]` timer (a background `sleep 300`) and end the turn only with it running; on each wake read the deploy session's events, and stop the timer once its first event shows it acted on the order. Not acted after two wakes: ping Telegram with the manual fallback (norms.md, "Report back"). There is no PushNotification here.
 
 ## The deploy session: taking the order
 The message arrives as `<cross-session-message from="<id>">`, not as a typed command, so the skill doesn't load by itself (it is `disable-model-invocation`). Read `${CLAUDE_PLUGIN_ROOT}/skills/cattle-drive/SKILL.md` as a file and follow it with the message's arguments, once these hold:
