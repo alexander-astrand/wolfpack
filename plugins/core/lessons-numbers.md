@@ -1,0 +1,39 @@
+# Lessons, the numbers
+
+Read only by `future-ted` and `/inception`'s sizing step: the figures and evidence behind the rules in `lessons.md`, one line per rule tag (kit 1.5, H3, 17 Oct 2026).
+
+- **[skyler]** A `local_…` session id resolving to its transcript (`--timeline` too) came in Burrow 0.6.
+- **[split-by-live]** job-hunt's V0.3–V0.7 built as one: 18 commits, 50 min, 29.8M.
+- **[release-bump]** 2.14.9.1 shipped saying v2.14.9; hejtide 0.3's sed over the lock file also rewrote a dependency's version.
+- **[qa-like-a-user]** Burrow 0.8's QA passed two flows his first dev test failed (no door where she logs, no line until a reload).
+- **[reuse-line]** Burrow 0.8's two-step page ran 21.7M in one agent against ~5M a single page; job-hunt 0.4's two joins on one agent re-read the first inside the second until Hank stopped it at 6M.
+- **[data-contract]** Burrow 0.8's three weather readers wrote three readings of SMHI's rain interval (review must, one shared helper).
+- **[sibling-wait]** 3.3.2 part 1 ended its turn waiting for part 2's answer and held parts 3–4 for 2.5 h.
+- **[real-shape]** job-hunt 0.3's mail extractors and 0.4's reply rules, built on made-up mails, both failed their first live read (0.4: 5 of 8 no's, 5 fix commits).
+- **[name-match]** job-hunt 0.3's watchlist seed kept 4 namesakes in 8 boards until his live probe.
+- **[auto-outside]** job-hunt 0.1: three refusals and PR #5.
+- **[watchdog]** Burrow V0.9: part 3 sat 10 h on one prompt.
+- **[send-confirmed]** Burrow V0.9: three queued sends to part 3 (skip QA) were reported delivered; it ran QA.
+- **[release-session]** A session card mid-release cost him a click at night (Burrow V0.9). The session-starts trial ran 16–20 Oct 2026; the app refused starts in woken turns six times, among them Burrow 14 Oct, hejtide 16 Oct and Burrow 17 Oct 09:32 and 13:00, hence starts in the first turn (kit 1.5 plan, "Sturdier session starts").
+- **[guard-sed]** Fixed in Burrow V0.9.
+- **[layout-first]** Burrow V0.9 was aborted for both.
+- **[grep-first]** Burrow V0.9 sized 15M of inline actions on ⋯ menus that didn't exist (a grep: 3M).
+- **[research-scope]** hejtide 15 Oct 2026: 200k of 10M, Massvis cut.
+- **[research-lanes]** hejtide: two of three lanes hit 30 turns, nothing saved.
+- **[lane-home]** Burrow 0.6: the run went to Bypass at 20:35Z. portfolio 0.5's lanes landed in `.claude/worktrees` again and their `.next` builds broke local lint (fix commit a498278). Moved to routes in kit 1.5 (H2).
+- **[kit-agents]** kit 1.3 left Burrow without `ranjit`, so `/skinny-pete 0.6` stopped.
+- **[live-tweaks]** Broken: hejtide 0.1 (83% of 335M; three hand-started tweak sessions 89.2 + 71.3 + 46.5M), hejtide 0.4 (69M), job-hunt 0.1 (14M at the draft, 93M at the merge), 0.3 (17M→60M), portfolio 0.2 (64M). Kept: job-hunt 0.2 (5.5M), 0.4 (L1–L6 in one 33M session). Moved to routes in kit 1.5 (H2).
+- **[idle-navigator]** job-hunt 0.2's 22 calls after the draft cost 5.4M, 0.3's `/one-ring` in the 56M session 3.8M, 0.4's merge on "merge it" 7.1M over 24 calls (~295k each). Held as a step-table row in portfolio 0.5 (stopped at 7.6M, notes and merge fresh for 2.1M); as a plan line alone it failed in portfolio 0.2 (26M at the draft, 90M at the end). Moved to routes in kit 1.5 (H2).
+- **[new-project-agents]** hejtide 0.1 had neither, so the guard kept `gh pr ready`/`merge` from every session and Alexander clicked them.
+- **[review-lanes]** Burrow 0.6's four Opus lanes cost ~26M against a Sonnet run's 4.0M. The skill's route spawns him since kit 4b80f20: job-hunt 0.2's review cost 0.2M on Sonnet and found both musts.
+- **[script-input]** job-hunt 0.2's report printed "Totalt: 0" on a bad file (review must, 22ea96a).
+- **[login-form]** job-hunt 0.2 built the draft around a Sätt field the real form doesn't have and redid it after the look (d21cf2b, 0.8M plus a 5.5M session).
+- **[extension-drop]** job-hunt 0.2, Brave: two 10-minute timeouts.
+- **[ask-last]** Burrow 0.7's deploy asked the split he'd given, wrote it backwards: a fix file, a second backup.
+- **[no-production]** job-hunt 0.1 had no `ranjit`, so the guard kept `gh pr ready`/`merge` from everyone and Alexander merged PR #3 in his terminal; portfolio V0.1 and V0.3 merged by hand without `on-merge`.
+- **[guard-code-words]** The plain-glob narrowing came in job-hunt 0.1.
+- **[read-back]** hejtide 0.4 misread "I also don't think she meant left aligned" as centred text and spent three commits (cedf8c1, 2c226c3, 591ee5c) and a wrong-way round to land it; the 96rem "above 13 inch" switch came back to 1280 a day later (32d29a4).
+- **[motion-qa]** portfolio 0.3's tree painted only its slab at 1024 and two scroll squares lit the wrong section; portfolio 0.5's builder probe passed while a phone-menu jump to Contact moved focus without scrolling (QA caught it, a fix round followed).
+- **[next-dev]** portfolio 0.3.
+- **[links-live]** portfolio 0.3 linked a 404 repo, and a lapsed domain serving another site reached his draft read.
+- **[layout-check]** portfolio 0.5's `staffan-olsson`.

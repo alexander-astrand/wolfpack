@@ -241,6 +241,24 @@ function checkSecrets(kitDir, values, problems, rel) {
   }
 }
 
+// The kit's lessons keep one rule a line, ≤ 300 characters; figures go to
+// lessons-numbers.md, which only future-ted and /inception's sizing read.
+// Every navigator reads lessons.md on each call, so its length is paid
+// for over and over (kit 1.5, H3: one line had grown to 930).
+const LESSON_MAX = 300
+
+export function checkLessons(kitDir, problems, rel) {
+  const file = join(kitDir, 'plugins', 'core', 'lessons.md')
+  if (!existsSync(file)) return
+  readFileSync(file, 'utf8')
+    .split('\n')
+    .forEach((text, i) => {
+      // Count characters, not UTF-16 units, so an arrow or a dash is one.
+      const n = [...text].length
+      if (n > LESSON_MAX) problems.push(`${rel(file)}:${i + 1}  lesson line over ${LESSON_MAX} characters (${n})`)
+    })
+}
+
 export function checkKit(kitDir, { values = [], base = process.cwd() } = {}) {
   const problems = []
   const rel = (p) => relative(base, p) || '.'
@@ -255,6 +273,7 @@ export function checkKit(kitDir, { values = [], base = process.cwd() } = {}) {
   for (const dir of plugins) versions.set(dir, checkPlugin(dir, problems, rel))
   checkMarketplace(kitDir, versions, problems, rel)
   checkSecrets(kitDir, values, problems, rel)
+  checkLessons(kitDir, problems, rel)
   return { problems, plugins: plugins.length }
 }
 

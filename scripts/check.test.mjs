@@ -131,3 +131,17 @@ test("production's URL and its bare host are project values", () => {
   assert.deepEqual(values, ['https://wombat-nights.example', 'wombat-nights.example'])
   assert.equal(flagged(values, 'see wombat-nights.example/events'), 1)
 })
+
+test('a lessons line over 300 characters fails with its line and length; 300 passes', () => {
+  const ok = `- **[fine]** ${'a'.repeat(300 - 13)}`
+  const long = `- **[long]** ${'→'.repeat(301 - 13)}`
+  const root = kit({
+    ...good,
+    'plugins/core/.claude-plugin/plugin.json': { name: 'core', version: '0.1.0', description: 'Core' },
+    'plugins/core/lessons.md': `# Lessons\n\n${ok}\n${long}\n`,
+  })
+  const { problems } = checkKit(root, { base: root })
+  assert.deepEqual(problems.filter((p) => p.includes('lesson')), [
+    'plugins/core/lessons.md:4  lesson line over 300 characters (301)',
+  ])
+})
