@@ -46,8 +46,8 @@ A line without the mark is an open note. Notes are never deleted, reordered or r
 ## Which Claude for what
 | Mode | When | Type |
 |---|---|---|
-| Fable autopilot | big releases whose mistakes spread (the kit, full auto, a design system); the navigator is `captain-call` | `/captain-call <version>` (Fable, high, Auto; sets itself up where it can) |
-| Opus autopilot | M–L releases with a clear spec | `/model opus`, `/effort high`, Auto |
+| Fable autopilot | big releases whose mistakes spread (the kit, full auto, a design system) | `/captain-call <version> fable allowance=high planner=dom-cobb pick=me stars=3` (Fable, high, Auto) |
+| Opus autopilot | M–L releases with a clear spec | `/captain-call <version>` (`/model opus`, `/effort high`, Auto) |
 | Driver | taste-heavy work Alexander steers | `/model opus`, `/effort medium`, Auto |
 | Planning | before a chain or an important release (required), or triage and roadmap | `/model opus`, `/effort medium`, `/inception <version> [chain …]`; longer range: `/model fable`, `/effort high`, `/inception horizon <from>–<to>` |
 
