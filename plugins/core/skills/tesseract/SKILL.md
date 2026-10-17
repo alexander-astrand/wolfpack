@@ -15,12 +15,12 @@ tesseract · the worktree lane (Interstellar's tesseract, a room that reaches an
 
 **Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · tesseract <subject>` (norms.md).
 
-A lane running beside the main checkout (`isolation: "worktree"`) starts from `main`, not the release branch, and can't `git switch` to a branch the main checkout already holds. Its order gives it this setup, with `V<x>` filled in:
+A lane lives outside `.claude`, in `~/Desktop/<Project>-lanes/<lane>`, never under `.claude/worktrees` (`isolation: "worktree"` puts it there, where every write asks even in Auto and its builds break the main checkout's lint: `[lane-home]`, kit 1.5, H2). The navigator makes it before the spawn and names its path in the order. A lane can't `git switch` to a branch the main checkout already holds, so it gets its own branch from the release branch, with `V<x>` filled in:
 
-1. **Branch:** track the release branch under a local name: `git fetch origin && git switch -c <local-name> --track origin/V<x>`.
+1. **Branch:** the navigator runs `git fetch origin && git worktree add -b <lane-branch> ~/Desktop/<Project>-lanes/<lane> origin/V<x>` (a design mock-up lane branches from `main`).
 2. **Env:** copy `.env.local` from the main checkout into the worktree.
 3. **Its own port and tab:** run the dev server on its own vite port (not `project.devPort` from `.claude/kit.json`) and open its own browser tab, so it doesn't collide with the main session's preview.
-4. **Push:** `git pull --rebase origin V<x>` first, then `git push origin HEAD:V<x>` (a plain `git push` would try to push `<local-name>`, not `V<x>`).
+4. **Push:** `git pull --rebase origin V<x>` first, then `git push origin HEAD:V<x>` (a plain `git push` would try to push `<lane-branch>`, not `V<x>`). Or leave it unpushed when the order says the navigator merges the lane's branch.
 5. **Database lanes link themselves:** a worktree can't inherit `supabase/.temp` (the Slap Bet Commissioner refuses copying it, by design), so `the-playbook` in a worktree links itself instead: `supabase link --project-ref <refs.dev from .claude/kit.json>`.
 
 `maverick` merges each lane's branch into the release branch before any step that touches its files.
@@ -28,5 +28,5 @@ A lane running beside the main checkout (`isolation: "worktree"`) starts from `m
 - A worktree's dev server runs on another port and is not signed in (the login lives on the main dev port's origin), so signed-in browser checks happen there after the lane's push, by QA or the navigator's next builder.
 
 ## Clean-up at a release's end
-`tesseract` owns cleaning worktrees up: at the end of the release the navigator runs these steps (`git worktree list`), and a worktree whose branch is merged or whose agent is done is removed.
-After the release's PR merges: `git worktree list`, and for each `.claude/worktrees/*` whose `git -C <path> status --porcelain` is empty and whose branch is on origin or was merged (a squash-merged branch is deleted from origin), `git worktree remove <path>`. Skip a dirty one and list it in the report. Leave the branches alone. Leftover worktrees cost disk space, and a repo-wide grep walks their copies. Then `git worktree prune` to drop records of folders already gone.
+`tesseract` owns cleaning lanes up: at the end of the release the navigator runs these steps, and a lane whose branch is merged or whose agent is done is removed.
+After the release's PR merges: `git worktree list`, and for each lane under `~/Desktop/<Project>-lanes/` whose `git -C <path> status --porcelain` is empty and whose branch is on origin or was merged (a squash-merged branch is deleted from origin), `git worktree remove <path>`. Skip a dirty one and list it in the report. Leave the branches alone. Leftover worktrees cost disk space, and a repo-wide grep walks their copies. Then `git worktree prune` to drop records of folders already gone, and remove `~/Desktop/<Project>-lanes/` itself once it's empty (`rmdir`). A leftover `.claude/worktrees/*` from before kit 1.5 is cleaned the same way.
