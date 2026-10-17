@@ -20,6 +20,7 @@ The worst sendback is a repeat. "Please be better at self learning here, it's an
 - Sideways rows drag with a mouse (`ScrollRow`), and the grab works anywhere, cards included. (Shelf, 2.10: "No pull and drag on the side scroll on the shelf, did we not learn to include this from the polls on front page?"; polls row, 2.8.2: dragged only between cards)
 - A settings page scrolls as one page: no column scrolls on its own; a rail or preview stays put only while it fits the screen (the event page's sticky side is for content pages, not settings). (Your profile and Group settings, 3.3.2 part 5, 9 Oct 2026: "Can we also remove the dual scrolling columns, it's just confusing, both here and on group settings")
 - A sideways row shows each picture whole: covers in a `ScrollRow` are never cut at the row's top, bottom or ends. (Shelf on the profile page, 3.3 morning look, 9 Oct 2026: "Images cut off when side scrolling on the shelf on profile looks weird")
+- Each jump marker (a scroll dot or square) lands somewhere of its own; markers that would land on the same spot merge into one. (Side squares, portfolio 0.3: "The bottom two dots on the side scroller are both the bottom of the page.")
 
 ## Maps and embedded widgets
 - A map never catches the page's scroll: no wheel zoom and no one-finger pan until it's tapped; zoom by its buttons. (Profile and event page, 2.12: "When scrolling it gets stuck on the map and zoom outs, very annoying")
@@ -96,7 +97,8 @@ The worst sendback is a repeat. "Please be better at self learning here, it's an
 - A figure shown big is drawn for that size, not a small icon scaled up. (404 page, 2.14 wrap-up, the set's `hand` at 48px: "The hand emoji on the 404 Star Wars page is very ugly, remake") Picked: B, the mind trick (fingers together, thumb out, three lit rays), over `mosbius-designs`' A, the open palm, that 2.14.3 shipped (`/memento` 4 Oct: "Changed my mind and liked b hand instead."). A drawn thing handed to one designer still gets its options shown to him afterwards: he changed his mind on seeing them at real size.
 - Faces are faces, props are big enough to see. (Jedi icons, 2.12: "looks weird with a black hole as his face"; "Bigger saber for the grandmaster, he has tiny one now")
 - Drawn smoke moves: it keeps rising and drifting; a still plume reads as stale. (Light hearth, 3.1.1 draft, 8 Oct 2026: "The smoke needs to be moving in light mode, it can't just be stale, that looks weird")
-- A logo draws on whole pixels: its boxes, padding and radius rounded, or the edges blur. (Wordmark, 3.0.5: 109x25.25 boxes, fixed in e8ceabb; his human step "the logo's sharpness on your screen")
+- A logo draws on whole pixels: its boxes, padding and radius rounded, or the edges blur. (Wordmark, 3.0.5: 109x25.25 boxes, fixed in e8ceabb; his human step "the logo's sharpness on your screen"; repeated in portfolio 0.3's cube marks at 18.9px, a review must)
+- A link to a known service (GitHub, LinkedIn) shows that service's logo, with its name kept for screen readers. (Hero, footer and about, portfolio 0.3: "I also want linkedin and github to be logos")
 - Taste picks are his: show options before building. (Jedi icons, 2.12: his hybrid of three options, not the designer's pick, the third time)
 
 ## Wording
