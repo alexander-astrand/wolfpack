@@ -512,6 +512,18 @@ describe('spawns (kit 1.5)', () => {
     expect(spawn({ subagent_type: 'release:saul-goodman', description: 'x' }, { agent_id: 'a9' })).toMatch(/^The draft is done/)
   })
 
+  it("denies on a marker written with get_session's local_ id (kit 1.5 review M2)", () => {
+    const sessionsDir = join(root, 'app-sessions')
+    mkdirSync(join(sessionsDir, 'a', 'b'), { recursive: true })
+    writeFileSync(join(sessionsDir, 'a', 'b', 'local_abc.json'), JSON.stringify({ cliSessionId: SESSION }))
+    writeFileSync(join(plansDir, 'V0.6.draft-done'), 'local_abc\nburrow · follow-up · 0.6\n')
+    const r = decide({ session_id: SESSION, tool_name: 'Agent', tool_input: { subagent_type: 'release:saul-goodman', description: 'saul-goodman: step 9' } }, { stateDir, plansDir, sessionsDir })
+    expect(r?.reason).toBe(draftDoneReason('burrow · follow-up · 0.6'))
+    // A local_ id the app has no file for is no match, never a crash.
+    writeFileSync(join(plansDir, 'V0.6.draft-done'), 'local_nope\nfollow-up\n')
+    expect(decide({ session_id: SESSION, tool_name: 'Agent', tool_input: { subagent_type: 'release:saul-goodman', description: 'x' } }, { stateDir, plansDir, sessionsDir })).toBeNull()
+  })
+
   it("leaves other sessions' markers and other tools alone", () => {
     writeFileSync(join(plansDir, 'V0.6.draft-done'), 'another-session\nfollow-up\n')
     expect(spawn({ subagent_type: 'release:saul-goodman', description: 'saul-goodman: step 9' })).toBe('allow')

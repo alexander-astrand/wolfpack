@@ -39,7 +39,7 @@ import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, 
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { agentName, parseEntries, tallyEntries, totalTokens } from '../scripts/usage.mjs'
+import { agentName, parseEntries, resolveLocalId, tallyEntries, totalTokens } from '../scripts/usage.mjs'
 import { projectOwns } from './step-aside.mjs'
 
 // An agent shipped in a plugin runs as `<plugin>:<agent>` (`release:chris-de-kok`),
@@ -370,7 +370,7 @@ export function decide(input, env = {}) {
 
 // Two checks on every Agent spawn, the navigator's included (kit 1.5):
 //   - H2: after the draft, the navigator spawns nothing more. Its final ping
-//     writes `<plans>V<v>.draft-done` (line 1 its session id, line 2 the
+//     writes `<plans>V<v>.draft-done` (line 1 its transcript id, line 2 the
 //     follow-up session's name); a release that idled on in the navigator after
 //     the draft cost 60 to 90M (hejtide 0.4, job-hunt 0.3, portfolio 0.2).
 //   - M4: never a nameless agent. general-purpose ran 15 times for 82.3M with
@@ -392,8 +392,20 @@ export function plansDirFor(input) {
   return expandHome(typeof plans === 'string' && plans ? plans : join(homedir(), '.claude', 'plans'))
 }
 
+// Line 1 should be the transcript id (the hook's session_id), but a navigator
+// that wrote `get_session self`'s `local_<uuid>` still counts: it's resolved
+// to the transcript id through the app's session files (kit 1.5 review M2).
+const markerId = (first, sessionsDir) => {
+  if (!first.startsWith('local_')) return first
+  try {
+    return resolveLocalId(first, sessionsDir)
+  } catch {
+    return first
+  }
+}
+
 /** The follow-up session named by a draft-done marker for this session, or null. */
-export function draftDoneFor(sessionId, plansDir) {
+export function draftDoneFor(sessionId, plansDir, sessionsDir) {
   if (!sessionId) return null
   let files = []
   try {
@@ -404,7 +416,7 @@ export function draftDoneFor(sessionId, plansDir) {
   for (const f of files) {
     try {
       const [first = '', second = ''] = readFileSync(join(plansDir, f), 'utf8').split('\n')
-      if (first.trim() === sessionId) return second.trim()
+      if (markerId(first.trim(), sessionsDir) === sessionId) return second.trim()
     } catch {
       // an unreadable marker is no marker
     }
@@ -447,7 +459,7 @@ export function agentNames(input, env = {}) {
 export function checkSpawn(input, env = {}) {
   if (!SPAWN_TOOLS.has(input?.tool_name)) return null
   try {
-    const followUp = draftDoneFor(input.session_id, env.plansDir ?? plansDirFor(input))
+    const followUp = draftDoneFor(input.session_id, env.plansDir ?? plansDirFor(input), env.sessionsDir)
     if (followUp !== null) return { decision: 'deny', reason: draftDoneReason(followUp) }
     const type = input.tool_input?.subagent_type
     if (type && !NAMELESS.has(type)) return null
