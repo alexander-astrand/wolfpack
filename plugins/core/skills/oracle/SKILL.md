@@ -30,6 +30,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 - The project's setup: `CLAUDE.md` and whichever of `.claude/skills/`, `.claude/agents/`, `.claude/lessons.md`, `.claude/hooks/` it has. The shared kit lives in the wolfpack plugins (`plugins/<plugin>/skills/`, `agents/`).
 - The plans: `~/.claude/plans/V<x>.md` (one release each) and its siblings.
 - Memory: `project_roadmap.md` for the roadmap. Never fetch the roadmap page in full; the memory file is the pointer and the status.
+- Which roadmap is the record: `the-trail`'s rule (kit.json `roadmap`: page, file or none; with `none`, ask which project's roadmap it goes on).
 
 ## Steps
 

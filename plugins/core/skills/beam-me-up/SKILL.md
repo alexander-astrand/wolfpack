@@ -24,7 +24,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 ## Steps
 
-1. **Look up what the named skill wants.** Read the Session modes table in the `oceans-eleven` skill (the wolfpack `release` plugin), then the skill's own `SKILL.md` frontmatter and text (`model`, `effort`). If neither says, say so and stop; don't guess.
+1. **Look up what the named skill wants.** Read `norms.md`, "Which Claude for what", then the skill's own `SKILL.md` frontmatter and text (`model`, `effort`). If neither says, say so and stop; don't guess.
 2. **Compare with this session:** `get_session` with `self` (never guess the id from a list). If model and effort already match, say "Already right" and give the line to type to run it here.
 3. **If they differ,** print the exact lines to type to switch this session (`/model <name>`, `/effort <level>`), then the line to start the skill. Say plainly that switching is typed, not done for you.
 4. **Hand over in a new session, the default** (Alexander, 4 Oct: "Yes, chips by default"; the chip tool `spawn_task` is gone since 15 Oct 2026, and `start_session` does the same without the click). His `/beam-me-up` is the ask, so call `mcp__ccd_session__start_session` (ToolSearch loads it) in this turn with `initiation` "user_asked", `context` "fresh", a title per norms.md, and the full order as `prompt`: the command to run and the context it needs (version, plan file path, what's open), in a `background` of its own; the order stands alone because the new session doesn't see this chat, and ends "When done or blocked, SendMessage your starter (<your id>) once: what's done and the next step." (norms.md, "Report back").

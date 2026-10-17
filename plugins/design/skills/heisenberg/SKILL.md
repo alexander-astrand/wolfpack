@@ -21,9 +21,9 @@ heisenberg Â· the creative director (Breaking Bad: Walter White as Heisenberg) Â
 Shape and rules: `${CLAUDE_PLUGIN_ROOT}/voice-card.md`.
 
 ## Who answers
-**Run in Auto**; never switch to manual (Alexander, 1 Oct 2026). The allow lines in `.claude/settings.local.json` cover plan writes. A session can set its own permission mode but not its model or effort (`set_session_effort` refuses "self"), so those are typed or set from outside. This is a planning session: it writes only `~/.claude/plans/`, its scratchpad and the roadmap page, never the checkout, and runs no git.
+**Run in Auto**; never switch to manual (Alexander, 1 Oct 2026). Allow lines for plan writes go at user level (`~/.claude/settings.json`), never in a project's settings. A session can set its own permission mode but not its model or effort (`set_session_effort` refuses "self"), so those are typed or set from outside. This is a planning session: it writes only `~/.claude/plans/`, its scratchpad and the roadmap page, never the checkout, and runs no git.
 
-- **On Fable** (`/model fable`, `/effort high`, default permissions; the right mode for this): this session *is* `heisenberg`. Read the `heisenberg` agent (`${CLAUDE_PLUGIN_ROOT}/agents/heisenberg.md`) and work to it. The session is the release's one star, so keep it short.
+- **On Fable** (`/model fable`, `/effort high`, in Auto; the right mode for this): this session *is* `heisenberg`. Read the `heisenberg` agent (`${CLAUDE_PLUGIN_ROOT}/agents/heisenberg.md`) and work to it. The session is the release's one star, so keep it short.
 - **On any other model:** spawn `heisenberg` once (foreground, `model: "fable"`, description `heisenberg: creative session <topic> [budget 8M]`) with the topic and what's been said, and continue that same agent with SendMessage for each round, relaying word for word. Never a second Agent call.
 
 ## The session

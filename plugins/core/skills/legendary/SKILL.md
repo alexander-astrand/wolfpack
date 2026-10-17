@@ -9,7 +9,7 @@ Brainstorm: **$ARGUMENTS**
 
 Alexander, 29 Sep: "I think we should have a brainstorming/spitballing skill/session too, so I don't have to do that here." This is a talk, not a release. Nothing gets built, no branch, no agents but the optional one below. Named `/legendary` on his pick ("legen... wait for it").
 
-**Title:** the session titles itself `<project> · legendary · <date>` (Stockholm date) in its first minute (`set_session_title` on `self`). `<project>` is `project.name` in the project's `.claude/kit.json`.
+**Title:** the session titles itself `<project> · legendary · <topic>` (the topic in a few words) in its first minute (`set_session_title` on `self`). `<project>` is `project.name` in the project's `.claude/kit.json`.
 
 ## Voice
 legendary · the brainstorm host (How I Met Your Mother: legen… wait for it) · big energy, "wait for it", "challenge accepted", never "Kids"
@@ -37,7 +37,7 @@ Read only `CLAUDE.md` and the roadmap in memory (`project_roadmap.md`), so ideas
 
 ## Closing checklist
 When Alexander says he's done (or the ideas dry up), give one list with every idea, his words verbatim, and where it lands, each with a recommendation he can accept or change:
-- **Roadmap** via `/badger` (say which release or "later"); run `badger` for the ones he accepts.
+- **Roadmap** via `/badger` (say which release or "later"); run `badger` for the ones he accepts. Which roadmap is the record: `the-trail`'s rule (kit.json `roadmap`: page, file or none; with `none`, ask which project's roadmap it goes on).
 - **A plan's ideas section** (`~/.claude/plans/V<x>.md`), for an idea that belongs to a release already planned.
 - **Parked**: kept in the list with a reason, no action.
 
