@@ -31,18 +31,20 @@ The global rule "Usage and budget" (`~/.claude/CLAUDE.md`): the day cap is lifte
 ## 2. What runs, in what order
 The order matters: leon's list first, the audits whose findings repeat across windows next, the council last, since it judges the team with the others' reports in hand (`jedi-council`, "Run it alone or after `/avengers-assemble`").
 
-| Wave | Session | Wake message | Model in its session | Typical cost, from its own skill |
+| Wave | Session | Skill file and args | Model in its session | Typical cost, from its own skill |
 |---|---|---|---|---|
-| 1 | leon | `/leon deep dry` | Haiku, low | under 1M |
-| 2 | black-box | `/black-box <version>` | Opus, high | ≈ 55M (lanes 25M + 15M + 15M) |
-| 2 | no-half-measures | `/no-half-measures <version>` | Opus, high | 20M to 30M |
-| 2 | darth-vader | `/darth-vader <PR version>` | Sonnet, medium | no figure in its skill; one `bengt-johansson` per page |
-| 3 | jedi-council | `/jedi-council <version>` | Opus, high | ≈ 50M by its budget tags (sweep 8M, lens 16M, `mace-windu` 20M, `r2-d2` 4M); kit 1.4 ran ≈ 34M |
+| 1 | leon | `<core>/skills/leon/SKILL.md`, `deep dry` | Haiku, low | under 1M |
+| 2 | black-box | `<release>/skills/black-box/SKILL.md`, `<version>` | Opus, high | ≈ 55M (lanes 25M + 15M + 15M) |
+| 2 | no-half-measures | `<release>/skills/no-half-measures/SKILL.md`, `<version>` | Opus, high | 20M to 30M |
+| 2 | darth-vader | `<design>/skills/darth-vader/SKILL.md`, `<PR version>` | Sonnet, medium | no figure in its skill; one `bengt-johansson` per page |
+| 3 | jedi-council | `<release>/skills/jedi-council/SKILL.md`, `<version>` | Opus, high | ≈ 50M by its budget tags (sweep 8M, lens 16M, `mace-windu` 20M, `r2-d2` 4M); kit 1.4 ran ≈ 34M |
+
+**The wake message** is "Read <skill file> as a file and run it with: <args>", plus the wave 3 paths below. These skills are his to type (`disable-model-invocation`), and a cross-session message never loads a skill, so a bare `/black-box <version>` does nothing (kit 1.5 review M4; `special-delivery` wakes the same way). `<core>`, `<release>` and `<design>` are the folders of those wolfpack plugins.
 
 **Budget:** ≈ 130M to 140M for a project (≈ 3% of the week at 1% ≈ 46M), plus darth-vader when it runs, plus the conductor's own ≈ 2M. Kit scope: ≈ 50M.
 
 - **darth-vader runs only when a release's draft PR is open** (`gh pr list --draft --json number,title`, a title starting `V<x>:`), against that PR's version. With none open it is skipped and the summary says "skipped, no release PR". Its skill reads the PR's "What changed" and compares against its screenshots, and the only other target, a preview of `main`, runs on production's database, which darth-vader's own skill rules out.
-- **kit** (`/avengers-assemble kit`, from `~/dojo`): only `/jedi-council kit-<v>`, as its "From the dojo" paragraph says (`<v>` the kit's `core` version). The project audits belong to each project's own run; the council reads their summaries where they already are.
+- **kit** (`/avengers-assemble kit`, from `~/dojo`): only jedi-council, args `kit-<v>`, as its "From the dojo" paragraph says (`<v>` the kit's `core` version). The project audits belong to each project's own run; the council reads their summaries where they already are.
 
 ## 3. Start every session now, wake them in order
 Woken turns can't start sessions (norms.md in the `core` plugin, "Starting sessions"), so **this first turn starts every session the run needs**, parked; later turns only wake them with `send_message`.
