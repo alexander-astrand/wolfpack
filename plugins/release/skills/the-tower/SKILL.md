@@ -25,19 +25,23 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 `${CLAUDE_PLUGIN_ROOT}/scripts/the-tower.mjs` reads the session JSON Claude Code pipes in and prints one line, for example:
 
 ```
-V2.14.6.2 · link 2/2 · Hank: chris-de-kok 3.1/10M · the Commissioner said no (gh pr merge) 17:12Z
+session 9.6M ≈0.4% wk (fable 0.3 opus 0.1) · link 2/2 · Hank: chris-de-kok 3.1/10M · week 86%
 ```
 
 | Part | Means | Shown when |
 |---|---|---|
-| `V2.14.6.2` | the git branch (read from `.git/HEAD`, no git process) | always; the fallback for everything else |
+| `session 9.6M ≈0.4% wk (fable 0.3 opus 0.1)` | the session's real tokens, subagents included (each message counted once, by `usage.mjs`), and their share of the week; the split by model in points when two models each count | the input names a transcript |
 | `link 2/2` | this release's place in the armed chain (`.claude/full-auto-chain.json`) | a chain is armed, not expired, and lists the branch's version |
 | `Hank: <agent> 3.1/10M` | the most recently active subagent's tokens against its budget, from Hank's state files (`<scratchpad>/.hank/<session>/`); `3.1M` alone when no budget is known yet | the session has spawned an agent |
-| `week 86%` | the weekly all-models share the meter logger last wrote (`~/.claude/meter.log`, else the plans file named in `~/.claude/scheduled-tasks/meter-log/SKILL.md`) | above 80% only |
 | `the Commissioner said no (...) 17:12Z` | the guard's last deny in `.claude/full-auto.log` | within 30 minutes |
 | `auto said no (...) 17:12Z` | auto mode's last refusal in `.claude/permission-denied.log` | within 30 minutes |
+| `week 86% (Fable 40%)` | the live weekly all-models meter from the input's rate limits, else `~/.claude/meter-now.json` (written by `daily-budget.mjs --tower`), `~` in front when that file is older than 30 minutes; Fable's own week while Fable runs here | always, when either source has it |
 
-Times are UTC. If the line would pass 79 columns, the refusal's command is cut first, then parts drop in this order: the link, Hank, the refusal, the week. It never throws: a part that can't be read is left out, and the worst case is the bare branch. It reads small files and only the tail of the logs, with no network and no `gh`, because it runs on every redraw.
+The share uses one meter figure: `tokensPerPoint` in `usage.mjs`, which is kit.json's `meter.tokensPerPoint` when set, else 46M a point (Fable measured at 8M; H5, kit 1.5). The git branch (read from `.git/HEAD`, no git process) shows only when no part can be read.
+
+Times are UTC. If the line would pass 79 columns, the refusal's command is cut first, then parts drop in this order: the link, Hank, the refusal. The session and the week stay. It never throws: a part that can't be read is left out. It reads small files, the tail of the logs and only a transcript's new bytes (a count cached in the temp folder), with no network and no `gh`, because it runs on every redraw.
+
+The daily window's enforcer is its neighbour, `${CLAUDE_PLUGIN_ROOT}/scripts/daily-budget.mjs` (the 14% / 7% rule; `--status` for a dry run).
 
 ## Install (a human step)
 
@@ -56,7 +60,7 @@ echo '{}' | node ${CLAUDE_PLUGIN_ROOT}/scripts/the-tower.mjs
 echo '{"workspace":{"current_dir":"'$PWD'"}}' | node ${CLAUDE_PLUGIN_ROOT}/scripts/the-tower.mjs
 ```
 
-Both print one line under 80 characters. To see Hank's part, pass a real `session_id` and `transcript_path` from a session that spawned agents.
+Both print one line under 80 characters. To see the session part, pass a real `transcript_path`; for Hank's part also its `session_id`, from a session that spawned agents.
 
 ## Remove
 
