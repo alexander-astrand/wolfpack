@@ -4,7 +4,19 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { tallyEntries, totalTokens } from '../scripts/usage.mjs'
-import { DEFAULT_BUDGETS, STOPPED, WARNING, bareAgentType, decide, kitBudgets, parseBudget, watchNavigator } from './budget-cap.mjs'
+import {
+  DEFAULT_BUDGETS,
+  NAMELESS_REASON,
+  STOPPED,
+  WARNING,
+  bareAgentType,
+  decide,
+  draftDoneReason,
+  kitBudgets,
+  parseBudget,
+  plansDirFor,
+  watchNavigator,
+} from './budget-cap.mjs'
 
 const M = 1_000_000
 const SESSION = 'sess-1'
@@ -236,7 +248,9 @@ describe('the navigator', () => {
     appendFileSync(navFile(), JSON.stringify(entry) + '\n')
   }
   function nav(tool = 'Bash') {
-    return decide({ session_id: SESSION, transcript_path: navFile(), tool_name: tool, tool_input: {} }, { stateDir, log: (l) => logs.push(l) })
+    // A named spawn: the nameless and draft-done checks (kit 1.5) have their own tests below.
+    const toolInput = tool === 'Agent' ? { subagent_type: 'release:saul-goodman', description: 'saul-goodman: step' } : {}
+    return decide({ session_id: SESSION, transcript_path: navFile(), tool_name: tool, tool_input: toolInput }, { stateDir, plansDir: join(root, 'plans'), log: (l) => logs.push(l) })
   }
   beforeEach(() => writeFileSync(navFile(), ''))
 
@@ -477,5 +491,58 @@ describe('kit.json budgets (2.14.6)', () => {
     const { '*': rest, ...named } = budgets
     expect(named).toEqual(DEFAULT_BUDGETS)
     expect(rest).toBe(15 * M)
+  })
+})
+
+describe('spawns (kit 1.5)', () => {
+  let plansDir
+  beforeEach(() => {
+    plansDir = join(root, 'plans')
+    mkdirSync(plansDir, { recursive: true })
+    mkdirSync(join(root, '.claude'), { recursive: true })
+  })
+  const spawn = (toolInput, extra = {}) => {
+    const r = decide({ session_id: SESSION, transcript_path: join(root, `${SESSION}.jsonl`), tool_name: 'Agent', tool_input: toolInput, ...extra }, { stateDir, plansDir, log: (l) => logs.push(l) })
+    return r?.decision === 'deny' ? r.reason : 'allow'
+  }
+
+  it('denies every spawn of a navigator whose draft is done, naming the follow-up session', () => {
+    writeFileSync(join(plansDir, 'V0.6.draft-done'), `${SESSION}\nburrow · follow-up · 0.6\n`)
+    expect(spawn({ subagent_type: 'release:saul-goodman', description: 'saul-goodman: step 9' })).toBe(draftDoneReason('burrow · follow-up · 0.6'))
+    expect(spawn({ subagent_type: 'release:saul-goodman', description: 'x' }, { agent_id: 'a9' })).toMatch(/^The draft is done/)
+  })
+
+  it("leaves other sessions' markers and other tools alone", () => {
+    writeFileSync(join(plansDir, 'V0.6.draft-done'), 'another-session\nfollow-up\n')
+    expect(spawn({ subagent_type: 'release:saul-goodman', description: 'saul-goodman: step 9' })).toBe('allow')
+    writeFileSync(join(plansDir, 'V0.7.draft-done'), `${SESSION}\nfollow-up\n`)
+    expect(decide({ session_id: SESSION, tool_name: 'Bash', tool_input: {} }, { stateDir, plansDir })).toBeNull()
+  })
+
+  it("finds the plans folder from the kit's plans key", () => {
+    writeFileSync(join(root, '.claude', 'kit.json'), JSON.stringify({ plans: plansDir }))
+    expect(plansDirFor({})).toBe(plansDir)
+  })
+
+  it('denies a nameless agent', () => {
+    for (const type of [undefined, 'general-purpose', 'Explore', 'Plan', 'claude']) {
+      expect(spawn({ subagent_type: type, description: 'find the hooks' }), String(type)).toBe(NAMELESS_REASON)
+    }
+  })
+
+  it('lets a nameless type through when the description starts with a kit or project agent', () => {
+    expect(spawn({ subagent_type: 'general-purpose', description: 'saul-goodman: step 2 [budget 20M]' })).toBe('allow')
+    expect(spawn({ subagent_type: 'general-purpose', description: 'release:troy-and-abed: step 3' })).toBe('allow')
+    // Read from the plugins' agents folders, not only the budget table.
+    expect(spawn({ subagent_type: 'Explore', description: 'doc-brown: research' })).toBe('allow')
+    mkdirSync(join(root, '.claude', 'agents'), { recursive: true })
+    writeFileSync(join(root, '.claude', 'agents', 'ranger-rick.md'), '---\nname: ranger-rick\n---\n')
+    expect(spawn({ subagent_type: 'general-purpose', description: 'ranger-rick: look' })).toBe('allow')
+  })
+
+  it('lets kit agents and the other built-ins through', () => {
+    expect(spawn({ subagent_type: 'release:c-3po', description: 'write the README' })).toBe('allow')
+    expect(spawn({ subagent_type: 'claude-code-guide', description: 'hooks docs' })).toBe('allow')
+    expect(spawn({ subagent_type: 'statusline-setup', description: 'line' })).toBe('allow')
   })
 })
