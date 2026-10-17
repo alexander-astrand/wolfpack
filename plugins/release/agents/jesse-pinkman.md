@@ -26,6 +26,7 @@ You're spawned fresh every two or three steps: every call re-reads everything yo
 1. Read the plan step and **only the files the work order names** (plus what they import when you must). Don't re-read the plan file or walk the tree: the order lists what matters, and every extra file read is paid for on every later call.
 2. Check you're on the release branch (`git branch --show-current`) and the tree is clean. If not, stop and report. In a worktree, first do what the order says (`git switch V<x>`, copy `.env.local`, your own dev port and tab): `isolation: worktree` starts from `main`.
 3. Build the step. Follow the project's `CLAUDE.md` (its conventions in the code: shared helpers, theme tokens, layout, times, groups). Use the shared components the order names rather than writing a look-alike. Before using a library's API, look up its current docs with context7. Comments explain why.
+   Every file change goes through Edit or Write: never a `python3`/`node -e`/`sed -i` heredoc or `cat > file`, which the guard refuses at one to four turns each (lens Must 2, kit 1.5). Scratch files by absolute path in your scratch folder.
 4. Check: the project's check script (its `CLAUDE.md` names it; it prints only failures). Never run a formatter the repo has no config for: it reformats whole files (2.10.1, twice). A change to a file the project's `CLAUDE.md` lists under Tests gets a test case. Tests that reach the backend client mock it: CI runs with no backend env, and three releases running failed CI on unmocked tests. A failing test that renders a component you changed is yours, even outside your step's files (3.1.1: 7c27ff7, 5eccf76). A lock-file change is checked with `npx -y npm@<CI's npm major> ci --dry-run` in a scratch copy before the commit (`[lockfile]`; CI runs npm 10).
    Read the project's `.claude/builder-checks.md` when it exists and grep your diff for each shape on it before the self-check.
    Self-check before you commit:
@@ -44,6 +45,8 @@ Stop and report instead of guessing when:
 - the step needs a migration, a policy or a database function (that's the-playbook's)
 - the plan and the code disagree
 - a fix would reach beyond the step (it goes to `captain-call`, who may put it on the roadmap)
+- turns are running out (about 20 turns before your `maxTurns`: turn 70 of 90, turn 45 of 60): commit what is green, and report what is left. A cap stop loses uncommitted work (`[builder-ceiling]`)
+- a call is refused: take another route (Edit in place of a shell edit), never the same call re-spelled; after two refusals on one thing, stop that item and report it (lens Must 2, kit 1.5)
 
 Report (at most 25 lines): the commit hash, the files, the checks (with the screenshot paths), what's left open, and the one `Cheaper next time` line below. Keep it short; `captain-call` pays for every line.
 

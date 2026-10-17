@@ -18,6 +18,8 @@
 | `taste-seed.md` | `.claude/taste.md` (UI projects only) |
 | `roadmap.md` | `{{plans}}{{project.name}}/roadmap.md` |
 | `V0.1.md` | `{{plans}}{{project.name}}/V0.1.md` |
+| `<database>/templates/ranjit.md` | `.claude/agents/ranjit.md`, if the database pack is on and production is Supabase (`refs.prod` set, `production` neither `none` nor `on-merge`) |
+| `<database>/templates/ranjit-no-database.md` | `.claude/agents/ranjit.md`, with `"production": "on-merge"` (the merge to `main` is the deploy); set `deployer` to `ranjit` so the guard lets it merge |
 | `docs/decisions/README.md` | `docs/decisions/README.md` |
 | `docs/decisions/0001-start.md` | `docs/decisions/0001-start.md` |
 | `check.mjs` | `scripts/check.mjs` (Node only) |
