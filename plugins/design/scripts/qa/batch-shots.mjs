@@ -8,7 +8,7 @@
 // <design> is the design plugin's folder (${CLAUDE_PLUGIN_ROOT} inside the plugin).
 // shots.json (mock-scaffold.mjs writes one; any page list works the same):
 //   {
-//     "base": "file:///…/mock.html" or "http://localhost:5174/mock/topic",
+//     "base": "file:///abs/path/mock.html" or "http://localhost:5174/mock/topic",
 //     "out": "/abs/folder/for/the/jpgs",
 //     "themeVia": "param:theme" | "storage:<localStorage key>" | "attr:<attribute>" | "class",
 //     "shots": [{ "name": "topic-a-375-dark", "query": { "option": "a" }, "width": 375, "theme": "dark",
