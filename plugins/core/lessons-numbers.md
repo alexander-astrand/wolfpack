@@ -13,6 +13,7 @@ Read only by `future-ted` and `/inception`'s sizing step: the figures and eviden
 - **[name-match]** job-hunt 0.3's watchlist seed kept 4 namesakes in 8 boards until his live probe.
 - **[auto-outside]** job-hunt 0.1: three refusals and PR #5.
 - **[watchdog]** Burrow V0.9: part 3 sat 10 h on one prompt.
+- **[clear-up]** 18 Oct 2026: hours after Burrow 0.13's PR 24 merged and deployed, its finished sessions still held about 6.8 GB (12 TypeScript servers); the Mac had 110 MB free and 11 GB compressed, and 1Password froze. The release session refused to archive: a timer or Remote Control still live.
 - **[send-confirmed]** Burrow V0.9: three queued sends to part 3 (skip QA) were reported delivered; it ran QA.
 - **[release-session]** A session card mid-release cost him a click at night (Burrow V0.9). The session-starts trial ran 16–20 Oct 2026; the app refused starts in woken turns six times, among them Burrow 14 Oct, hejtide 16 Oct and Burrow 17 Oct 09:32 and 13:00, hence starts in the first turn (kit 1.5 plan, "Sturdier session starts").
 - **[guard-sed]** Fixed in Burrow V0.9.
