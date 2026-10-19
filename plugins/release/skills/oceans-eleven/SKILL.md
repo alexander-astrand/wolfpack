@@ -98,6 +98,7 @@ Every Agent `description` ends with the step's budget, e.g. `[budget 12M]`. **A 
 Screenshot counts: `spidey-sense`'s "Shot counts" (one rule for builders, QA, the Bengan Boys, darth-vader and mosbius). Hank enforces the caps from the hook; change them in `spidey-sense` and the hook together.
 
 **A role that overruns in two releases gets its route changed** (a cheaper model, smaller steps, or a fresh agent per piece), written into this skill by `future-ted` from the PR's budget rows.
+- `jeff-winger` (Burrow V0.12.1 E4, V0.12.2 S3a, V0.14 E1 and R0, each stopped by Hank at its tag): one step per spawn, never a reused agent, and a step that removes a component (its knip chain) sends the removal as its own order first; ticking the PR's boxes stays the navigator's (`gh pr edit` stopped E1).
 
 ## Escalation
 
