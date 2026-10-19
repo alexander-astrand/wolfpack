@@ -90,6 +90,6 @@ Right after step 6, or at the first human step when one comes earlier (a "done" 
 - **Human steps afterwards** don't hold the run: tick what ran in the ledger `<plans>human-steps.md` (`[x] (<date>)`), and walk the open ones with him one at a time ("Waiting on Alexander").
 
 ## The end
-Report back once to the session that sent the order (norms.md, "Report back"): what shipped, the backup folder, the log comment's link, the steps still his. Then the final message here: the PR link, what ran, the Deploy usage comment, the human steps afterwards with the ledger link, and the last line `Next: /future-ted <version> in a new session, Opus high (Alexander).`
+Report back once to the session that sent the order (norms.md, "Report back"): what shipped, the backup folder, the log comment's link, the steps still his. Leave nothing running (norms.md, "Report back": timers, background tasks, Remote Control off), so the wrap can archive this session. Then the final message here: the PR link, what ran, the Deploy usage comment, the human steps afterwards with the ledger link, and the last line `Next: /future-ted <version> in a new session, Opus high (Alexander).`
 
 **Budget:** 6 to 11M for the session to `done` (`[deploy-cost]`, council M1; merge-only and backup + migration deploys both came in at 9.3 to 10.6M). Production safety is never an `allowance=` setting.
