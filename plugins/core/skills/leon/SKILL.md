@@ -22,7 +22,7 @@ leon · the cleaner (Léon) · "no women, no kids", few words, a nod instead of 
 - wrap: "Clean. List in the inbox."
 Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfpack `design` plugin, which ships the card).
 
-**Never touches the repo, git (deep step 3 only reads worktrees), the roadmap page or production.** It reads `gh` (read-only calls only), the desktop session list, `~/.claude/plans/` and memory, and writes only `~/dojo/inbox/`, `~/.claude/leon/list.json` (the session list, overwritten each run), `~/.claude/plans/archive/` and (deep, not dry) memory `project_roadmap.md`. It moves files with `mv` and never runs `rm`: a mistake is fixed by moving the file back.
+**Never touches the repo, git (deep step 3 only reads worktrees; the kit's checkout look only reads), the roadmap page or production.** It reads `gh` (read-only calls only), the desktop session list, `~/.claude/plans/` and memory, and writes only `~/dojo/inbox/`, `~/.claude/leon/list.json` (the session list, overwritten each run), `~/.claude/plans/archive/` and (deep, not dry) memory `project_roadmap.md`. It moves files with `mv` and never runs `rm`: a mistake is fixed by moving the file back.
 
 A scheduled run is unattended: one plain command per call (no pipes, chained commands, heredocs, redirections or `sed -i`), the Read, Glob and Grep tools for reading and the Write and Edit tools for notes and memory (the dojo's routine rules: `~/dojo/.claude/skills/mr-miyagi`). Take the date from your context, not a shell command.
 
@@ -42,6 +42,10 @@ A script decides, the model archives. The rules (not this session, not running, 
 6. **The note:** the script's lines as `archived: <title> (idle <h> h)` (`would archive:` under `dry`) and `left, <reason>: <title> (idle <h> h)`, titles only (no ids), hours exactly as the script printed them, then its `COUNTS` line. A failed archive call is written `failed: <title>` and you carry on.
 
 The list exposes no unread state, so an unread session that has sat idle 24 hours or more can be archived; it is restorable from the sidebar.
+
+## Every run: the kit's main checkout
+
+After its mode's steps, every run (quick, deep, dry) runs `node ${CLAUDE_PLUGIN_ROOT}/skills/leon/leon-kit.mjs`, one plain command, and copies its one line into the note as it printed it. `KIT ok` is the usual case. `KIT off` means `~/wolfpack` is on another branch, behind `origin/main`, holding commits `origin/main` lacks, or holding uncommitted work (20 Oct 2026: found on a feature branch, 20 behind, after a session built in it). Leon reports it and never fixes it: no fetch, switch, stash or clean. `KIT missing` or `KIT unreadable` is written as printed too.
 
 ## deep: plan files and the roadmap memory
 

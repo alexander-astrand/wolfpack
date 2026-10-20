@@ -1,1 +1,5 @@
 node_modules
+# Local only: the auto-mode deny log and old app-made worktrees.
+.claude/
+# A mod's types are written by the engine when it loads the mod.
+plugins/*/mods/*/.claude-plugin/types/
