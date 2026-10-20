@@ -38,3 +38,5 @@ Read only by `future-ted` and `/inception`'s sizing step: the figures and eviden
 - **[next-dev]** portfolio 0.3.
 - **[links-live]** portfolio 0.3 linked a 404 repo, and a lapsed domain serving another site reached his draft read.
 - **[layout-check]** portfolio 0.5's `staffan-olsson`.
+- **[deploy-order-fit]** Burrow 0.14.3: 0094 dropped renovations.room_id, the plan said push it with or after the frontend; the first deploy try stopped, and he picked migrations first (House and Plans could 42703 for the minutes until Vercel served the release).
+- **[ready-first]** Burrow 0.14.2's arm was refused on a draft; Burrow 0.14.3's first deploy try found PR 32 a draft with CI skipped (the release session's `gh pr ready` is refused by the guard).
