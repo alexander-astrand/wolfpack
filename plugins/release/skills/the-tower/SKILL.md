@@ -53,6 +53,12 @@ node "<release>/scripts/the-tower.mjs" --install
 
 It prints the `statusLine` key of `~/.claude/settings.json` before and after, and writes only after you type `y`. It backs the file up to `~/.claude/settings.json.bak-the-tower` first and keeps every other key. Restart Claude Code to see the line. Claude never runs `--install`: settings are the person's to change.
 
+## In the desktop app (the mod)
+
+The app draws no `statusLine`, so a mod feeds the same script the same JSON and shows its line every 10 seconds, with the daily window's day part (`~/.claude/hooks/daily-budget.mjs --tower`) after it; it also logs each meter move to `~/.claude/meter-ticks.log`. Its source is `<release>/mods/the-tower/`, with its tests (`claude plugin test <release>/mods/the-tower`). It finds the script the way sessions find the kit: the `release` entry of `CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`, then `~/wolfpack-live/plugins/release`, read on every refresh. With neither, the line says `tower: no the-tower.mjs (release plugin?)` instead of going blank (20 Oct 2026: a fixed path to Hutzup's old copy, 27M a point, ran unnoticed).
+
+Install (a human step, like the statusLine): copy the folder to `~/.claude/mods/the-tower` (`rsync -a --delete --exclude .claude-plugin/types <release>/mods/the-tower/ ~/.claude/mods/the-tower/`) and keep `~/.claude/mods/the-tower` in `CLAUDE_CODE_PLUGIN_DIRS`. Copy it again when the mod's source changes; the script it runs moves with the kit by itself.
+
 ## Test
 
 ```
