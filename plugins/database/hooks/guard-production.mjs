@@ -626,9 +626,12 @@ function backupRanWhyNot(m, ctx) {
 
 // Untracked or ignored files here are what the listed commands run
 // (migrations, functions, the scripts); supabase's own link and branch state
-// and Finder's .DS_Store aren't.
+// and Finder's .DS_Store aren't, nor the ignored local secrets
+// supabase/functions/.env and .env.* (`supabase functions deploy` uploads
+// neither; one named like code, .env.ts, still counts). Only when ignored: an
+// untracked one still refuses (Burrow V0.13 to V0.14.4 asked on every call).
 const CODE_PATH_RE = /^"?(?:supabase|scripts)\//
-const NOT_CODE_RE = /^"?supabase\/\.(?:temp|branches)\/|(?:^|\/)\.DS_Store"?$/
+const NOT_CODE_RE = /^"?supabase\/\.(?:temp|branches)\/|(?:^|\/)\.DS_Store"?$|^supabase\/functions\/\.env(?![^/]*\.(?:[cm]?[jt]sx?|json)$)(?:\.[^/"]+)?$/
 
 // The call must run in the repo root at the armed commit with nothing
 // changed. Any error reading it is a refusal: this is the allow path.
