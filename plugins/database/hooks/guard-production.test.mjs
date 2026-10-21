@@ -506,6 +506,23 @@ describe('full auto: the marker', () => {
     expect(armed(PUSH, { repo: cleanRepo({ status: '?? notes.txt\n' }) }).decision).toBe('allow')
   })
 
+  // Burrow V0.13 to V0.14.4: the ignored local secrets file made every listed call ask.
+  it('(a) lets an ignored supabase/functions/.env or .env.* through, never an untracked one or code', () => {
+    for (const status of ['!! supabase/functions/.env\n', '!! supabase/functions/.env.local\n', '!! supabase/functions/.env.production\n']) {
+      expect(armed(PUSH, { repo: cleanRepo({ status }) }).decision, status).toBe('allow')
+    }
+    for (const status of [
+      '?? supabase/functions/.env\n', '?? supabase/functions/.env.local\n',
+      '!! supabase/functions/.env.ts\n', '!! supabase/functions/.env.x.mjs\n', '!! supabase/functions/.env/index.ts\n',
+      '!! supabase/functions/api/.env\n', '!! supabase/.env\n', '!! supabase/functions/x.ts\n', '!! scripts/.env\n',
+      '!! supabase/functions/.env\n!! supabase/migrations/0099_evil.sql\n',
+    ]) {
+      const dirty = armed(PUSH, { repo: cleanRepo({ status }) })
+      expect(dirty.decision, status).toBe('ask')
+      expect(dirty.why, status).toMatch(/working tree has changes/)
+    }
+  })
+
   it('(a) fails closed when the repo state can\'t be read', () => {
     const broken = armed(PUSH, { repo: () => { throw new Error('fatal: not a git repository') } })
     expect(broken.decision).toBe('ask')
@@ -658,7 +675,17 @@ describe('full auto: the marker', () => {
       mkdirSync(join(clean.dir, 'node_modules', 'a'), { recursive: true })
       edit(clean, 'node_modules/a/index.js', 'x\n')
       edit(clean, 'scripts/.DS_Store', 'x')
+      mkdirSync(join(clean.dir, 'supabase', 'functions'))
+      edit(clean, '.gitignore', '*.local\nsupabase/.temp/\nsupabase/.branches/\n.DS_Store\nnode_modules\nsupabase/functions/.env*\n')
+      clean.git('commit', '-qam', 'ignore the env')
+      clean.sha = clean.git('rev-parse', 'HEAD')
+      edit(clean, 'supabase/functions/.env', 'SECRET=x\n')
+      edit(clean, 'supabase/functions/.env.local', 'SECRET=x\n')
       expect(check(clean).decision).toBe('allow')
+      // The same pattern hides code named like an env file: that one asks.
+      edit(clean, 'supabase/functions/.env.ts', 'export {}\n')
+      expect(check(clean).why).toMatch(/!! supabase\/functions\/\.env\.ts/)
+      rmSync(join(clean.dir, 'supabase', 'functions', '.env.ts'))
       const attacks = [
         ['skip-worktree', (r) => { r.git('update-index', '--skip-worktree', 'scripts/prod-db.sh'); edit(r, 'scripts/prod-db.sh') }, /git is told not to look at scripts\/prod-db\.sh/],
         ['assume-unchanged', (r) => { r.git('update-index', '--assume-unchanged', 'scripts/prod-db.sh'); edit(r, 'scripts/prod-db.sh') }, /git is told not to look at scripts\/prod-db\.sh/],
