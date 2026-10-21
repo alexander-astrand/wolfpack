@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { pick, readOpenLogs } from './leon-pick.mjs'
+import { gitWorktrees, pick, readOpenLogs } from './leon-pick.mjs'
 
 const NOW = Date.parse('2026-10-06T12:00:00Z')
 const ago = (h) => new Date(NOW - h * 3600000).toISOString()
@@ -113,5 +113,19 @@ describe('readOpenLogs', () => {
     expect(open).toHaveLength(2)
     expect(open.some((o) => o.startsWith('running'))).toBe(true)
     expect(open.some((o) => o.includes('RESUMED'))).toBe(true)
+  })
+})
+
+describe('gitWorktrees', () => {
+  it('treats a folder that is not a git repo as a root with no worktrees', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dojo-'))
+    const roots = gitWorktrees(dir)
+    expect(roots).toEqual([dir])
+    const r = pick({ sessions: [{ ...base, cwd: join(dir, 'inbox') }], now: NOW, self: 'me', worktrees: roots, openLogs: [] })
+    expect(r.archive).toHaveLength(1)
+  })
+
+  it('still throws when git fails for another reason', () => {
+    expect(() => gitWorktrees(join(tmpdir(), 'leon-no-such-folder-' + Date.now()))).toThrow()
   })
 })

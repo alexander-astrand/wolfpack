@@ -66,8 +66,16 @@ function render({ archive, left }) {
   return lines.join('\n')
 }
 
-function gitWorktrees(root) {
-  const out = execFileSync('git', ['-C', root, 'worktree', 'list', '--porcelain'], { encoding: 'utf8' })
+// A root that isn't a git repo (the dojo is a plain folder) has no worktrees:
+// the folder itself still counts. Any other git failure still throws.
+export function gitWorktrees(root) {
+  let out
+  try {
+    out = execFileSync('git', ['-C', root, 'worktree', 'list', '--porcelain'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  } catch (e) {
+    if (/not a git repository/i.test(String(e.stderr))) return [root]
+    throw e
+  }
   const paths = out.split('\n').filter((l) => l.startsWith('worktree ')).map((l) => l.slice(9))
   return [root, ...paths, join(root, '.claude', 'worktrees')]
 }
