@@ -29,7 +29,7 @@ Each row: job → agent, model, effort. `captain-call` applies it itself and pas
 - A taste-heavy release (a stats round, a new kind of page) → `heisenberg`, Fable, high, first: a short creative brief from Alexander's notes, briefing `mosbius-designs`, then a review of the built result against it; it sends bolder leaps to `captain-call`, who puts them to Alexander as a pick-one. A star; 8M by default. Not every release. For a vision shaped with Alexander in person, `/heisenberg <topic>` instead.
 
 **Build**
-- Small UI steps with a clear spec, or docs → `jesse-pinkman`, Sonnet, medium, at most 2–3 steps per agent. A process first commit of more than five items is split by lane, one `jesse-pinkman` per lane; a worktree lane's order says to use relative paths inside the worktree only: one Sonnet hit its budget alone on a page and again on nine process items.
+- Small UI steps with a clear spec, or docs → `jesse-pinkman`, Sonnet, medium: one tap or one component a spawn (three taps in one step are three orders), docs at most 2–3 steps per agent. A process first commit of more than five items is split by lane, one `jesse-pinkman` per lane; a worktree lane's order says to use relative paths inside the worktree only: one Sonnet hit its budget alone on a page and again on nine process items.
 - Page-sized steps, logic, the waitlist, access rules, anything touching the shared helpers → the builder pool, Opus, medium: `chris-de-kok`, `ahmed-och-ahmed`, `saul-goodman`, `jeff-winger`, `troy-and-abed` (Alexander: "Five different opus builders maybe who can run parallel? Fun with more names too!"). The same prompt under five names, so the timeline says who built what; `captain-call` hands the next free name to the next lane.
 - **A sweep of 20+ files** (`[sweep]`) gets 25-30M or two lanes; its order greps for what the page shows, not one code pattern, and a class-name sweep greps its own diff, over the whole tree, for glued tokens.
 - **Lanes:** parallel builders only on files no other agent touches (one page or folder each), each in a worktree the navigator makes outside `.claude` (`~/Desktop/<Project>-lanes/<lane>`, the release branch as base; `captain-call`, "Parallel lanes"), its path in the order, set up per the `tesseract` skill; never `isolation: "worktree"` (`[lane-home]`, kit 1.5, H2). `captain-call` merges each worktree before a step that touches its files; `tesseract` cleans them up at the release's end. **When builders run side by side, each order names the owner of any helper they share** (`[parallel]`: 2.13.2 wrote "Playing this now" twice).
@@ -99,6 +99,9 @@ Screenshot counts: `spidey-sense`'s "Shot counts" (one rule for builders, QA, th
 
 **A role that overruns in two releases gets its route changed** (a cheaper model, smaller steps, or a fresh agent per piece), written into this skill by `future-ted` from the PR's budget rows.
 - `jeff-winger` (Burrow V0.12.1 E4, V0.12.2 S3a, V0.14 E1 and R0, each stopped by Hank at its tag): one step per spawn, never a reused agent, and a step that removes a component (its knip chain) sends the removal as its own order first; ticking the PR's boxes stays the navigator's (`gh pr edit` stopped E1).
+- `jesse-pinkman` (Burrow V0.14.3 Q0a 7.1M of 7M; V0.14.4 three taps in one order, 6.9M of 4M): one tap or one component a spawn; three taps in one step are three orders (Routing table, Build).
+
+**Sizing `the-playbook`** (Burrow V0.14.4): its new-Claude-function steps ran 1.3 to 2× their tags (11a 13.6M of 8M, 18 16.1M of 8M, three functions in one order 10.4M of 5M) while its migration-only steps landed under. A new function with its prompt, fixtures, tests and a live run sizes ≈ 12M, one function an order.
 
 ## Escalation
 

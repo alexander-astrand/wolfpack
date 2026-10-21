@@ -3,12 +3,14 @@
 Read only by `future-ted` and `/inception`'s sizing step: the figures and evidence behind the rules in `lessons.md`, one line per rule tag (kit 1.5, H3, 17 Oct 2026).
 
 - **[skyler]** A `local_…` session id resolving to its transcript (`--timeline` too) came in Burrow 0.6.
+- **[meter]** Measured floors above the 46M default: Burrow V0.14.2 61M real tokens a point; V0.14.4 483.2M over 62 → 70 % (other sessions beside it), at least 60M a point. A project that measures its own sets kit.json `meter.tokensPerPoint`.
 - **[split-by-live]** job-hunt's V0.3–V0.7 built as one: 18 commits, 50 min, 29.8M.
 - **[release-bump]** 2.14.9.1 shipped saying v2.14.9; hejtide 0.3's sed over the lock file also rewrote a dependency's version.
 - **[qa-like-a-user]** Burrow 0.8's QA passed two flows his first dev test failed (no door where she logs, no line until a reload).
 - **[reuse-line]** Burrow 0.8's two-step page ran 21.7M in one agent against ~5M a single page; job-hunt 0.4's two joins on one agent re-read the first inside the second until Hank stopped it at 6M.
 - **[data-contract]** Burrow 0.8's three weather readers wrote three readings of SMHI's rain interval (review must, one shared helper).
 - **[sibling-wait]** 3.3.2 part 1 ended its turn waiting for part 2's answer and held parts 3–4 for 2.5 h.
+- **[live-prompt]** Burrow V0.14.4: a fixture-mode eval read 19 of 60 against 55 of 60 live; the first live `--record` run overwrote seven hand-written fixture answers.
 - **[real-shape]** job-hunt 0.3's mail extractors and 0.4's reply rules, built on made-up mails, both failed their first live read (0.4: 5 of 8 no's, 5 fix commits).
 - **[name-match]** job-hunt 0.3's watchlist seed kept 4 namesakes in 8 boards until his live probe.
 - **[auto-outside]** job-hunt 0.1: three refusals and PR #5.
@@ -18,13 +20,15 @@ Read only by `future-ted` and `/inception`'s sizing step: the figures and eviden
 - **[release-session]** A session card mid-release cost him a click at night (Burrow V0.9). The session-starts trial ran 16–20 Oct 2026; the app refused starts in woken turns six times, among them Burrow 14 Oct, hejtide 16 Oct and Burrow 17 Oct 09:32 and 13:00, hence starts in the first turn (kit 1.5 plan, "Sturdier session starts").
 - **[guard-sed]** Fixed in Burrow V0.9.
 - **[layout-first]** Burrow V0.9 was aborted for both.
-- **[grep-first]** Burrow V0.9 sized 15M of inline actions on ⋯ menus that didn't exist (a grep: 3M).
+- **[grep-first]** Burrow V0.9 sized 15M of inline actions on ⋯ menus that didn't exist (a grep: 3M). Burrow V0.14.4's step 1a (retire `todayCards`/`forToday`) was planned on a count of 19 files and dropped at build: the code is live (daily push, a shortcut feed, Miyagi's today read); 3.1M to learn it.
 - **[research-scope]** hejtide 15 Oct 2026: 200k of 10M, Massvis cut.
 - **[research-lanes]** hejtide: two of three lanes hit 30 turns, nothing saved.
 - **[lane-home]** Burrow 0.6: the run went to Bypass at 20:35Z. portfolio 0.5's lanes landed in `.claude/worktrees` again and their `.next` builds broke local lint (fix commit a498278). Moved to routes in kit 1.5 (H2).
 - **[kit-agents]** kit 1.3 left Burrow without `ranjit`, so `/skinny-pete 0.6` stopped.
-- **[live-tweaks]** Broken: hejtide 0.1 (83% of 335M; three hand-started tweak sessions 89.2 + 71.3 + 46.5M), hejtide 0.4 (69M), job-hunt 0.1 (14M at the draft, 93M at the merge), 0.3 (17M→60M), portfolio 0.2 (64M). Kept: job-hunt 0.2 (5.5M), 0.4 (L1–L6 in one 33M session). Moved to routes in kit 1.5 (H2).
+- **[live-tweaks]** Broken: hejtide 0.1 (83% of 335M; three hand-started tweak sessions 89.2 + 71.3 + 46.5M), hejtide 0.4 (69M), job-hunt 0.1 (14M at the draft, 93M at the merge), 0.3 (17M→60M), portfolio 0.2 (64M). Kept: job-hunt 0.2 (5.5M), 0.4 (L1–L6 in one 33M session). Moved to routes in kit 1.5 (H2). Burrow V0.14 skipped Calm in a tweak's shots and he found its top broken after the deploy. Burrow V0.14.4: notes came one at a time, so its two follow-up navigators were 51 % of the look's 115.5M.
+- **[live-check]** Burrow V0.14.4's look at a surface he types into daily: 115.5M over 22 notes in two sessions, planned 60M (about twice a first look).
 - **[idle-navigator]** job-hunt 0.2's 22 calls after the draft cost 5.4M, 0.3's `/one-ring` in the 56M session 3.8M, 0.4's merge on "merge it" 7.1M over 24 calls (~295k each). Held as a step-table row in portfolio 0.5 (stopped at 7.6M, notes and merge fresh for 2.1M); as a plan line alone it failed in portfolio 0.2 (26M at the draft, 90M at the end). Moved to routes in kit 1.5 (H2).
+- **[ci-wait]** Burrow V0.14.4's deploy (`ranjit`) made about 30 single `gh pr checks` calls and ran 25.2M against a 6 to 11M tag.
 - **[new-project-agents]** hejtide 0.1 had neither, so the guard kept `gh pr ready`/`merge` from every session and Alexander clicked them.
 - **[review-lanes]** Burrow 0.6's four Opus lanes cost ~26M against a Sonnet run's 4.0M. The skill's route spawns him since kit 4b80f20: job-hunt 0.2's review cost 0.2M on Sonnet and found both musts.
 - **[script-input]** job-hunt 0.2's report printed "Totalt: 0" on a bad file (review must, 22ea96a).

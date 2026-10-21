@@ -1,6 +1,6 @@
 {
   "name": "release",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Releases end to end: the navigator (captain-call), the builders, the review, the PR and deploy skills (carousel, its-a-trap, one-ring for merge and deploy in one word, skinny-pete for the manual case, cattle-drive), the audits (avengers-assemble runs them together), and Hank, the hook that holds every agent to its token budget.",
   "author": { "name": "Alexander Åstrand" },
   "homepage": "https://github.com/alexander-astrand/wolfpack"
