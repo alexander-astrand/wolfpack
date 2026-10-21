@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "The wolfpack's shared core: the scout, test-runner and researcher (with its checker mode), the project starter (life-finds-a-way, with john-hammond and dr-house), the planning, wrap-up, research, docs and routine skills, and the norms and lessons every project follows.",
   "author": {
     "name": "Alexander Åstrand"

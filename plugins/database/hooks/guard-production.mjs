@@ -112,6 +112,16 @@
 // and ranjit's comment on the armed PR. Every other SendMessage or Agent call
 // gets no decision, so the classifier judges it as before. `done` on the last
 // release keeps the chain marker, marked finished, for the wrap-up.
+//
+// Kit 1.6, the one-word deploy (docs/decisions/0001-one-word-deploy.md in the
+// kit): `scripts/full-auto.sh deploy <go> [<fix-forward PR>]` runs a whole
+// deploy (hooks/deploy.mjs: ready, CI, backup, migrations, functions, merge,
+// host, smoke) in the session Alexander typed `/one-ring <go>` in. It passes
+// without asking from the main session when this session's transcript holds
+// that prompt typed by him in the last 12 hours (one-ring-go.mjs: a prompt
+// from another session, a routine or a channel never counts), or when a chain
+// marker covers <go>; otherwise it asks once. Session transcripts join the
+// protected paths, so writing one asks like a frozen file.
 
 import { appendFileSync, existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -120,6 +130,7 @@ import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 import { CI_JOBS, CI_WORKFLOW, DEPLOYER, DEV_KEYCHAIN_ITEM, DEV_REF, GH_FILES_MS, HOOKS_DIR, PROD_KEYCHAIN_ITEM, NO_PRODUCTION, PROD_URL, SHIPS_ON_MERGE, allowedCommands, armList, changesDatabase, checksNotGreen, completeFiles, ghFetchFiles, pluginMode, prFacts } from './production-steps.mjs'
 import { CHAIN_USAGE, FROZEN, FROZEN_RE, RELEASE_PR_FIELDS, chainArgs, chainWhyNot, frozenOnDisk, oneTapDecision, oneTapVerdict, projectRoot } from './chain-arm.mjs'
+import { GO_HOURS, TRANSCRIPT_RE, goArg, readHumanGo } from './one-ring-go.mjs'
 
 // The project's values come from its .claude/kit.json (production-steps.mjs
 // reads it; a missing key fails closed): DEV_REF, DEPLOYER, PROD_URL (the one
@@ -261,6 +272,11 @@ export function decide(input, env = {}) {
     root: env.root ?? REPO_ROOT,
     source: tool === 'Bash' ? String(args.command ?? '') : '',
     agent: String(input.agent_type ?? 'main'),
+    // A subagent's call carries its id even when its type is missing.
+    subagent: input.agent_type != null || input.agent_id != null,
+    // Alexander's typed `/one-ring <go>` in this session, read only at a
+    // deploy call (one-ring-go.mjs).
+    humanGo: env.humanGo ?? (() => readHumanGo({ transcriptPath: input.transcript_path, sessionId: input.session_id, now: Date.now() })),
     // Set by the checks when a call reaches production; logged while armed.
     production: false,
     logged: false,
@@ -828,7 +844,41 @@ function checkFullAuto(seg, words, ctx) {
     ctx.production = true
     return { decision: 'allow', reason: `ranjit closes V${args[1].replace(/^V/, '')}'s deploy: done checks production first and disarms on anything else; logged.` }
   }
-  return deny('Usage: scripts/full-auto.sh arm <version> | arm-chain <version> … | done <version> | disarm | preview <version> | check-plan <version> <plan file>')
+  if ((args.length === 2 || args.length === 3) && args[0] === 'deploy' && DEPLOY_GO_RE.test(args[1]) && (args.length === 2 || /^#?\d+$/.test(args[2]))) return deployCall(args, ctx)
+  return deny('Usage: scripts/full-auto.sh arm <version> | arm-chain <version> … | done <version> | disarm | preview <version> | check-plan <version> <plan file> | deploy <version or PR number> [<fix-forward PR>]')
+}
+
+// What `deploy` takes: a version (0.14.3.1) or a PR number, V or # in front.
+const DEPLOY_GO_RE = /^[Vv#]?\d+(?:\.\d+)*$/
+
+// The one-word deploy (kit 1.6): hooks/deploy.mjs runs the whole deploy behind
+// this one call, so the call is the gate. His typed `/one-ring <go>` in this
+// session is the go, never a prompt another session, a routine or a channel
+// sent; a chain marker covering <go> is a /cattle-drive tap's. Anything else
+// asks him once here. Never a subagent's: the session he typed in runs it.
+function deployCall(args, ctx) {
+  const go = goArg(args[1])
+  const what = `scripts/full-auto.sh ${args.join(' ')}`
+  ctx.production = true
+  ctx.logged = true
+  if (ctx.subagent) {
+    record(ctx, logLine(ctx, 'deny', what, 'from a subagent'))
+    return deny('The deploy runs in the session Alexander typed /one-ring in, never in a subagent.')
+  }
+  let typed = null
+  try { typed = ctx.humanGo() } catch { typed = null }
+  if (typed && typed.arg === go) {
+    record(ctx, logLine(ctx, 'allow', what, `his typed /one-ring ${typed.arg}`))
+    return { decision: 'allow', reason: `Alexander typed /one-ring ${typed.arg} in this session at ${new Date(typed.at).toISOString()}: that is the go for this deploy (backup before any database change; the script stops on red CI, conflicts, a failed backup, a dry run that isn't the PR's migrations, a failed smoke). Logged.` }
+  }
+  if (go.includes('.') && args.length === 2 && markerCovers(go, ctx)) {
+    record(ctx, logLine(ctx, 'allow', what, `the chain's tap covers V${go}`))
+    return { decision: 'allow', reason: `The chain armed at the start (/cattle-drive) covers V${go}: that tap is the go for this deploy. Logged.` }
+  }
+  const why = typed ? `the /one-ring he typed here names ${typed.arg}, not ${go}` : `no /one-ring typed by him in this session in the last ${GO_HOURS} hours`
+  record(ctx, logLine(ctx, ctx.unattended ? 'deny' : 'ask', what, why))
+  if (ctx.unattended) return deny(`${what} needs Alexander's go, and ${why}. Bypass and don't-ask modes can't ask him: he types /one-ring ${go} in this session.`)
+  return ask(ctx, `Deploys ${go} to production (hooks/deploy.mjs): out of draft, CI green, backup, migrations, functions, squash merge, the host's deploy and a smoke. ${why[0].toUpperCase()}${why.slice(1)}, so your yes here is the go.`)
 }
 
 function checkMcp(tool, args, ctx) {
@@ -1696,6 +1746,8 @@ export function namesProtected(word) {
   const p = normalize(String(word ?? '')).replace(/\/+$/, '')
   if (!p || p === '.') return false
   if (PROTECTED_RE.test(p) || GIT_CONFIG_FILE_RE.test(p)) return true
+  // A session transcript holds his typed /one-ring, the deploy's go (kit 1.6).
+  if (TRANSCRIPT_RE.test(p)) return true
   if (inPluginDir(p)) return true
   // Globs, like the marker's: a name that could match, in a folder that could
   // be .claude or scripts (or is itself a glob). `rm dist/*.json` still passes.
@@ -2353,6 +2405,7 @@ function roleOf(path) {
   const p = normalize(String(path ?? '')).replace(/\/+$/, '')
   if (!p || p === '.') return null
   if (GIT_CONFIG_FILE_RE.test(p)) return 'git config, which can point a push at main or make git run a command'
+  if (TRANSCRIPT_RE.test(p)) return "a session transcript, which only Claude Code writes: it holds Alexander's typed /one-ring, the deploy's go"
   const hit = ENTRY_RES.find(([, re]) => re.test(p))
   if (!hit) return null
   return `\`${hit[0]}\` is ${ROLES[hit[0]] ?? 'a file'} in the frozen set`
@@ -2364,7 +2417,7 @@ function roleOf(path) {
 // these (must 3, round 2). The list is short on purpose; don't widen it.
 const SCRIPT_READERS = new Set(['cat', 'less', 'head', 'tail', 'grep', 'wc', 'ls'])
 const SCRIPT_GIT_READS = new Set(['add', 'diff', 'log', 'show', 'blame'])
-const SCRIPT_DENIED = 'scripts/full-auto.sh arms production, so a call names it only to run it on its own (scripts/full-auto.sh arm <version> | arm-chain <version> … | done <version> | preview <version> | check-plan <version> <plan file> | disarm, as the whole command), to read it (cat, less, head, tail, grep, wc, ls, bash -n) or in git add/diff/log/show/blame.'
+const SCRIPT_DENIED = 'scripts/full-auto.sh arms production, so a call names it only to run it on its own (scripts/full-auto.sh arm <version> | arm-chain <version> … | done <version> | preview <version> | check-plan <version> <plan file> | deploy <version or PR number> | disarm, as the whole command), to read it (cat, less, head, tail, grep, wc, ls, bash -n) or in git add/diff/log/show/blame.'
 
 // Backslashes and quotes go first: `full\-auto.sh` is still the name to find
 // -name, and to a shell that reads the word again. A glob names the script
