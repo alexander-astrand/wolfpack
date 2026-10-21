@@ -136,7 +136,7 @@ Eval cases are only for skills the model may invoke (`[evals]`): a skill with `d
 
 ## Publish the kit
 
-The kit is its own repo, so publishing is the merge of its release PR to `main`. After the merge, `scripts/live-sync.sh` moves `~/wolfpack-live` (the checkout every session loads) onto `origin/main`; on the Air the launchd job above does the same every 30 minutes, and `future-ted` runs it at a kit wrap. A kit release bumps the plugin versions it changed (`scripts/bump.mjs`) and puts the one `live-sync.sh` line in its PR's "Human steps afterwards" (`carousel` does it).
+The kit is its own repo, so publishing is the merge of its release PR to `main`. The merge go is `/one-ring <PR number>`, typed in any kit session: the kit's own `.claude/kit.json` says `"production": "none"`, so it only merges (CI's `test` job green, squash). After the merge, `scripts/live-sync.sh` moves `~/wolfpack-live` (the checkout every session loads) onto `origin/main`; on the Air the launchd job above does the same every 30 minutes, and `future-ted` runs it at a kit wrap. A kit release bumps the plugin versions it changed (`scripts/bump.mjs`) and puts the one `live-sync.sh` line in its PR's "Human steps afterwards" (`carousel` does it).
 
 ## Full auto from the installed kit (database 1.1.0)
 

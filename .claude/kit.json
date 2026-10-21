@@ -1,0 +1,12 @@
+{
+  "project": { "name": "wolfpack" },
+  "stack": "node",
+  "production": "none",
+  "refs": { "dev": "", "prod": "" },
+  "urls": { "prod": "" },
+  "deployer": "",
+  "keychain": { "dev": "", "prod": "" },
+  "backupRoot": "",
+  "ci": { "workflow": ".github/workflows/test.yml", "jobs": ["test"] },
+  "kit": { "version": "1.6.1" }
+}
