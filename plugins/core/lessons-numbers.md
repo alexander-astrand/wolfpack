@@ -2,7 +2,7 @@
 
 Read only by `future-ted` and `/inception`'s sizing step: the figures and evidence behind the rules in `lessons.md`, one line per rule tag (kit 1.5, H3, 17 Oct 2026).
 
-- **[skyler]** A `local_…` session id resolving to its transcript (`--timeline` too) came in Burrow 0.6.
+- **[skyler]** A `local_…` session id resolving to its transcript (`--timeline` too) came in Burrow 0.6. portfolio 0.2's PR Usage was an ENOENT: `usage.mjs` ran from `c-3po`'s scratch folder.
 - **[meter]** Measured floors above the 46M default: Burrow V0.14.2 61M real tokens a point; V0.14.4 483.2M over 62 → 70 % (other sessions beside it), at least 60M a point. A project that measures its own sets kit.json `meter.tokensPerPoint`.
 - **[split-by-live]** job-hunt's V0.3–V0.7 built as one: 18 commits, 50 min, 29.8M.
 - **[release-bump]** 2.14.9.1 shipped saying v2.14.9; hejtide 0.3's sed over the lock file also rewrote a dependency's version.
@@ -42,3 +42,11 @@ Read only by `future-ted` and `/inception`'s sizing step: the figures and eviden
 - **[next-dev]** portfolio 0.3.
 - **[links-live]** portfolio 0.3 linked a 404 repo, and a lapsed domain serving another site reached his draft read.
 - **[layout-check]** portfolio 0.5's `staffan-olsson`.
+- **[deploy-order-fit]** Burrow 0.14.3: 0094 dropped renovations.room_id, the plan said push it with or after the frontend; the first deploy try stopped, and he picked migrations first (House and Plans could 42703 for the minutes until Vercel served the release).
+- **[pr-size]** Burrow V0.14.2: 496 files, a plain `arm` tapped instead.
+- **[before-merge-lines]** Burrow V0.14.2 deploy.
+- **[systemd-restart]** Miyagi on delphi, V0.14.2.
+- **[parallel]** Burrow V0.14.2: one lane's commit swallowed the other's staged files twice (two builders in one worktree).
+- **[lean-check]** portfolio 0.2's two tapped leans (a lone 560px reading column, the team's nicknames in public copy) both came back after the build (V0.2.1, 7adbab2).
+- **[reader-and-wiring]** Burrow V0.13's S11b/S11c split read the same three files twice.
+- **[look-asks]** Burrow V0.13: eleven asks, 79.3M, 30 % of the release, three redone once.
