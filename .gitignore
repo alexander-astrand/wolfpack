@@ -1,5 +1,7 @@
 node_modules
-# Local only: the auto-mode deny log and old app-made worktrees.
-.claude/
+# Local only: the auto-mode deny log and old app-made worktrees. kit.json is
+# tracked: it says the kit ships nowhere, so /one-ring merges kit PRs.
+.claude/*
+!.claude/kit.json
 # A mod's types are written by the engine when it loads the mod.
 plugins/*/mods/*/.claude-plugin/types/

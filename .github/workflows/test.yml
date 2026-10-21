@@ -1,4 +1,6 @@
-name: Kit tests
+# Named CI: /one-ring's deploy script counts only CI's jobs (kit.json ci.jobs)
+# from a workflow of that name.
+name: CI
 
 on:
   push:
