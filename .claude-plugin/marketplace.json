@@ -6,31 +6,31 @@
     {
       "name": "core",
       "source": "./plugins/core",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "description": "The wolfpack's shared core: the scout (lorenzo-von-matterhorn), the researchers, the project starter (life-finds-a-way, with john-hammond and dr-house), the planning, wrap-up, research, docs, cost-watch (scrooge) and routine skills, and the norms and lessons every project follows."
     },
     {
       "name": "release",
       "source": "./plugins/release",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "description": "Releases end to end: the navigator (captain-call), the builders, the review, the PR and deploy skills (carousel, its-a-trap, one-ring, special-delivery, skinny-pete for the manual case, cattle-drive), the audits (avengers-assemble runs them together), and Hank, the hook that holds every agent to its token budget."
     },
     {
       "name": "design",
       "source": "./plugins/design",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "description": "The wolfpack's design crew: heisenberg's briefs and studio, mosbius-designs' mock-ups, the QA coach and the Bengan Boys, daredevil's accessibility review, darth-vader's full QA, the spidey-sense browser checks, the voice card and a taste template."
     },
     {
       "name": "database",
       "source": "./plugins/database",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "description": "The Supabase pack: the production guard (the Slap Bet Commissioner) with its hooks, the-playbook (the deployer agent is each project's own), and SQL tests with bro-code. Its production scripts are copied into each project's scripts/ once (see its README)."
     },
     {
       "name": "wolfpack",
       "source": "./plugins/wolfpack",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "description": "The whole kit in one install: no components of its own, it depends on core, release, design and database, which Claude Code installs with it at the same scope."
     }
   ]
