@@ -397,6 +397,22 @@ case "${1:-}" in
     pr=$(release_pr "$version")
     gh pr view "$pr" --json "$PR_FIELDS" | node "$HOOKS/production-steps.mjs" check-plan "$version" "$pr" "$3" --pr-json
     ;;
+  deploy)
+    # The one-word deploy (kit 1.6, docs/decisions/0001-one-word-deploy.md):
+    #   scripts/full-auto.sh deploy <version or PR number> [<fix-forward PR>]
+    # runs the whole deploy in hooks/deploy.mjs (ready, CI, backup, the
+    # migrations, functions, the squash merge, the host's deploy, a smoke)
+    # from a throwaway checkout of the PR's head, so it works from any
+    # checkout of the project, a worktree too, for a PR on any branch. Run
+    # again after a stop, it picks up where it stopped. The guard lets this
+    # call, and no other route, through on Alexander's typed /one-ring <go>
+    # in the same session (or a chain's tap); otherwise it asks him once.
+    [ $# -eq 2 ] || [ $# -eq 3 ] || die "usage: scripts/full-auto.sh deploy <version or PR number> [<fix-forward PR number>]"
+    shift
+    HOOKS=$(hooks_dir)
+    [ -f "$HOOKS/deploy.mjs" ] || die_setup "no deploy.mjs beside $HOOKS/chain-arm.mjs: run the database plugin's own scripts/full-auto.sh (kit 1.6 or later)"
+    exec node "$HOOKS/deploy.mjs" "$@"
+    ;;
   disarm)
     [ $# -eq 1 ] || die "usage: scripts/full-auto.sh disarm"
     # Needs no hooks folder: taking rights away works even when the setup

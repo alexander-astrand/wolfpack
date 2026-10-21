@@ -297,8 +297,8 @@ const deployedFunctions = (marker) => marker.commands.flatMap((c) => DEPLOY_RE.e
 
 // The migrations production has applied, from `prod-db.sh migrations`: the
 // CLI prints JSON when it isn't on a terminal, a table when it is. null when
-// neither could be read.
-function appliedMigrations(text) {
+// neither could be read. The one-word deploy (deploy.mjs) reads it too.
+export function appliedMigrations(text) {
   const applied = new Set()
   let read = false
   for (const line of String(text ?? '').split('\n')) {

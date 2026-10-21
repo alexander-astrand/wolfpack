@@ -33,7 +33,7 @@ const SANDBOX = realpathSync(mkdtempSync(join(tmpdir(), 'guard-sandbox-')))
 process.once('exit', () => rmSync(SANDBOX, { recursive: true, force: true }))
 mkdirSync(join(SANDBOX, '.claude', 'hooks'), { recursive: true })
 const sandboxed = (file) => join(SANDBOX, '.claude', 'hooks', file)
-for (const f of ['guard-entry.mjs', 'guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs']) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), sandboxed(f))
+for (const f of ['guard-entry.mjs', 'guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs']) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), sandboxed(f))
 // Rows that only say "not refused": a listed read comes back allow (2.12.3),
 // anything else passes to the permission rules.
 const OPEN = /^(?:pass|allow)$/
@@ -2454,7 +2454,7 @@ describe('2.12.4 review: refused as on main', () => {
   beforeAll(async () => {
     mainDir = mkdtempSync(join(tmpdir(), 'guard-main-'))
     try {
-      for (const f of ['guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs']) {
+      for (const f of ['guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs']) {
         writeFileSync(join(mainDir, f), execFileSync('git', ['show', `main:.claude/hooks/${f}`], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))
       }
       mainDecide = (await import(pathToFileURL(join(mainDir, 'guard-production.mjs')).href)).decide
@@ -2997,7 +2997,7 @@ describe('2.14.9.1: the values from kit.json, and the project root', () => {
     const own = realpathSync(mkdtempSync(join(tmpdir(), 'own-hooks-')))
     try {
       mkdirSync(join(own, '.claude', 'hooks'), { recursive: true })
-      for (const f of ['guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'chain-exclusions.mjs']) {
+      for (const f of ['guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'chain-exclusions.mjs', 'one-ring-go.mjs']) {
         if (existsSync(fileURLToPath(new URL(`./${f}`, import.meta.url)))) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), join(own, '.claude', 'hooks', f))
       }
       copyFileSync(fileURLToPath(new URL('./fixtures/kit.json', import.meta.url)), join(own, '.claude', 'kit.json'))
@@ -3015,6 +3015,73 @@ describe('2.14.9.1: the values from kit.json, and the project root', () => {
     } finally {
       rmSync(own, { recursive: true, force: true })
     }
+  })
+})
+
+// Kit 1.6: `full-auto.sh deploy <go>` runs the whole deploy behind one call,
+// so his typed /one-ring is checked there (one-ring-go.test.mjs covers which
+// prompts count); a session transcript, where it lives, is written by nobody.
+describe('the one-word deploy (kit 1.6)', () => {
+  const PLUGIN_SCRIPT = '/Users/a/wolfpack-live/plugins/database/scripts/full-auto.sh'
+  const NOW = Date.parse('2026-10-21T10:00:00Z')
+  const typedGo = (arg) => ({ arg, at: NOW - 60_000, uuid: 'u' })
+  const call = (command, { go = null, agent, agentId, mode = 'auto', chain = null, frozen = 'f'.repeat(64) } = {}) => {
+    const input = { tool_name: 'Bash', tool_input: { command, run_in_background: true }, permission_mode: mode, session_id: 's', transcript_path: '/t.jsonl', cwd: '/r/.claude/worktrees/fix' }
+    if (agent) input.agent_type = agent
+    if (agentId) input.agent_id = agentId
+    return decide(input, { humanGo: () => go, chainMarker: () => chain, marker: () => null, releasePr: () => null, linkedRef: () => DEV_REF, now: () => NOW, frozen: () => frozen })
+  }
+
+  it('passes without asking on his typed /one-ring for the same version or PR, from any folder', () => {
+    expect(call(`${PLUGIN_SCRIPT} deploy 0.14.3.1`, { go: typedGo('0.14.3.1') }).decision).toBe('allow')
+    expect(call(`${PLUGIN_SCRIPT} deploy V0.14.3.1`, { go: typedGo('0.14.3.1') }).decision).toBe('allow')
+    expect(call('scripts/full-auto.sh deploy 34', { go: typedGo('34') }).decision).toBe('allow')
+    expect(call(`${PLUGIN_SCRIPT} deploy 34 35`, { go: typedGo('34') }).decision).toBe('allow')
+    expect(call(`${PLUGIN_SCRIPT} deploy 34`, { go: typedGo('34'), mode: 'bypassPermissions' }).decision).toBe('allow')
+  })
+
+  it('asks once without his go, or with a go for something else', () => {
+    const none = call(`${PLUGIN_SCRIPT} deploy 0.14.3.1`)
+    expect(none.decision).toBe('ask')
+    expect(none.reason).toMatch(/No \/one-ring typed by him/)
+    const other = call(`${PLUGIN_SCRIPT} deploy 0.14.3.2`, { go: typedGo('0.14.3.1') })
+    expect(other.decision).toBe('ask')
+    expect(other.reason).toMatch(/names 0\.14\.3\.1, not 0\.14\.3\.2/)
+    expect(call(`${PLUGIN_SCRIPT} deploy 34`, { go: typedGo('0.14.3.1') }).decision).toBe('ask')
+  })
+
+  it("is refused in bypass or don't-ask without his go, and always from a subagent", () => {
+    expect(call(`${PLUGIN_SCRIPT} deploy 34`, { mode: 'bypassPermissions' }).decision).toBe('deny')
+    expect(call(`${PLUGIN_SCRIPT} deploy 34`, { mode: 'dontAsk' }).decision).toBe('deny')
+    expect(call(`${PLUGIN_SCRIPT} deploy 34`, { go: typedGo('34'), agent: 'ranjit' }).decision).toBe('deny')
+    expect(call(`${PLUGIN_SCRIPT} deploy 34`, { go: typedGo('34'), agentId: 'a1' }).decision).toBe('deny')
+  })
+
+  it('runs only as the whole command, with a version or PR number', () => {
+    expect(call(`git pull && ${PLUGIN_SCRIPT} deploy 34`, { go: typedGo('34') }).decision).toBe('deny')
+    expect(call(`FOO=1 ${PLUGIN_SCRIPT} deploy 34`, { go: typedGo('34') }).decision).toBe('deny')
+    expect(call(`${PLUGIN_SCRIPT} deploy 34 now`, { go: typedGo('34') }).decision).toBe('deny')
+    expect(call(`${PLUGIN_SCRIPT} deploy main`, { go: typedGo('34') }).decision).toBe('deny')
+    expect(call(`${PLUGIN_SCRIPT} deploy 34 35 36`, { go: typedGo('34') }).decision).toBe('deny')
+  })
+
+  it("passes under a chain's tap for its version, not a PR number or a fix-forward", () => {
+    const chain = { chain: 'c', versions: ['2.14.10'], done: [], armedAt: new Date(NOW - 3600_000).toISOString(), expiresAt: new Date(NOW + 3600_000).toISOString(), frozenHash: 'f'.repeat(64), mainSha: 'a'.repeat(40) }
+    expect(call(`${PLUGIN_SCRIPT} deploy 2.14.10`, { chain }).decision).toBe('allow')
+    expect(call(`${PLUGIN_SCRIPT} deploy 2.14.11`, { chain }).decision).toBe('ask')
+    expect(call(`${PLUGIN_SCRIPT} deploy 2.14.10 40`, { chain }).decision).toBe('ask')
+    expect(call(`${PLUGIN_SCRIPT} deploy 2.14.10`, { chain, frozen: 'e'.repeat(64) }).decision).toBe('ask')
+    expect(call(`${PLUGIN_SCRIPT} deploy 2.14.10`, { chain: { ...chain, done: ['2.14.10'] } }).decision).toBe('ask')
+  })
+
+  it("asks before anything writes a session transcript, where his go lives", () => {
+    const t = '/Users/a/.claude/projects/-Users-a-Desktop-Burrow/s.jsonl'
+    expect(bash(`echo '{}' >> ${t}`)).toBe('ask')
+    expect(bash(`cp /tmp/fake.jsonl ${t}`)).toBe('ask')
+    expect(run('Write', { file_path: t, content: '{}' })).toBe('ask')
+    expect(run('Edit', { file_path: '/Users/a/.claude/projects/p/s/subagents/agent-1.jsonl', old_string: 'a', new_string: 'b' })).toBe('ask')
+    expect(run('Write', { file_path: '/Users/a/.claude/projects/p/memory/note.md', content: 'x' })).toBe('pass')
+    expect(bash(`tail -5 ${t}`)).toMatch(OPEN)
   })
 })
 

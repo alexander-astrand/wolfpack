@@ -71,7 +71,7 @@ Each row: job → agent, model, effort. `captain-call` applies it itself and pas
 - A bug that survived two attempts → an Opus builder at xhigh with both earlier reports in its order.
 
 **Deploy**
-- Production steps → the project's own `ranjit`, Opus, high, through `/special-delivery` after each merge go (`/skinny-pete` only when a manual run is needed; `/one-ring` merges first).
+- Merge and deploy → `/one-ring`, his one word, in the session he types it in: the database plugin's deploy script, no agent (kit 1.6). The project's own `ranjit`, Opus, high, runs a chain's deploy leg (`/cattle-drive`) and `/skinny-pete`'s manual cases.
 
 **Docs**
 - The README update, the PR description and its Usage section, the-trail edits → `c-3po`, Sonnet, medium, from the plan file, the commit log and `captain-call`'s notes; used by `carousel` and `captain-call`'s step 6.
