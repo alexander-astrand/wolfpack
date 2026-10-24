@@ -15,8 +15,10 @@ The worst sendback is a repeat. When one page has solved something (a page's scr
 `future-ted` adds each new sendback at the wrap-up, in this format, under its heading. No entry without a source:
 
 ```
-- <the rule>. (<page>, <release>: "<his words>")
+- <the rule>. Solved on: <page>. (<page sent back>, <release>: "<his words>")
 ```
+
+**`Solved on: <page>` is the repeat index.** It names the page that already gets the pattern right; leave it out while no page does, and the first page to get it right adds it. A reader with a diff's page list greps `Solved on:` in the sections for those pages: a page that lacks the solved pattern is the likely repeat, checked first. The kit's `taste.md` explains it at the top and tags its own rules the same way.
 
 ## Scrolling and columns
 - One scrollbar per page. A two-column page scrolls as one: the main column moves with the page, the side column is sticky and scrolls on its own with no visible bar.
