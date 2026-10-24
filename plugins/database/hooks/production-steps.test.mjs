@@ -10,9 +10,10 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
-  CI_JOBS, CI_WORKFLOW, CI_WORKFLOW_FILE, GH_FILES_MS, PLAN_TITLE, allowedCommands, armList, checksNotGreen, completeFiles, gitFacts, mergeOnlyWhyNot, migrationsWhyNot, parseGitFacts, parseProductionSteps,
+  CI_JOBS, CI_WORKFLOW, CI_WORKFLOW_FILE, GH_FILES_MS, GIT_FACTS_MS, HEAD_OF_MS, PLAN_TITLE, allowedCommands, armList, checksNotGreen, completeFiles, gitFacts, mergeOnlyWhyNot, migrationsWhyNot, parseGitFacts, parseProductionSteps,
   loadKitConfig, planCalls, planCheck, planCheckText, planLines, prFacts, previewText, withCompleteFiles,
 } from './production-steps.mjs'
+import { READ_BUDGET_MS, readTimeout, startReads, stopReads } from './read-clock.mjs'
 
 const fixture = (name) => readFileSync(fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url)), 'utf8')
 const cli = fileURLToPath(new URL('./production-steps.mjs', import.meta.url))
@@ -520,5 +521,24 @@ describe('2.14.9.2: CI job names come from kit.json', () => {
       rmSync(dir, { recursive: true, force: true })
     }
     expect(CI_JOBS).toEqual(FIXTURE_JOBS)
+  })
+})
+
+// Kit 1.7 review: the deploy and the arm read gitFacts and headOf outside any
+// decision, so their old timeouts hold there; only decide's clock caps them.
+describe('read timeouts outside a decision', () => {
+  it('gitFacts keeps 10 s and headOf 15 s outside decide, and the clock caps them inside', () => {
+    expect(GIT_FACTS_MS).toBe(10_000)
+    expect(HEAD_OF_MS).toBe(15_000)
+    expect(readTimeout(GIT_FACTS_MS)).toBe(10_000)
+    expect(readTimeout(HEAD_OF_MS)).toBe(15_000)
+    const now = Date.now()
+    startReads(now)
+    try {
+      expect(readTimeout(HEAD_OF_MS, now)).toBe(READ_BUDGET_MS)
+      expect(readTimeout(GIT_FACTS_MS, now + 5000)).toBe(READ_BUDGET_MS - 5000)
+    } finally {
+      stopReads()
+    }
   })
 })

@@ -445,12 +445,17 @@ function readJson(file) {
   try { return JSON.parse(raw) } catch { return {} }
 }
 
-// stdout of a read, or null when it fails. Inside the guard's decide it
-// shares the read clock (kit 1.7, M10), so a hang can't pass guard-entry's
-// 18 s watchdog; a spent clock throws and reads as a failure.
+// The arm's own reads (gh, prod-db.sh migrations, supabase functions list)
+// get 120 s: they run in the arm script's main(), never inside the guard's
+// decide, and a slow network that failed one would disarm the chain. Kit 1.7
+// cut this to 5 s by mistake; readTimeout keeps the cap should a decision
+// ever call it.
+export const ARM_READ_MS = 120_000
+
+// stdout of a read, or null when it fails.
 function readOut(cmd, args) {
   try {
-    return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: 'utf8', timeout: readTimeout(5000), stdio: ['ignore', 'pipe', 'pipe'] })
+    return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: 'utf8', timeout: readTimeout(ARM_READ_MS), stdio: ['ignore', 'pipe', 'pipe'] })
   } catch {
     return null
   }

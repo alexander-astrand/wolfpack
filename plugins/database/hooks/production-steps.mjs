@@ -338,6 +338,12 @@ export function armList(body, pr, facts = {}) {
   return { commands: [...(isDraft ? [`gh pr ready ${pr}`] : []), `gh pr merge ${pr} --squash --admin`], mergeOnly: true }
 }
 
+// The git reads' and the head read's own timeouts, as before kit 1.7: the
+// deploy and the arm read them outside any decision, where a cut to 5 s only
+// failed slow reads. Inside decide the read clock caps them.
+export const GIT_FACTS_MS = 10_000
+export const HEAD_OF_MS = 15_000
+
 /**
  * What git says about the PR's head against origin/main: every path the diff
  * touches (both paths of a rename or a copy) and every symlink under
@@ -349,10 +355,10 @@ export function armList(body, pr, facts = {}) {
  */
 export function gitFacts(sha, cwd = process.cwd()) {
   if (!/^[0-9a-f]{40}$/.test(sha ?? '')) return null
-  // Runs inside the guard's decide too: its shared read clock (kit 1.7, M10)
-  // keeps this under guard-entry's 18 s watchdog; a spent clock throws, and
-  // the catch below makes that "couldn't be read".
-  const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: readTimeout(5000), maxBuffer: 64 << 20 })
+  // Runs inside the guard's decide too, where the shared read clock (kit 1.7,
+  // M10) caps it; a spent clock throws, and the catch below makes that
+  // "couldn't be read". Outside a decision it keeps its own GIT_FACTS_MS.
+  const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: readTimeout(GIT_FACTS_MS), maxBuffer: 64 << 20 })
   try {
     return parseGitFacts(git('diff', '--raw', '-z', '-M', '--no-abbrev', `origin/main...${sha}`), git('ls-tree', '-r', '-z', '--full-tree', sha))
   } catch {
@@ -713,7 +719,7 @@ function readPr(n, json, then, sha = null) {
 
 function headOf(n) {
   try {
-    return execFileSync('gh', ['pr', 'view', String(n), '--json', 'headRefOid', '--jq', '.headRefOid'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: readTimeout(5000) }).trim()
+    return execFileSync('gh', ['pr', 'view', String(n), '--json', 'headRefOid', '--jq', '.headRefOid'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: readTimeout(HEAD_OF_MS) }).trim()
   } catch {
     return null
   }
