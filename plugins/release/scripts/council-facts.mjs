@@ -27,7 +27,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const HELP = `Usage: node council-facts.mjs --since <YYYY-MM-DD> --out <facts.md>
          [--project <name>=<repo>]… [--git <repo> --from <commit>] [--retired <a>,<b>]
          [--transcripts <dir>] [--kit <plugins dir>]
-Writes facts.md, and cards.md with cards-cheaper.md beside it.`
+Writes facts.md, and skills-cards.md with skills-cards-cheaper.md beside it.`
 
 export function parseArgs(argv) {
   const o = { since: null, out: null, git: null, from: null, retired: [], kit: join(HERE, '..', '..'), transcripts: join(homedir(), '.claude', 'projects'), projects: {}, help: false }
@@ -210,7 +210,7 @@ export function buildFacts(o, { run = git } = {}) {
   const r = buildCards(o)
   const { cards, cheaper } = renderCards(r, o)
   const out = [`# Council facts (window ${o.since} to ${new Date().toISOString().slice(0, 10)})`, '']
-  out.push(`Built by \`plugins/release/scripts/council-facts.mjs\`. Transcript folders read: ${allDirs.length ? allDirs.map((d) => `\`${basename(d)}\``).join(', ') : 'none'}. The cards are in \`cards.md\` beside this file, every "Cheaper next time:" line in \`cards-cheaper.md\`.`, '')
+  out.push(`Built by \`plugins/release/scripts/council-facts.mjs\`. Transcript folders read: ${allDirs.length ? allDirs.map((d) => `\`${basename(d)}\``).join(', ') : 'none'}. The cards are in \`skills-cards.md\` beside this file, every "Cheaper next time:" line in \`skills-cards-cheaper.md\`.`, '')
   out.push('## Git range', '', gitRange(o.git, o.from, run), '')
   out.push('## Speed, per project', '')
   for (const [p, dirs] of Object.entries(dirsOf)) out.push(`### ${p}`, '', dirs.length ? speedTable(speedFor(dirs, from)) : 'No transcript folder.', '')
@@ -231,9 +231,9 @@ function main() {
   }
   const { facts, cards, cheaper } = buildFacts(o)
   writeFileSync(o.out, facts)
-  writeFileSync(join(dirname(o.out), 'cards.md'), cards)
-  writeFileSync(join(dirname(o.out), 'cards-cheaper.md'), cheaper)
-  console.log(`Wrote ${o.out} (${facts.split('\n').length} lines) and cards.md beside it.`)
+  writeFileSync(join(dirname(o.out), 'skills-cards.md'), cards)
+  writeFileSync(join(dirname(o.out), 'skills-cards-cheaper.md'), cheaper)
+  console.log(`Wrote ${o.out} (${facts.split('\n').length} lines) and skills-cards.md beside it.`)
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
