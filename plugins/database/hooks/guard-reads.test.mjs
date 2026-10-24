@@ -79,6 +79,13 @@ describe('H5: the shapes that stay off the list', () => {
     'rg --hidden KEY',
     'rg --no-ignore KEY',
     'rg -L x src',
+    // globs override rg's hidden and ignore skipping (review must 2)
+    "rg -g '*' x",
+    'rg -g .env KEY .',
+    "rg -g '*' -e .",
+    'rg --glob=.env x',
+    'rg --iglob=.env* x',
+    'rg --glob .env x',
     // a pattern the shell would expand into dot names
     'grep .* src/a.ts',
     // anything else in the pipe

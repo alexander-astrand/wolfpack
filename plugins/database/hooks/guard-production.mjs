@@ -1074,17 +1074,19 @@ function gitRead(args, ctx) {
 // has an allow-list of options, so a new flag stays with the classifier. grep
 // doesn't recurse here (`grep -r` over a folder reads its .env files too); rg
 // does, but skips hidden and ignored files unless told, so -u, --hidden and
-// --no-ignore stay off. `-o` is refused for all three, as the council wrote it.
+// --no-ignore stay off, and so do -g, --glob and --iglob, which override that
+// skipping (`rg -g .env KEY .` prints the secret; kit 1.7 review must 2).
+// `-o` is refused for all three, as the council wrote it.
 const TEXT_READ = {
   grep: { letters: 'nHhilLcvwxFEGPsqIZz', value: ['-e', '-f', '-A', '-B', '-C', '-m'], numbered: /^-[ABCm]\d+$/,
     long: ['line-number', 'ignore-case', 'files-with-matches', 'files-without-match', 'count', 'invert-match', 'word-regexp', 'line-regexp', 'fixed-strings',
       'extended-regexp', 'basic-regexp', 'perl-regexp', 'no-filename', 'with-filename', 'no-messages', 'quiet', 'silent', 'null', 'null-data', 'byte-offset'],
     longValue: ['regexp', 'file', 'max-count', 'context', 'after-context', 'before-context', 'color', 'colour', 'label'] },
-  rg: { letters: 'niIlcvwxFSsHNUqP', value: ['-e', '-f', '-g', '-t', '-T', '-A', '-B', '-C', '-m', '-M'], numbered: /^-[ABCmM]\d+$/,
+  rg: { letters: 'niIlcvwxFSsHNUqP', value: ['-e', '-f', '-t', '-T', '-A', '-B', '-C', '-m', '-M'], numbered: /^-[ABCmM]\d+$/,
     long: ['line-number', 'no-line-number', 'ignore-case', 'smart-case', 'case-sensitive', 'files-with-matches', 'files-without-match', 'count', 'count-matches',
       'invert-match', 'word-regexp', 'line-regexp', 'fixed-strings', 'no-heading', 'heading', 'with-filename', 'no-filename', 'files', 'multiline', 'json',
       'vimgrep', 'column', 'no-messages', 'quiet', 'trim', 'stats', 'pcre2'],
-    longValue: ['regexp', 'file', 'glob', 'iglob', 'type', 'type-not', 'max-count', 'context', 'after-context', 'before-context', 'color', 'colour', 'sort',
+    longValue: ['regexp', 'file', 'type', 'type-not', 'max-count', 'context', 'after-context', 'before-context', 'color', 'colour', 'sort',
       'sortr', 'max-columns', 'max-depth', 'max-filesize'] },
   wc: { letters: 'lwcmL', value: [], numbered: /^$/, long: ['lines', 'words', 'bytes', 'chars', 'max-line-length'], longValue: [] },
 }
@@ -1102,7 +1104,7 @@ function textRead(cmd, args, ctx) {
       if (v === undefined || !unexpanded(v, ctx)) return false
       if (w === '-e') patternGiven = true
       else if (w === '-f') { patternGiven = true; paths.push(v) }
-      else if (!['-g', '-t', '-T'].includes(w) && !/^\d+$/.test(v)) return false
+      else if (!['-t', '-T'].includes(w) && !/^\d+$/.test(v)) return false
       continue
     }
     if (spec.numbered.test(w)) continue
