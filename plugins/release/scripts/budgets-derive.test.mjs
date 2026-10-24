@@ -43,7 +43,8 @@ describe('budgets-derive', () => {
   })
 
   it('proposes p90 × 1.3 rounded up, capped at the ceiling but for the audits', () => {
-    expect(propose('c-3po', 0.6 * M)).toBe(1 * M)
+    expect(propose('c-3po', 0.6 * M)).toBe(2 * M) // the 2M floor
+    expect(propose('c-3po', 2 * M)).toBe(3 * M) // below c-3po's 4M default: allowed
     expect(propose('jeff-winger', 14 * M)).toBe(15 * M)
     expect(propose('mike-ehrmantraut', 28 * M)).toBe(37 * M)
   })
@@ -57,11 +58,11 @@ describe('budgets-derive', () => {
     expect(rows.find((r) => r.role === 'c-3po').runs).toBe(3) // the wilson session's 9M isn't a release
   })
 
-  it('proposes nothing under three runs, and never below the budgets.json default', () => {
+  it('proposes nothing under three runs, and can go below the default down to 2M', () => {
     const rows = derive(releaseRuns(folder(sessions), 5))
     expect(rows.find((r) => r.role === 'saul-goodman')).toMatchObject({ runs: 1, proposed: null })
-    // p90 0.6M x 1.3 would be 1M; c-3po's default is 4M
-    expect(rows.find((r) => r.role === 'c-3po').proposed).toBe(4 * M)
+    // p90 0.6M x 1.3 would be 1M; the floor is 2M, under c-3po's 4M default
+    expect(rows.find((r) => r.role === 'c-3po').proposed).toBe(2 * M)
   })
 
   it('writes budgets, keeping other keys and "*", and never a by-model role', () => {
@@ -71,7 +72,7 @@ describe('budgets-derive', () => {
     expect(out.budgets['*']).toBe('15M')
     expect(out.budgets['the-playbook']).toBe('15M')
     expect(out.budgets['jeff-winger']).toBe('15M')
-    expect(out.budgets['c-3po']).toBe('4M')
+    expect(out.budgets['c-3po']).toBe('2M')
     expect(out.budgets['saul-goodman']).toBeUndefined() // one run
     expect(out.budgets['mosbius-designs']).toBeUndefined()
   })
@@ -82,13 +83,13 @@ describe('budgets-derive', () => {
     const tail = ',\n    "meter": { "tokensPerPoint": 46000000 }\n}\n'
     const text = `${head}    "budgets": { "*": "15M" }${tail}`
     const out = withBudgets(text, rows)
-    expect(out.startsWith(`${head}    "budgets": {\n        "*": "15M",\n        "c-3po": "4M",`)).toBe(true)
+    expect(out.startsWith(`${head}    "budgets": {\n        "*": "15M",\n        "c-3po": "2M",`)).toBe(true)
     expect(out.endsWith(tail)).toBe(true)
     expect(JSON.parse(out).budgets['jeff-winger']).toBe('15M')
     // no budgets key yet: added last, the rest untouched
     const bare = '{\n  "name": "x"\n}\n'
     const added = withBudgets(bare, rows)
-    expect(added.startsWith('{\n  "name": "x",\n  "budgets": {\n    "c-3po": "4M"')).toBe(true)
+    expect(added.startsWith('{\n  "name": "x",\n  "budgets": {\n    "c-3po": "2M"')).toBe(true)
     expect(JSON.parse(added).name).toBe('x')
   })
 

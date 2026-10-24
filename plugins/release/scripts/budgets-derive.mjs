@@ -10,9 +10,10 @@
 // cattle-drive, night-watch), read from the project's transcript folder with
 // Skyler's readers (usage.mjs); the last N by start time count (default 5).
 // Per role: the runs, the median, the 90th percentile and the proposal,
-// p90 × 1.3 rounded up to a whole M (at least 1M), capped at the budgets
-// file's ceiling except the roles allowed above it (the audits), never below
-// the budgets file's default, and none from fewer than three runs.
+// p90 × 1.3 rounded up to a whole M, at least 2M (the smallest default
+// today), capped at the budgets file's ceiling except the roles allowed above
+// it (the audits), and none from fewer than three runs. It may go below a
+// role's default: the point is a cap nearer the real work (council H2).
 // --write puts the proposals in the project's .claude/kit.json `budgets`,
 // keeping the keys it doesn't propose and the "*" row; it rewrites only that
 // value, so the rest of the file keeps its bytes.
@@ -23,7 +24,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { ABOVE_CEILING, BUDGET_CEILING, DEFAULT_BUDGETS, MODEL_DEFAULTS } from '../hooks/budget-cap.mjs'
+import { ABOVE_CEILING, BUDGET_CEILING, MODEL_DEFAULTS } from '../hooks/budget-cap.mjs'
 import { agentName, projectFolderName, readEntries, sessionCommand, tallyEntries, totalTokens } from './usage.mjs'
 
 const M = 1_000_000
@@ -92,8 +93,11 @@ export function p90(xs) {
   return s.length ? s[Math.ceil(0.9 * s.length) - 1] : 0
 }
 
+// The lowest proposal: a single small run must not leave a role too tight to finish a step.
+export const FLOOR = 2 * M
+
 export function propose(role, p) {
-  const raw = Math.max(1, Math.ceil((p * HEADROOM) / M)) * M
+  const raw = Math.max(FLOOR, Math.ceil((p * HEADROOM) / M) * M)
   return ABOVE_CEILING.has(role) ? raw : Math.min(raw, BUDGET_CEILING)
 }
 
@@ -104,7 +108,7 @@ export const MIN_RUNS = 3
 
 /**
  * Per role, from the releases' runs: { role, runs, median, p90, proposed, byModel }.
- * `proposed` is null under MIN_RUNS, and never below the budgets.json default.
+ * `proposed` is null under MIN_RUNS; it may sit below the budgets.json default, never below FLOOR.
  */
 export function derive(releases) {
   const by = new Map()
@@ -115,7 +119,7 @@ export function derive(releases) {
       runs: xs.length,
       median: median(xs),
       p90: p90(xs),
-      proposed: xs.length < MIN_RUNS ? null : Math.max(propose(role, p90(xs)), DEFAULT_BUDGETS[role] ?? 0),
+      proposed: xs.length < MIN_RUNS ? null : propose(role, p90(xs)),
       byModel: Boolean(MODEL_DEFAULTS[role]),
     }))
     .sort((a, b) => a.role.localeCompare(b.role))
@@ -202,6 +206,7 @@ export function table(rows, releases) {
     const proposed = r.proposed == null ? `– (under ${MIN_RUNS} runs, not written)` : `${r.proposed / M}M${r.byModel ? ' (by model, not written)' : ''}`
     lines.push(`| ${r.role} | ${r.runs} | ${fmt(r.median)} | ${fmt(r.p90)} | ${proposed} |`)
   }
+  lines.push('', `Proposed: p90 × ${HEADROOM} rounded up, at least ${FLOOR / M}M, at most ${BUDGET_CEILING / M}M but for ${[...ABOVE_CEILING].join(', ')}; it may sit below the budgets.json default. A role needs ${MIN_RUNS} runs.`)
   return lines.join('\n')
 }
 
