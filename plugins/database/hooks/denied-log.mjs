@@ -164,9 +164,27 @@ function allowLine(tool, shape) {
   // be relative to the settings file.
   if (FILE_TOOLS.has(tool)) {
     const dir = shape.slice(tool.length + 1)
+    if (protectedDir(dir)) return null
     return `"${tool}(${dir.startsWith('/') ? '/' : ''}${dir}/**)"`
   }
-  return /^[\w:-]+$/.test(tool) ? `"${tool}"` : null
+  if (tool.startsWith('mcp__')) {
+    const verb = tool.slice(tool.lastIndexOf('__') + 2)
+    return /^[\w-]+$/.test(tool) && MCP_READ_VERB.test(verb) && !MCP_WRITE_WORD.test(verb) ? `"${tool}"` : null
+  }
+  return BUILTIN_READS.has(tool) ? `"${tool}"` : null
+}
+
+// Kit 1.7 review, round 2: MCP tools and file edits get a line from an
+// allow-list too. An MCP tool only when its verb reads (an unknown verb gets
+// none), and never one that writes, even inside a read-shaped name.
+const MCP_READ_VERB = /^(?:(?:list|get|search|read)[_-]\w|query-docs$|resolve-library-id$)/
+const MCP_WRITE_WORD = /execute|apply|deploy|delete|create|merge|reset|pause|restore|update|insert|drop/i
+const BUILTIN_READS = new Set(['Read', 'Grep', 'Glob', 'WebSearch'])
+// An edit under the guard's own files, the database, the scripts, a hook or
+// a secret gets none, and nor does a folder as wide as the root or ~.
+function protectedDir(dir) {
+  if (['.', '/', '~', ''].includes(dir)) return true
+  return dir.split('/').some((s) => ['.claude', '.git', 'supabase', 'scripts', 'hooks'].includes(s) || /^\.env/i.test(s))
 }
 
 /**
