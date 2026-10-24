@@ -31,7 +31,7 @@ const sessions = [
   { id: 'r1', command: '/release:captain-call', runs: [['release:jeff-winger', 6 * M], ['c-3po', 0.4 * M], ['mike-ehrmantraut', 28 * M]] },
   { id: 'r2', command: '/release:captain-call', runs: [['saul-goodman', 8 * M], ['c-3po', 0.6 * M], ['jeff-winger', 14 * M]] },
   { id: 'side', command: '/core:wilson', runs: [['c-3po', 9 * M]] },
-  { id: 'r3', command: '/release:cattle-drive', runs: [['jeff-winger', 7 * M], ['mosbius-designs', 4 * M]] },
+  { id: 'r3', command: '/release:cattle-drive', runs: [['jeff-winger', 7 * M], ['mosbius-designs', 4 * M], ['c-3po', 0.5 * M]] },
 ]
 
 describe('budgets-derive', () => {
@@ -54,7 +54,14 @@ describe('budgets-derive', () => {
     expect(releaseRuns(dir, 2).map((r) => r.id)).toEqual(['r2', 'r3'])
     const rows = derive(releaseRuns(dir, 5))
     expect(rows.find((r) => r.role === 'jeff-winger')).toMatchObject({ runs: 3, median: 7 * M, p90: 14 * M, proposed: 15 * M })
-    expect(rows.find((r) => r.role === 'c-3po').runs).toBe(2) // the wilson session's 9M isn't a release
+    expect(rows.find((r) => r.role === 'c-3po').runs).toBe(3) // the wilson session's 9M isn't a release
+  })
+
+  it('proposes nothing under three runs, and never below the budgets.json default', () => {
+    const rows = derive(releaseRuns(folder(sessions), 5))
+    expect(rows.find((r) => r.role === 'saul-goodman')).toMatchObject({ runs: 1, proposed: null })
+    // p90 0.6M x 1.3 would be 1M; c-3po's default is 4M
+    expect(rows.find((r) => r.role === 'c-3po').proposed).toBe(4 * M)
   })
 
   it('writes budgets, keeping other keys and "*", and never a by-model role', () => {
@@ -64,8 +71,25 @@ describe('budgets-derive', () => {
     expect(out.budgets['*']).toBe('15M')
     expect(out.budgets['the-playbook']).toBe('15M')
     expect(out.budgets['jeff-winger']).toBe('15M')
-    expect(out.budgets['c-3po']).toBe('1M')
+    expect(out.budgets['c-3po']).toBe('4M')
+    expect(out.budgets['saul-goodman']).toBeUndefined() // one run
     expect(out.budgets['mosbius-designs']).toBeUndefined()
+  })
+
+  it('rewrites only the budgets value and keeps the rest of the file byte for byte', () => {
+    const rows = derive(releaseRuns(folder(sessions), 5))
+    const head = '{\n    "name": "x",\n    "plans": "~/p",  "port": 3000,\n'
+    const tail = ',\n    "meter": { "tokensPerPoint": 46000000 }\n}\n'
+    const text = `${head}    "budgets": { "*": "15M" }${tail}`
+    const out = withBudgets(text, rows)
+    expect(out.startsWith(`${head}    "budgets": {\n        "*": "15M",\n        "c-3po": "4M",`)).toBe(true)
+    expect(out.endsWith(tail)).toBe(true)
+    expect(JSON.parse(out).budgets['jeff-winger']).toBe('15M')
+    // no budgets key yet: added last, the rest untouched
+    const bare = '{\n  "name": "x"\n}\n'
+    const added = withBudgets(bare, rows)
+    expect(added.startsWith('{\n  "name": "x",\n  "budgets": {\n    "c-3po": "4M"')).toBe(true)
+    expect(JSON.parse(added).name).toBe('x')
   })
 
   it('the script --write changes only the project kit.json, and refuses without one', () => {
@@ -78,6 +102,8 @@ describe('budgets-derive', () => {
     expect(out).toContain('| jeff-winger | 3 | 7.0M | 14.0M | 15M |')
     const kit = JSON.parse(readFileSync(join(project, '.claude', 'kit.json'), 'utf8'))
     expect(kit.name).toBe('x')
-    expect(kit.budgets['saul-goodman']).toBe('11M')
+    expect(kit.budgets['jeff-winger']).toBe('15M')
+    expect(kit.budgets['saul-goodman']).toBeUndefined()
+    expect(out).toContain('| saul-goodman | 1 | 8.0M | 8.0M | – (under 3 runs, not written) |')
   })
 })
