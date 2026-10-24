@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { readTimeout } from './read-clock.mjs'
+import { READ_BUDGET_MS, readTimeout, startReads, stopReads } from './read-clock.mjs'
 import {
   ARM_READ_MS, FROZEN, FROZEN_RE, chainArgs, chainWhyNot, doneLine, doneWhyNot, finishChain, frozenHash, localSettingsForHash, markDone, newChain, nextVersion,
   oneTapText, oneTapVerdict, pluginLine, projectRoot, readFrozen,
@@ -608,5 +608,14 @@ describe('the arm read timeout', () => {
   it('is 120 s outside a decision', () => {
     expect(ARM_READ_MS).toBe(120_000)
     expect(readTimeout(ARM_READ_MS)).toBe(120_000)
+  })
+
+  it('readFrozen shares the read clock inside a decision: a spent clock fails before git runs', () => {
+    startReads(Date.now() - READ_BUDGET_MS)
+    try {
+      expect(() => readFrozen(tmpdir())).toThrow(/spent/)
+    } finally {
+      stopReads()
+    }
   })
 })

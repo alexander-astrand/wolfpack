@@ -415,7 +415,9 @@ export const frozenOnDisk = (root = REPO_ROOT) => frozenHash(readFrozen(root), p
 export function readFrozen(root = REPO_ROOT) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')))
   const out = execFileSync('git', ['--no-replace-objects', '-c', 'core.fsmonitor=false', 'ls-files', '-z', '--', ...FROZEN], {
-    cwd: root, env, encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'pipe'],
+    // The guard reads this inside decide (the one-tap check), so it shares the
+    // read clock there; elsewhere it keeps its 3 s.
+    cwd: root, env, encoding: 'utf8', timeout: readTimeout(3000), stdio: ['ignore', 'pipe', 'pipe'],
   })
   const paths = out.split('\0').filter(Boolean)
   if (!paths.includes(LOCAL_SETTINGS) && existsSync(join(root, LOCAL_SETTINGS))) paths.push(LOCAL_SETTINGS)

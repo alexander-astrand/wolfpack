@@ -10,7 +10,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
-  CI_JOBS, CI_WORKFLOW, CI_WORKFLOW_FILE, GH_FILES_MS, GIT_FACTS_MS, HEAD_OF_MS, PLAN_TITLE, allowedCommands, armList, checksNotGreen, completeFiles, gitFacts, mergeOnlyWhyNot, migrationsWhyNot, parseGitFacts, parseProductionSteps,
+  CI_JOBS, CI_WORKFLOW, CI_WORKFLOW_FILE, GH_FILES_MS, GIT_FACTS_MS, HEAD_OF_MS, PLAN_TITLE, allowedCommands, armList, checksNotGreen, completeFiles, ghFetchFiles, gitFacts, mergeOnlyWhyNot, migrationsWhyNot, parseGitFacts, parseProductionSteps,
   loadKitConfig, planCalls, planCheck, planCheckText, planLines, prFacts, previewText, withCompleteFiles,
 } from './production-steps.mjs'
 import { READ_BUDGET_MS, readTimeout, startReads, stopReads } from './read-clock.mjs'
@@ -537,6 +537,15 @@ describe('read timeouts outside a decision', () => {
     try {
       expect(readTimeout(HEAD_OF_MS, now)).toBe(READ_BUDGET_MS)
       expect(readTimeout(GIT_FACTS_MS, now + 5000)).toBe(READ_BUDGET_MS - 5000)
+    } finally {
+      stopReads()
+    }
+  })
+
+  it('ghFetchFiles shares the read clock inside a decision: a spent clock fails before gh runs', () => {
+    startReads(Date.now() - READ_BUDGET_MS)
+    try {
+      expect(() => ghFetchFiles(1, tmpdir())).toThrow(/spent/)
     } finally {
       stopReads()
     }

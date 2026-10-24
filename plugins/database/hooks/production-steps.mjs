@@ -408,9 +408,11 @@ export function prFacts(json) {
   return { body: v.body, files: complete ? v.files.map((f) => f.path) : null, isDraft: typeof v.isDraft === 'boolean' ? v.isDraft : null }
 }
 
-// The time the paged files read may take; WORST_CASE_MS must stay under the
-// 18 s watchdog with it (2.14.6, `[pr-size]`). One call, made only when gh's
-// first list is short, so a PR under 100 files never spends it.
+// The time the paged files read may take (2.14.6, `[pr-size]`). Inside decide
+// the shared read clock caps it too: decide is synchronous, so guard-entry's
+// 18 s timer can't cut a read short, and only the clock keeps the decision
+// inside it. One call, made only when gh's first list is short, so a PR under
+// 100 files never spends it.
 export const GH_FILES_MS = 3000
 
 /**
@@ -443,7 +445,7 @@ export function completeFiles(pr, fetchFiles) {
  */
 export function ghFetchFiles(number, cwd = process.cwd()) {
   const out = execFileSync('gh', ['api', `repos/{owner}/{repo}/pulls/${number}/files`, '--paginate', '--jq', '.[].filename'], {
-    cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: GH_FILES_MS, maxBuffer: 16 << 20,
+    cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: readTimeout(GH_FILES_MS), maxBuffer: 16 << 20,
   })
   return out.split('\n').filter(Boolean)
 }
