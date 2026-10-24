@@ -20,6 +20,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, realpathSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { readTimeout } from './read-clock.mjs'
 
 // The folder these hooks run from: the project's .claude/hooks, or a
 // plugin's hooks/ in Claude Code's install folder (2.14.9.1).
@@ -340,7 +341,10 @@ export function armList(body, pr, facts = {}) {
  */
 export function gitFacts(sha, cwd = process.cwd()) {
   if (!/^[0-9a-f]{40}$/.test(sha ?? '')) return null
-  const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 10_000, maxBuffer: 64 << 20 })
+  // Runs inside the guard's decide too: its shared read clock (kit 1.7, M10)
+  // keeps this under guard-entry's 18 s watchdog; a spent clock throws, and
+  // the catch below makes that "couldn't be read".
+  const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: readTimeout(5000), maxBuffer: 64 << 20 })
   try {
     return parseGitFacts(git('diff', '--raw', '-z', '-M', '--no-abbrev', `origin/main...${sha}`), git('ls-tree', '-r', '-z', '--full-tree', sha))
   } catch {
@@ -690,7 +694,7 @@ function readPr(n, json, then, sha = null) {
 
 function headOf(n) {
   try {
-    return execFileSync('gh', ['pr', 'view', String(n), '--json', 'headRefOid', '--jq', '.headRefOid'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 15_000 }).trim()
+    return execFileSync('gh', ['pr', 'view', String(n), '--json', 'headRefOid', '--jq', '.headRefOid'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: readTimeout(5000) }).trim()
   } catch {
     return null
   }

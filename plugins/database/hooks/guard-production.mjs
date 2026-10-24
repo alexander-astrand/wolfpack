@@ -133,6 +133,7 @@ import { basename, dirname, isAbsolute, join, normalize, resolve } from 'node:pa
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 import { CI_JOBS, CI_WORKFLOW, DEPLOYER, DEV_KEYCHAIN_ITEM, DEV_REF, GH_FILES_MS, HOOKS_DIR, PROD_KEYCHAIN_ITEM, NO_PRODUCTION, PROD_URL, SHIPS_ON_MERGE, allowedCommands, armList, changesDatabase, checksNotGreen, completeFiles, ghFetchFiles, pluginMode, prFacts } from './production-steps.mjs'
+import { READ_BUDGET_MS, readTimeout, startReads, stopReads } from './read-clock.mjs'
 import { CHAIN_USAGE, FROZEN, FROZEN_RE, RELEASE_PR_FIELDS, chainArgs, chainWhyNot, frozenOnDisk, oneTapDecision, oneTapVerdict, projectRoot } from './chain-arm.mjs'
 import { GO_HOURS, TRANSCRIPT_RE, goArg, readHumanGo } from './one-ring-go.mjs'
 
@@ -251,11 +252,11 @@ const DYNAMIC_RE = /[$`*?[]/
  */
 export function decide(input, env = {}) {
   // The reads' shared clock (readTimeout) runs for this decision only.
-  readsFrom = Date.now()
+  startReads()
   try {
     return decideCall(input, env)
   } finally {
-    readsFrom = null
+    stopReads()
   }
 }
 
@@ -710,21 +711,9 @@ const GIT_MS = 1000
 const GIT_CALLS = 3
 export const WORST_CASE_MS = GH_PR_MS + GH_COMPARE_MS + GIT_MS * GIT_CALLS + GH_FILES_MS
 
-// Kit 1.7 (M10): the reads of one decision share a clock as well, so a
-// network hang in a gh read (each has its own 5 s) can't add up past
-// guard-entry's 18 s watchdog, whose block stops the call outright. A read
-// that would start with the clock spent fails at once; every reader turns a
-// failure into "couldn't be read", which refuses the allow and leaves the
-// call to its ask. decide starts the clock and stops it; a read outside a
-// decision (a test, the arm script) keeps its own timeout only.
-export const READ_BUDGET_MS = 12_000
-let readsFrom = null
-export function readTimeout(own, now = Date.now()) {
-  if (readsFrom === null) return own
-  const left = READ_BUDGET_MS - (now - readsFrom)
-  if (left < 250) throw new Error(`the guard's ${READ_BUDGET_MS / 1000} s for reads is spent`)
-  return Math.min(own, left)
-}
+// Kit 1.7 (M10): the reads of one decision share a clock as well
+// (read-clock.mjs says how), production-steps.mjs's and chain-arm.mjs's too.
+export { READ_BUDGET_MS, readTimeout }
 
 // Throws on any git error; repoWhyNot turns that into a refusal. git is told
 // to look at the tree itself: no replace refs (a replaced HEAD can match an

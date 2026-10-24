@@ -22,6 +22,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { readTimeout } from './read-clock.mjs'
 import { HOOKS_DIR, PROD_REF, pluginMode, projectRoot, armList, backupFirstWhyNot, checksNotGreen, ghFetchFiles, migrationsWhyNot, prFacts, withCompleteFiles } from './production-steps.mjs'
 
 // A folder ends in '/'. Repo-relative, as git ls-files prints them.
@@ -444,10 +445,12 @@ function readJson(file) {
   try { return JSON.parse(raw) } catch { return {} }
 }
 
-// stdout of a read, or null when it fails.
+// stdout of a read, or null when it fails. Inside the guard's decide it
+// shares the read clock (kit 1.7, M10), so a hang can't pass guard-entry's
+// 18 s watchdog; a spent clock throws and reads as a failure.
 function readOut(cmd, args) {
   try {
-    return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] })
+    return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: 'utf8', timeout: readTimeout(5000), stdio: ['ignore', 'pipe', 'pipe'] })
   } catch {
     return null
   }
