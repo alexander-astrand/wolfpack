@@ -129,7 +129,7 @@ function hankLine(input, projectDir) {
 // The budget the way Hank reads it (budget-cap.mjs `decide`), so the line's
 // denominator is the one that stops the agent: the state file's, the
 // description's tag, kit.json `budgets` (the role, the model numbers, "*"),
-// then Hank's own table, then the 15M Hank gives a role it doesn't know.
+// then the defaults in `budgets.json`, then the 15M Hank gives a role it doesn't know.
 // Kit 1.7 (council L6): this read 25M defaults that Hank no longer used.
 export function hankBudget(meta, state = {}, projectDir = null) {
   if (state.budget) return state.budget
