@@ -59,7 +59,7 @@ Source of truth: the kit's `main` on GitHub. Every project loads `<kit>` (`~/wol
 The shared crew and the habits every project follows: planning before a big release, the wrap-up afterwards, web research, docs, the roadmap and the daily routines. `norms.md` (how questions, human steps and session names work) and `lessons.md` (tuning numbers) are read by the skills.
 
 - Agents: `doc-brown`, `dr-house`, `john-hammond`, `lorenzo-von-matterhorn`, `romeo-olsson`
-- Skills: `88-mph`, `badger`, `beam-me-up`, `cloud-city`, `dependabot-report`, `don-draper`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `oracle`, `previously-on`, `scrooge`, `tesseract`, `the-trail`, `war-room`, `watson`, `wilson`
+- Skills: `88-mph`, `badger`, `beam-me-up`, `chiron`, `cloud-city`, `dependabot-report`, `don-draper`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `oracle`, `previously-on`, `scrooge`, `tesseract`, `the-trail`, `war-room`, `watson`, `wilson`
 
 ### release
 A release end to end: `/captain-call <version>` (with `fable allowance=high planner=dom-cobb pick=me stars=3` for the big ones) plans it, spawns the builders, reviews, opens the draft PR and pings you. Your merge go is one word, `/one-ring <version or PR number>`, typed in any session of the project: that session merges and deploys it to the end, from any branch, and fixes what stops it on the way (`docs/decisions/0001-one-word-deploy.md`; `/skinny-pete` only for a manual or broken case), and `/cattle-drive` runs release and deploy on one yes. Hank (`hooks/budget-cap.mjs`) holds every agent to the budget in its task description; Skyler (`scripts/usage.mjs`) counts the tokens.
