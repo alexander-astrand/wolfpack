@@ -33,7 +33,7 @@ const SANDBOX = realpathSync(mkdtempSync(join(tmpdir(), 'guard-sandbox-')))
 process.once('exit', () => rmSync(SANDBOX, { recursive: true, force: true }))
 mkdirSync(join(SANDBOX, '.claude', 'hooks'), { recursive: true })
 const sandboxed = (file) => join(SANDBOX, '.claude', 'hooks', file)
-for (const f of ['guard-entry.mjs', 'guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'denied-log.mjs', 'step-aside.mjs']) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), sandboxed(f))
+for (const f of ['guard-entry.mjs', 'guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs', 'denied-log.mjs', 'step-aside.mjs']) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), sandboxed(f))
 // Rows that only say "not refused": a listed read comes back allow (2.12.3),
 // anything else passes to the permission rules.
 const OPEN = /^(?:pass|allow)$/
@@ -2517,7 +2517,7 @@ describe('2.12.4 review: refused as on main', () => {
   beforeAll(async () => {
     mainDir = mkdtempSync(join(tmpdir(), 'guard-main-'))
     try {
-      for (const f of ['guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs', 'read-clock.mjs']) {
+      for (const f of ['guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs']) {
         writeFileSync(join(mainDir, f), execFileSync('git', ['show', `main:.claude/hooks/${f}`], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))
       }
       mainDecide = (await import(pathToFileURL(join(mainDir, 'guard-production.mjs')).href)).decide
@@ -3060,7 +3060,7 @@ describe('2.14.9.1: the values from kit.json, and the project root', () => {
     const own = realpathSync(mkdtempSync(join(tmpdir(), 'own-hooks-')))
     try {
       mkdirSync(join(own, '.claude', 'hooks'), { recursive: true })
-      for (const f of ['guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'chain-exclusions.mjs', 'one-ring-go.mjs', 'read-clock.mjs']) {
+      for (const f of ['guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'chain-exclusions.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs']) {
         if (existsSync(fileURLToPath(new URL(`./${f}`, import.meta.url)))) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), join(own, '.claude', 'hooks', f))
       }
       copyFileSync(fileURLToPath(new URL('./fixtures/kit.json', import.meta.url)), join(own, '.claude', 'kit.json'))

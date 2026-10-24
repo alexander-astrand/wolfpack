@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { deniedLine, guardLine, run, shapeOf, summarize, summaryText } from './denied-log.mjs'
+import { GH_PR_READS, GIT_READS, PIPE_FILTERS, TEXT_READS, guardListedHead } from './read-list.mjs'
 
 const HOOK = fileURLToPath(new URL('./denied-log.mjs', import.meta.url))
 let dir, logPath
@@ -103,6 +104,8 @@ describe('denied-log --summary', () => {
   const denied = [
     row('2026-10-18T13:01:00Z', 'Bash', { command: 'git show origin/V0.13:supabase/migrations/0004_jobs.sql | sed -n 1,40p' }),
     row('2026-10-18T13:02:00Z', 'Bash', { command: 'cd /repo && git show origin/V0.13:x.sql' }),
+    row('2026-10-18T13:03:00Z', 'Bash', { command: 'npm run build' }),
+    row('2026-10-18T13:04:00Z', 'Bash', { command: 'npm run build' }),
     row('2026-10-19T10:00:00Z', 'Bash', { command: 'vercel env add X production' }),
     row('2026-10-19T10:01:00Z', 'Bash', { command: 'vercel env add Y production' }),
     row('2026-10-20T10:00:00Z', 'Write', { file_path: '/Users/a/.claude/plans/V1.md', content: 'x' }),
@@ -119,7 +122,9 @@ describe('denied-log --summary', () => {
   it('groups by shape across both logs, marks the source, and writes an allow line for dev repeats only', () => {
     const rows = summarize({ denied, guard, since: '2026-10-15' })
     const by = (shape, source) => rows.find((r) => r.shape === shape && r.source === source)
-    expect(by('git show', 'classifier')).toMatchObject({ count: 2, allow: '"Bash(git show *)"' })
+    // a guard-listed read gets none (round 3); a named npm script gets its exact line
+    expect(by('git show', 'classifier')).toMatchObject({ count: 2, allow: null })
+    expect(by('npm run build', 'classifier')).toMatchObject({ count: 2, allow: '"Bash(npm run build)"' })
     // under ~/.claude: no line (kit 1.7 review, round 2)
     expect(by('Write /Users/a/.claude/plans', 'classifier')).toMatchObject({ count: 2, allow: null })
     // production and pushes never get one; the guard's asks are on purpose
@@ -143,12 +148,27 @@ describe('denied-log --summary', () => {
     expect(summarize({ denied: twice })).toEqual([expect.objectContaining({ shape, count: 2, allow: null })])
   })
 
-  it.each([
-    ['git diff --stat', '"Bash(git diff *)"'], ['gh pr checks 3', '"Bash(gh pr checks *)"'], ['rg -n x src', '"Bash(rg *)"'],
-    ['tail -n 5 a.log', '"Bash(tail *)"'], ['npm run typecheck', '"Bash(npm run typecheck *)"'],
-  ])('%s repeated gets its dev-read line', (command, allow) => {
+  // Round 3: a repeat of a guard-listed read reached the classifier because
+  // the guard refused its operands, so no wildcard line for any of them.
+  const listed = [
+    'git diff /dev/null ~/x', 'git show HEAD:.env', 'git -C /tmp diff a b', 'git log -p', 'git cat-file -p HEAD:x', 'rg -g .env KEY .',
+    'grep -r x .', 'wc -l ~/x', 'head -n 5 ~/x', 'tail ~/x', 'gh pr view 3', 'gh pr checks 3', 'gh pr diff 3', 'gh pr list',
+    'cat ~/.ssh/id_rsa', 'ls ~/.ssh', 'git blame .env',
+  ]
+  it.each(listed)('%s repeated gets no allow line', (command) => {
     const twice = [row('2026-10-20T10:00:00Z', 'Bash', { command }), row('2026-10-20T10:01:00Z', 'Bash', { command })].join('\n')
-    expect(summarize({ denied: twice })[0].allow).toBe(allow)
+    expect(summarize({ denied: twice })[0].allow).toBeNull()
+  })
+
+  it("every head on the guard's read list is covered, from the shared list", () => {
+    for (const sub of GIT_READS) expect(guardListedHead(['git', sub]), sub).toBe(true)
+    for (const cmd of [...TEXT_READS, ...PIPE_FILTERS]) expect(guardListedHead([cmd]), cmd).toBe(true)
+    for (const sub of GH_PR_READS) expect(guardListedHead(['gh', 'pr', sub]), sub).toBe(true)
+  })
+
+  it('a named npm script gets its exact command, with no wildcard', () => {
+    const twice = [row('2026-10-20T10:00:00Z', 'Bash', { command: 'npm run typecheck' }), row('2026-10-20T10:01:00Z', 'Bash', { command: 'npm run typecheck' })].join('\n')
+    expect(summarize({ denied: twice })[0].allow).toBe('"Bash(npm run typecheck)"')
   })
 
   // Round 2: MCP tools and file edits from an allow-list as well.
@@ -190,7 +210,8 @@ describe('denied-log --summary', () => {
     writeFileSync(join(project, '.claude', 'guard-decisions.log'), guard)
     const r = spawnSync(process.execPath, [HOOK, '--summary', '--since', '2026-10-15', '--dir', project], { encoding: 'utf8' })
     expect(r.status).toBe(0)
-    expect(r.stdout).toContain('"Bash(git show *)"')
+    expect(r.stdout).toContain('"Bash(npm run build)"')
+    expect(r.stdout).not.toContain('"Bash(git show *)"')
     expect(spawnSync(process.execPath, [HOOK, '--summary', '--since', 'last week', '--dir', project]).status).toBe(1)
   })
 })

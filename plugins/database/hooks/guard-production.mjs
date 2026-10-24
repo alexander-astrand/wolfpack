@@ -136,6 +136,7 @@ import { CI_JOBS, CI_WORKFLOW, DEPLOYER, DEV_KEYCHAIN_ITEM, DEV_REF, GH_FILES_MS
 import { READ_BUDGET_MS, readTimeout, startReads, stopReads } from './read-clock.mjs'
 import { CHAIN_USAGE, FROZEN, FROZEN_RE, RELEASE_PR_FIELDS, chainArgs, chainWhyNot, frozenOnDisk, oneTapDecision, oneTapVerdict, projectRoot } from './chain-arm.mjs'
 import { GO_HOURS, TRANSCRIPT_RE, goArg, readHumanGo } from './one-ring-go.mjs'
+import { GH_PR_READS, GIT_READS, PIPE_FILTERS, TEXT_READS } from './read-list.mjs'
 
 // The project's values come from its .claude/kit.json (production-steps.mjs
 // reads it; a missing key fails closed): DEV_REF, DEPLOYER, PROD_URL (the one
@@ -1017,9 +1018,9 @@ function listedRead(words, ctx) {
   const [cmd, a, b] = words
   const rest = words.slice(2)
   if (cmd === 'git') return gitRead(words.slice(1), ctx)
-  if (cmd === 'grep' || cmd === 'rg' || cmd === 'wc') return textRead(cmd, words.slice(1), ctx)
-  if (cmd === 'head' || cmd === 'tail') return pipeFilter(words.slice(1))
-  if (cmd === 'gh' && a === 'pr') return b === 'view' || b === 'checks'
+  if (TEXT_READS.has(cmd)) return textRead(cmd, words.slice(1), ctx)
+  if (PIPE_FILTERS.has(cmd)) return pipeFilter(words.slice(1))
+  if (cmd === 'gh' && a === 'pr') return GH_PR_READS.has(b)
   if (cmd === 'gh' && a === 'api') return deploymentsRead(words.slice(2))
   if (cmd === 'supabase') {
     if (a !== 'functions' || b !== 'list') return false
@@ -1043,7 +1044,6 @@ function listedRead(words, ctx) {
 // a filter), writes a file (--output) or reads one outside the repo
 // (--no-index). Config that sets an external diff is a write checkGit asks
 // about already.
-const GIT_READS = new Set(['status', 'log', 'show', 'diff', 'cat-file', 'ls-tree', 'rev-parse'])
 const GIT_READ_NOT = /^(?:--output\b|--ext-diff$|--textconv$|--filters$|--no-index$)/
 // `git diff <path> <path>` goes no-index by itself when a path is outside the
 // working tree, or when git runs outside one, and then reads any file

@@ -22,7 +22,7 @@
 // `node denied-log.mjs --summary [--since <YYYY-MM-DD>] [--dir <project>]`
 // reads both logs and prints the repeats grouped by shape, each marked
 // `guard` or `classifier`, with a ready settings.json allow line for the
-// classifier's dev-read repeats (DEV_READ_SHAPES). A guard row gets none: an allow rule
+// classifier's repeats of one named npm script. A guard row gets none: an allow rule
 // doesn't skip a hook's ask, and its ask is on purpose. Nothing that reaches
 // production, a key, a delete or a push to main ever gets one.
 //
@@ -33,6 +33,7 @@
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { guardListedHead } from './read-list.mjs'
 import { projectOwns } from './step-aside.mjs'
 
 const INPUT_HEAD = 200
@@ -146,20 +147,18 @@ export function shapeOf(tool, head, path) {
   return tool
 }
 
-// The Bash shapes that may get an allow line: the dev reads, and one named
-// npm script. Everything else gets none (kit 1.7 review must 3): a shell, an
-// interpreter, curl, psql or `supabase db` repeated twice is no reason to
-// allow it, and a deny-list of those always missed one.
-const DEV_READ_SHAPES = [
-  /^git (?:status|log|show|diff|cat-file|ls-tree|rev-parse|blame)$/,
-  /^gh pr (?:view|diff|checks|list)$/,
-  /^(?:rg|grep|wc|ls|cat|head|tail)$/,
-  /^npm run [\w:-]+$/,
-]
+// The one Bash shape that gets an allow line: a named npm script, as that
+// exact command, no trailing `*` (kit 1.7 review must 3 and round 3). A
+// shell, an interpreter, curl or psql repeated twice is no reason to allow
+// it, and a deny-list of those always missed one. The reads on the guard's
+// list (read-list.mjs) get none either: a repeat of one reaches the
+// classifier only when the guard refused its operands, and a wildcard rule
+// would let those through. cat and ls are no better (`cat ~/.ssh/id_rsa`).
+const NPM_SCRIPT = /^npm run [\w:-]+$/
 
 function allowLine(tool, shape) {
   if (!shape || NEVER_ALLOW_RE.test(shape)) return null
-  if (tool === 'Bash') return DEV_READ_SHAPES.some((re) => re.test(shape)) ? `"Bash(${shape} *)"` : null
+  if (tool === 'Bash') return !guardListedHead(shape.split(' ')) && NPM_SCRIPT.test(shape) ? `"Bash(${shape})"` : null
   // In a permission rule `//path` is from the filesystem root; `/path` would
   // be relative to the settings file.
   if (FILE_TOOLS.has(tool)) {
