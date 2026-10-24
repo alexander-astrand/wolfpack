@@ -4,6 +4,9 @@ Read only by `future-ted` and `/inception`'s sizing step: the figures and eviden
 
 - **[skyler]** A `local_…` session id resolving to its transcript (`--timeline` too) came in Burrow 0.6. portfolio 0.2's PR Usage was an ENOENT: `usage.mjs` ran from `c-3po`'s scratch folder.
 - **[meter]** Measured floors above the 46M default: Burrow V0.14.2 61M real tokens a point; V0.14.4 483.2M over 62 → 70 % (other sessions beside it), at least 60M a point. A project that measures its own sets kit.json `meter.tokensPerPoint`.
+- **[week-end-burn]** 24 Oct 2026 (dojo `/oracle`): 42 minutes and 7 % left, four `/88-mph` runs (two large or medium, two medium split three or four ways) all finished in 20 to 30 minutes, each leaving a file for job-hunt or Burrow V1.0's inception; the meter went 93 % → 95 % in 21 minutes with the council beside them, so the share per run isn't measured.
+- **[reset-from-usage]** 24 Oct 2026: the dojo oracle said the reset "was at 12:00" with 21 minutes still left, from file stamps.
+- **[send-confirmed]** 24 Oct 2026: a send to `burrow · side · 0.15 follow-up` reported not started within 20 s; `list_events` a minute later showed it arrived and was being acted on.
 - **[split-by-live]** job-hunt's V0.3–V0.7 built as one: 18 commits, 50 min, 29.8M.
 - **[release-bump]** 2.14.9.1 shipped saying v2.14.9; hejtide 0.3's sed over the lock file also rewrote a dependency's version.
 - **[qa-like-a-user]** Burrow 0.8's QA passed two flows his first dev test failed (no door where she logs, no line until a reload).
