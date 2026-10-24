@@ -30,6 +30,8 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 You are the trail boss of this drive: one release to production and home, no detours. There are two legs, each in its own session, because one navigator carrying a release and its deploy re-reads all of it on every call. (Not `captain-call`, who navigates the release inside leg 1.)
 
+**The one parked deploy session in the kit.** Everywhere else a deploy is never a session of its own (norms.md in the `core` plugin, "A deploy is never a session of its own"): `/one-ring` merges and deploys in the session he types it in. The drive is the named exception, his call at `/memento` on 24 Oct 2026: an unattended chain needs its deploy leg ready before the arm, and the app only starts sessions in a turn he typed. So only the drive parks a deploy session, and only in its first turn.
+
 - **Release leg** (the session Alexander typed into; no release PR for `V<version>` yet, or its draft is unfinished: the plan has open steps or `Leg 1 done` is missing): the start below, then the release as `/captain-call <version> away` (read `${CLAUDE_PLUGIN_ROOT}/skills/captain-call/SKILL.md` as a file and follow it with those arguments, plus any `allowance=`), with the preflight below. It ends by handing on to the deploy session (below). The PR stays a draft, so its state is no sign that leg 1 finished. The sign is a line in the plan: **in its final step leg 1 appends one line to `<plans>V<version>.md` (`<plans>` is kit.json's `plans`, default `~/.claude/plans/`): `Leg 1 done at <full head sha>`** (the PR's `headRefOid`, after the last push). The deploy leg's step 1 checks it.
 - **Deploy leg** (started by leg 1's message in the deploy session leg 1 opened at the start, or typed in place when the release is already built): the rest of this skill, on Opus, high effort with `wrap`. Leg 1 sets both from outside: a session can set its own permission mode but not its own model or effort (`set_session_effort` refuses "self"), so those are set from outside or typed (`/model`, `/effort`). A drive typed in place checks its own model (below).
 
@@ -59,14 +61,14 @@ Take the one created first and title it with `set_session_title` → `<project.n
 
 ## Leg 1's last act: hand on
 After `Leg 1 done at <sha>` is in the plan, the navigator itself (never a spawned agent: a subagent's send goes out under its parent's id) does, in this order:
-1. `mcp__ccd_session_mgmt__set_session_model` on the deploy session: Opus (the id the app's picker lists, e.g. `claude-opus-5-5`).
+1. `mcp__ccd_session_mgmt__set_session_model` on the deploy session: the route "Opus, high" (`oceans-eleven`'s table), as the model id the app's picker lists today; never a hard-coded id, which goes stale when the picker changes.
 2. `mcp__ccd_session_mgmt__set_session_effort`: `high` with `wrap`, `medium` without.
 3. `mcp__ccd_session_mgmt__send_message` to its id, exactly:
 ```
 /cattle-drive <version> [wrap] FROM <leg 1 id>. Leg 1 is done at <sha>: PR <url>, draft, CI green. Read ${CLAUDE_PLUGIN_ROOT}/skills/cattle-drive/SKILL.md as a file and run its deploy leg. When done or blocked, SendMessage your starter (<leg 1 id>) once: what's done and the next step.
 ```
    The result must say `delivered` or `queued`. Anything else is a hard stop: ping with the error and the manual fallback (open the deploy session and type the command).
-4. A short line in leg 1's session saying where the drive went (the session's title). Then keep a `[watchdog]` timer (a background `sleep 300`) and end the turn only with it running; on each wake read the deploy session's events, and stop the timer once its first event shows it acted on the order. Not acted after two wakes: ping Telegram with the manual fallback (norms.md, "Report back"). There is no PushNotification here.
+4. A short line in leg 1's session saying where the drive went (the session's title). Then keep a `[watchdog]` timer at its one-off delivery check (the figure lives in the lesson) and end the turn only with it running; on each wake read the deploy session's events, and stop the timer once its first event shows it acted on the order. Not acted after two wakes: ping Telegram with the manual fallback (norms.md, "Report back"). There is no PushNotification here.
 
 ## The deploy session: taking the order
 The message arrives as `<cross-session-message from="<id>">`, not as a typed command, so the skill doesn't load by itself (it is `disable-model-invocation`). Read `${CLAUDE_PLUGIN_ROOT}/skills/cattle-drive/SKILL.md` as a file and follow it with the message's arguments, once these hold:
