@@ -30,7 +30,7 @@ Pick by the first word of the arguments. All three use one skeleton: **What it i
 
 - **chat:** for Alexander's own claude.ai chats. Context-dense, markdown fine, agent and release names fine. Enough that a fresh chat can work without asking.
 - **agent:** an order another AI can act on. Goal, constraints, files and links, what "done" means. No fluff, no story.
-- **person:** a human reader. Plain words, no agent names, no internal jargon (no "release 2.14", no "builder"). Follows Alexander's voice (`~/.claude/global/voice/voice.md`, free of the tells in `tells-en.md`; check the draft with `node ~/.claude/global/voice/tells-grep.mjs <file>` until it says clean), and the project's own house voice when `.claude/` has one.
+- **person:** a human reader. Plain words, no agent names, no internal jargon (no "release 2.14", no "builder"). Follows Alexander's voice (`~/.claude/global/voice/voice.md`, free of the tells in `tells-en.md`; check the draft with `node ~/.claude/global/voice/tells-grep.mjs -`, the draft on stdin, until it says clean; the brief stays a reply, never a file), and the project's own house voice when `.claude/` has one.
 
 ## Steps
 
