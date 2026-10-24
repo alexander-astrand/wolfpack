@@ -31,12 +31,12 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 | Size | Pick it when | Who runs | Budget (a cap) |
 |---|---|---|---|
 | small | one fact or a quick comparison; the answer fits in chat and nobody needs it next week | this session, one search | ≈ 1M |
-| medium | a real choice (library, service, pricing, approach) worth keeping for later sessions | scope, then one `doc-brown` (Opus, medium) | 6M |
-| large | a choice that's expensive to undo, or one a person has to live with (a provider, a paid plan, how a group organises, a V3 architecture call) | scope shown first, 2–4 `doc-brown` lanes, a counter pass, a check | 6M per lane, counter 3M, check 4M; run capped at 35M |
+| medium | a real choice (library, service, pricing, approach) worth keeping for later sessions | scope, then one `doc-brown` (Opus, medium) | 3M |
+| large | a choice that's expensive to undo, or one a person has to live with (a provider, a paid plan, how a group organises, a V3 architecture call) | scope shown first, 2–4 `doc-brown` lanes, a counter pass, a check | 3M per lane, counter 2M, check 2M; run capped at 16M |
 
-For scale: 1% of the week is about 46M, so even a full large run stays under 1%.
+The caps are sized from `doc-brown`'s measured median of 0.7M a run, with room for a lane that reads a lot. For scale: 1% of the week is 46M by default (the project's `kit.json` `meter.tokensPerPoint` wins when it sets one, `[meter]`), so even a full large run stays under 1%.
 
-**A budget is a cap, not a target**, and a run far under it was probably narrow, not efficient: hejtide's large run (15 Oct 2026) used about 200k of 10M and missed most of what Becky needed. So a run that used under ~10% of its cap says in `## Coverage` what it didn't look into, and before wrapping you read the scope again: an uncovered angle that bears on the decision gets one more lane (large) or a second `doc-brown` on just that angle (medium).
+**A budget is a cap, not a target**, and a run far under it may be narrow, not efficient: hejtide's large run (15 Oct 2026) used about 200k of 10M and missed most of what Becky needed. Spend is no test of that, since the median run uses a fraction of its cap and is fine. The test is coverage: before wrapping you read the scope again, and every Q has a direct answer and every A is answered or carries a line in `## Coverage` on why it doesn't apply. An uncovered angle that bears on the decision gets one more lane (large) or a second `doc-brown` on just that angle (medium); a run that covers everything wraps, however little it spent.
 
 ## Where it runs
 
@@ -63,26 +63,27 @@ Make a topic slug (lowercase, hyphens, ≤ 6 words). The findings file is `~/.cl
    - safety and risk, and what is normal for comparable groups
    - what comparable groups actually do
    - what we are not asking: the question behind the question
-3. **Large only: show the scope and ask before spending.** One pick-one whose question text carries the numbered list: "Go with this scope (Recommended)" or "Add angles" (typed in Other). Away, or with nobody to answer: go with it and say so in the file.
+3. **Large only: show the scope and ask before spending.** One pick-one whose question text carries the numbered list: "Go with this scope (Recommended)" or "Add angles" (typed in Other). Away, or with nobody to answer: go with it and say so in the file. While it waits on him, end the turn with no timer and no polling (kit 1.5, M9: one run stayed open 13 h); `/marco-polo` finds sessions waiting on him.
 
 ## Medium
 
 1. Scope first.
-2. Spawn `doc-brown` with the topic, the decision, the scope's path, the output path, today's date and the tells line (under "How the findings read"). It answers every Q and A in the findings file. End the order with `[budget 6M]`.
+2. Spawn `doc-brown` with the topic, the decision, the scope's path, the output path, today's date and the tells line (under "How the findings read"). It answers every Q and A in the findings file. End the order with `[budget 3M]`.
 3. Run the tells check and the harvest (both under "How the findings read").
-4. Relay its report: the path, the one-line answer to each Q, and the three-line answer.
+4. Relay its report: the path, the one-line answer to each Q, and the three-line answer. End on the `Next:` line (norms.md "Last line"): `Next: <the step> (<who>)`, or `Next: nothing, done.`
 
 ## Large
 
 1. Scope first, shown and agreed.
-2. **Lanes.** Split the scope into 2–4 areas (by area, not one per question; hejtide's would be form and control; insurance, safety and permits; money, tax and payments). Every Q and A belongs to one lane. Spawn one `doc-brown` per area **in parallel**, each with: the decision, the scope's path, its area and the Q/A numbers it owns, its scratch folder `~/.claude/plans/research/<slug>/<lane>/` (it writes `notes.md` there), an old flat lane file for its area if there is one, today's date, the tells line and `[budget 6M]`. Every lane order carries, as text: **"write the skeleton by turn 5, mark `open` by turn 35"** (jedi-council R3: a resume pays the lane's fixed start twice). A lane covers the alternatives inside its area too. Keep a lane to what fits its 40 turns: about five Q's and A's; more than that is another lane, within the four. A lane that stops early has its notes on disk (it writes as it goes): resume it once with "write up what you have, mark the rest `open`", and an angle left `open` that bears on the decision gets a fresh lane on just that.
+2. **Lanes.** Split the scope into 2–4 areas (by area, not one per question; hejtide's would be form and control; insurance, safety and permits; money, tax and payments). Every Q and A belongs to one lane. Spawn one `doc-brown` per area **in parallel**, each with: the decision, the scope's path, its area and the Q/A numbers it owns, its scratch folder `~/.claude/plans/research/<slug>/<lane>/` (it writes `notes.md` there), an old flat lane file for its area if there is one, today's date, the tells line and `[budget 3M]`. Every lane order carries, as text: **"write the skeleton by turn 5, mark `open` by turn 35"** (jedi-council R3: a resume pays the lane's fixed start twice). A lane covers the alternatives inside its area too. Keep a lane to what fits its 40 turns: about five Q's and A's; more than that is another lane, within the four. A lane that stops early has its notes on disk (it writes as it goes): resume it once with "write up what you have, mark the rest `open`", and an angle left `open` that bears on the decision gets a fresh lane on just that.
 3. **Synthesis, here.** Read the scope and every lane's notes and write the findings file (shape below): every Q gets its direct answer, the options from every lane go into one table, the costs into one table, and where lanes disagree, say so.
-4. **Counter pass.** A fresh `doc-brown` in **counter mode** with the findings path and the decision, `[budget 3M]`. It argues against the leading option and for the best alternative, and finds each option's downsides, then appends `## The case against`. Read it and update `## Answer`, `## Your questions, answered` and `## Options compared` where it changes them, saying so on the line.
-5. **Check.** A fresh `doc-brown` in **check mode** with the findings path and the decision, `[budget 4M]`. It re-fetches the sources of the `**key**` claims, marks each held / weakened / wrong, and lists each Q and A of the scope, one line each, as **answered**, **gap** or **reframed** (answered as something other than what was asked) against the file; all of it goes into `## Checked`, and it never rewrites the text above. It is the one fresh reader, so the coverage of the person's questions is checked here, not by the session that did the work (jedi-council R2). A fresh spawn has no stake in the others' conclusions.
-6. **Coverage.** Fill `## Coverage` and apply the 10% rule above; a Q the check marked gap or reframed gets its answer fixed or a line saying why not.
+4. **Counter pass.** A fresh `doc-brown` in **counter mode** with the findings path and the decision, `[budget 2M]`. It argues against the leading option and for the best alternative, and finds each option's downsides, then appends `## The case against`. Read it and update `## Answer`, `## Your questions, answered` and `## Options compared` where it changes them, saying so on the line.
+5. **Check.** A fresh `doc-brown` in **check mode** with the findings path and the decision, `[budget 2M]`. It re-fetches the sources of the `**key**` claims, marks each held / weakened / wrong, and lists each Q and A of the scope, one line each, as **answered**, **gap** or **reframed** (answered as something other than what was asked) against the file; all of it goes into `## Checked`, and it never rewrites the text above. It is the one fresh reader, so the coverage of the person's questions is checked here, not by the session that did the work (jedi-council R2). A fresh spawn has no stake in the others' conclusions.
+6. **Coverage.** Fill `## Coverage` and apply the coverage test above; a Q the check marked gap or reframed gets its answer fixed or a line saying why not.
 7. Run the tells check and the harvest (both under "How the findings read").
 8. Relay: the path, each Q's one-line answer, the leading option and the case against it in one line each, and any claim the check marked weakened or wrong (those change the answer; say how).
-9. The run stays under 35M. If the lanes come back over budget, the check still runs and the counter pass gets 2M; never raise the cap.
+9. The run stays under 16M. If the lanes come back over budget, the check still runs and the counter pass gets 1M; never raise the cap.
+10. The last line of the final message is the `Next:` line (norms.md "Last line"): `Next: <the step> (<who>)`, or `Next: nothing, done.` A small run inside another session leaves the last line to that session.
 
 ## How the findings read
 
