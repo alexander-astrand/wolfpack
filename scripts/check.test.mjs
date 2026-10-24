@@ -146,6 +146,14 @@ test('a lessons line over 300 characters fails with its line and length; 300 pas
   ])
 })
 
+test("with --project, the project's .claude/lessons.md gets the same cap", () => {
+  const root = kit({ ...good, 'plugins/core/lessons.md': '# Lessons\n\n- **[fine]** short\n' })
+  const project = kit({ '.claude/lessons.md': `# Lessons\n${'x'.repeat(301)}\n` })
+  const { problems } = checkKit(root, { base: project, project })
+  assert.deepEqual(problems.filter((p) => p.includes('lesson')), ['.claude/lessons.md:2  lesson line over 300 characters (301)'])
+  assert.deepEqual(checkKit(root, { base: project }).problems.filter((p) => p.includes('lesson')), [])
+})
+
 test('live-behind counts commits through an injected git, and is silent without the folder', () => {
   const live = kit({ 'README.md': 'x' })
   assert.equal(liveBehind(live, () => '5\n'), 5)
