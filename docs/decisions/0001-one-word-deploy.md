@@ -46,3 +46,5 @@ The same stop three times with no progress between them goes to him on Telegram 
 - What it costs: the deploy runs as one long background call, so its steps aren't logged one by one in `.claude/full-auto.log`; the script's output is the record, posted to the PR. The guard can't see inside the script, so the script is frozen (the plugin's folder, or a project's `.claude/hooks/`), like `prod-db.sh`. A transcript forged by code an interpreter writes isn't seen (the same known gap as the guard's other runtime-built paths), so writing one by any plain route asks.
 - Projects with their own `.claude/hooks/` copy of the guard (Hutzup) keep the kit 1.5 path until they copy `one-ring-go.mjs` and `deploy.mjs` in and run the plugin's `full-auto.sh`.
 - `/cattle-drive` chains still deploy through `ranjit` under the chain marker (`deploy-leg.md`); moving them onto the same script is a later change.
+
+24 Oct 2026, kit 1.7: `/special-delivery` deleted; `/one-ring` is the only name.

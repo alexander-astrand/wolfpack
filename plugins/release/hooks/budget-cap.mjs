@@ -49,49 +49,53 @@ export const bareAgentType = (type) => (typeof type === 'string' ? type.replace(
 
 const M = 1_000_000
 
-// Budgets without a tag, per role (tokens): the fallback when `.claude/kit.json`
-// is missing or malformed, which mirrors this table. Seniors and the planner
-// answer in a few calls; builders and the-playbook run whole steps.
-export const DEFAULT_BUDGETS = {
-  'lorenzo-von-matterhorn': 2 * M,
-  'romeo-olsson': 2 * M,
-  'c-3po': 10 * M,
-  'jesse-pinkman': 15 * M,
-  // The builder pool (2.10.2): the same prompt and model under five names.
-  'chris-de-kok': 25 * M,
-  'ahmed-och-ahmed': 25 * M,
-  'saul-goodman': 25 * M,
-  'jeff-winger': 25 * M,
-  'troy-and-abed': 25 * M,
-  // mosbius-designs depends on its model: see MODEL_DEFAULTS.
-  // 2.10.1's brief and review used 2.7M of 20M; the Fable designer 9.2M of 20M.
-  heisenberg: 8 * M,
-  // 12M → 14M after 2.10.1 and 2.10.2 both overran it (the `oceans-eleven` skill's table too).
-  'bengt-johansson': 14 * M,
-  // 45M → 15M with oceans-eleven's one Budgets table (`[playbook]`: a big migration is cut in two).
-  'the-playbook': 15 * M,
-  kissochbajslowski: 15 * M,
-  'admiral-ackbar': 10 * M,
-  // The senior planner (2.12 wrap-up): Fable, plans the releases whose mistakes spread.
-  'dom-cobb': 20 * M,
-  // The QA pool beside bengt-johansson (2.12.2): same job, same budget.
-  'tomas-svensson': 14 * M,
-  'magnus-wislander': 14 * M,
-  'staffan-olsson': 14 * M,
-  'stefan-lovgren': 14 * M,
-  daredevil: 3 * M,
-  'mike-ehrmantraut': 30 * M,
-  'three-eyed-raven': 8 * M,
+// Budgets without a tag, per role (tokens), from the plugin's one budgets file
+// (`budgets.json` beside `hooks/`; kit 1.7, council Feature 3: the numbers had
+// three copies, this hook, oceans-eleven's table and each kit.json, and drifted).
+// Why each number is what it is lives in oceans-eleven's Budgets section, which
+// mirrors the file. Seniors and the planner answer in a few calls; builders and
+// the-playbook run whole steps.
+export const BUDGETS_FILE = join(dirname(dirname(fileURLToPath(import.meta.url))), 'budgets.json')
+
+/** The budgets file read into tokens; an unreadable file gives empty tables (Hank fails open). */
+export function loadBudgets(file = BUDGETS_FILE) {
+  let raw = {}
+  try {
+    raw = JSON.parse(readFileSync(file, 'utf8')) ?? {}
+  } catch {
+    // no file: every role falls through to the 15M below, which is the ceiling anyway
+  }
+  const roles = {}
+  for (const [role, v] of Object.entries(raw.roles ?? {})) {
+    const t = kitValue(v)
+    if (t) roles[role] = t
+  }
+  // Roles whose numbers depend on the model they run on: the Fable designer
+  // explores wider and is given more room. Before the transcript shows a model,
+  // the Opus (smaller) numbers apply.
+  const byModel = {}
+  for (const [role, fams] of Object.entries(raw.byModel ?? {})) {
+    byModel[role] = {}
+    for (const [fam, o] of Object.entries(fams ?? {})) byModel[role][fam] = { budget: kitValue(o?.budget) ?? 15 * M, shots: o?.shots }
+  }
+  return {
+    roles,
+    byModel,
+    other: kitValue(raw.other) ?? 15 * M,
+    ceiling: kitValue(raw.ceiling) ?? 15 * M,
+    aboveCeiling: Array.isArray(raw.aboveCeiling) ? raw.aboveCeiling : [],
+  }
 }
 
-// Roles whose numbers depend on the model they run on (the `oceans-eleven`
-// skill's table): the Fable designer explores wider and is given more room.
-// Before the transcript shows a model, the Opus (smaller) numbers apply.
-export const MODEL_DEFAULTS = {
-  'mosbius-designs': { opus: { budget: 5 * M, shots: 6 }, fable: { budget: 12 * M, shots: 10 } },
-}
+const SOURCE = loadBudgets()
+export const DEFAULT_BUDGETS = SOURCE.roles
+export const MODEL_DEFAULTS = SOURCE.byModel
+// A role the table doesn't know; the-tower imports it so its line shows Hank's number.
+export const OTHER_BUDGET = SOURCE.other
+// The ceiling for a build or fix order's tag, and the roles allowed above it (the audits).
+export const BUDGET_CEILING = SOURCE.ceiling
+export const ABOVE_CEILING = new Set(SOURCE.aboveCeiling)
 const modelFamily = (model) => (/fable/i.test(model || '') ? 'fable' : 'opus')
-const OTHER_BUDGET = 15 * M
 
 // Counted screenshots: full-size shots and zooms, the ones a design is judged by.
 export const SHOT_CAPS = {
@@ -198,7 +202,10 @@ export function kitBudgets(file, notes = []) {
   }
   let budgets
   try {
-    budgets = JSON.parse(raw)?.budgets
+    const kit = JSON.parse(raw)
+    // A kit with no budgets key is the ordinary case, not worth a hank.log line (kit 1.7 review).
+    if (kit && typeof kit === 'object' && !('budgets' in kit)) return null
+    budgets = kit?.budgets
   } catch {
     budgets = undefined
   }
@@ -245,7 +252,7 @@ function catchUp(file, state) {
   const fd = openSync(file, 'r')
   try {
     const size = fstatSync(fd).size
-    if (size < state.offset) Object.assign(state, { offset: 0, tokens: 0, shots: 0, seen: [] })
+    if (size < state.offset) Object.assign(state, { offset: 0, tokens: 0, shots: 0, seen: [], started: false })
     if (size === state.offset) return
     const buf = Buffer.alloc(size - state.offset)
     readSync(fd, buf, 0, buf.length, state.offset)
@@ -261,7 +268,13 @@ function catchUp(file, state) {
         state.frames = (state.frames ?? 0) + k.frames
       }
       if (e.type === 'assistant' && e.message?.model) state.model = e.message.model
-      const tag = e.type === 'user' ? parseBudget(messageText(e.message)) : null
+      // The prompt (the first entry, a user one) never sets the budget: an order
+      // that quotes another agent's `[budget 4M]` set this builder's (kit 1.7, a
+      // 15M builder read as 4M). The spawn's tag is the description's.
+      // (`!state.offset`: a state file from before this rule has read past the prompt.)
+      const prompt = !state.started && !state.offset && e.type === 'user'
+      if (e.type === 'user' || e.type === 'assistant') state.started = true
+      const tag = e.type === 'user' && !prompt ? followUpBudget(messageText(e.message)) : null
       if (tag) state.budget = tag
     }
     state.offset += end + 1
@@ -269,6 +282,31 @@ function catchUp(file, state) {
     closeSync(fd)
   }
 }
+
+/**
+ * A follow-up's new total: a `[budget NM]` on the message's last non-empty
+ * line, or on the last line of a message the app wrapped in a system reminder
+ * (a SendMessage that lands mid-turn). A tag quoted in the body never counts.
+ */
+export function followUpBudget(text) {
+  let tag = null
+  for (const part of String(text ?? '').split(/<\/system-reminder[^>]*>/i)) {
+    const last = part
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !APP_WRAPPER.some((re) => re.test(l)))
+      .at(-1)
+    // The tag that ends the line: the same line may quote another one first.
+    const end = /\[budget\s+\d+(?:\.\d+)?\s*[mk]\][\s.`*_)]*$/i.exec(last ?? '')
+    tag = parseBudget(end?.[0]) ?? tag
+  }
+  return tag
+}
+
+// The lines the app puts around a message that lands mid-turn, so the sender's
+// own last line is the one read (kit 1.7 review M2: the real text ends
+// "Address this before completing your current task.", and a reset never landed).
+const APP_WRAPPER = [/^<\/?system-reminder[^>]*>$/i, /^The coordinator sent a message while you were working:?$/i, /^Address this\b/i]
 
 // The text of a user entry: a plain string, or its text blocks.
 function messageText(message) {
@@ -378,7 +416,7 @@ export function decide(input, env = {}) {
 const SPAWN_TOOLS = new Set(['Agent', 'Task'])
 export const NAMELESS = new Set(['general-purpose', 'Explore', 'Plan', 'claude'])
 export const NAMELESS_REASON =
-  'Never general-purpose: a job with no row goes to lorenzo-von-matterhorn (find), c-3po (write) or the next free builder (oceans-eleven, Routing).'
+  'Never general-purpose: a job with no row goes to lorenzo-von-matterhorn (find), c-3po (write, or read and write one file, such as a council\'s skills-lens reader: "c-3po: skills-lens <plugin> [budget 4M]") or the next free builder (oceans-eleven, Routing).'
 export const draftDoneReason = (followUp) =>
   `The draft is done; this navigator spawns nothing more. Send it to ${followUp || 'the follow-up session'} (the follow-up session).`
 

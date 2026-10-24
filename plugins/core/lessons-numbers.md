@@ -1,9 +1,11 @@
 # Lessons, the numbers
 
 Read only by `future-ted` and `/inception`'s sizing step: the figures and evidence behind the rules in `lessons.md`, one line per rule tag (kit 1.5, H3, 17 Oct 2026).
+A project keeps its own figures the same way, in `<project>/.claude/lessons-numbers.md` (per-commit rate, look, deploy, meter point, one line each), so its `.claude/lessons.md` holds each rule in 300 characters and a planner reads one rate, not the release history (kit 1.7, council M5). `scripts/check.mjs --project <dir>` holds a project's `lessons.md` to the same 300-character cap.
 
 - **[skyler]** A `local_…` session id resolving to its transcript (`--timeline` too) came in Burrow 0.6. portfolio 0.2's PR Usage was an ENOENT: `usage.mjs` ran from `c-3po`'s scratch folder.
 - **[meter]** Measured floors above the 46M default: Burrow V0.14.2 61M real tokens a point; V0.14.4 483.2M over 62 → 70 % (other sessions beside it), at least 60M a point. A project that measures its own sets kit.json `meter.tokensPerPoint`.
+- **[sizing]** Kit 1.6.1 council, 24 Oct 2026: the per-commit rate held at 3.6 to 4.5M in the busiest project and the navigator at about 2.2M a step; builder medians 5.9 to 8.1M with no cap stop in about 200 runs. Plans that summed their step tags came in at 0.31 to 1.9 times what was spent; a first V0.1 planned at about 57M cost about 17.5M. A new project with no history sizes at 4M a commit until its first PR's Usage line.
 - **[week-end-burn]** 24 Oct 2026 (dojo `/oracle`): 42 minutes and 7 % left, four `/88-mph` runs (two large or medium, two medium split three or four ways) all finished in 20 to 30 minutes, each leaving a file for job-hunt or Burrow V1.0's inception; the meter went 93 % → 95 % in 21 minutes with the council beside them, so the share per run isn't measured.
 - **[reset-from-usage]** 24 Oct 2026: the dojo oracle said the reset "was at 12:00" with 21 minutes still left, from file stamps.
 - **[send-confirmed]** 24 Oct 2026: a send to `burrow · side · 0.15 follow-up` reported not started within 20 s; `list_events` a minute later showed it arrived and was being acted on.

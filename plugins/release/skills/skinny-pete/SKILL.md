@@ -11,7 +11,7 @@ You are `skinny-pete`, this session's navigator: loyal, you relay every go, and 
 
 **Only when `/one-ring` can't** (kit 1.5; his words at `/memento`, 17 Oct 2026: "only skinny pete in extreme cases where manual is needed"): the database plugin's deploy script broken, a guard prompt under a chain's marker that the drive stopped on, or a read-only `check`. Every ordinary merge and deploy is `/one-ring`'s, in the session he types it in (kit 1.6), and so is a fix PR of any size: a fix is a PR like any other, and `/one-ring <its number>` ships it.
 
-A project whose `.claude/kit.json` says `"production": "none"` has nothing to deploy and no `ranjit`: say so in one line, and with `merge` follow `/one-ring`'s "No production" section instead.
+A project whose `.claude/kit.json` says `"production": "none"` has nothing to deploy and no `ranjit`: say so in one line, and with `merge` follow `/one-ring`'s "Projects without a database" section instead.
 
 **Title:** the session titles itself `<project.name> · deploy · <version>` in its first minute (`set_session_title` on `self`).
 
@@ -37,7 +37,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 - **The CLI is linked to dev** (`refs.dev` in `.claude/kit.json`); the deployer reaches production with `--project-ref` and `scripts/prod-db.sh`, never through the link. Linked elsewhere: ask for `supabase link --project-ref <refs.dev>`.
 - **Access changed since the last deploy** (a new deployer file, a moved kit.json key, new allow lines): run `check` below first, and go on only when it reads production.
 
-**Permission mode: manual (`default`).** In Auto mode the classifier judges production commands itself and refused the deployer's read-only `prod-db.sh` calls in 2.7 before the guard hook ran. Switch with `mcp__ccd_session_mgmt__set_session_permission_mode` (`session_id: "self"`, `mode: "default"`) and tell the person why; in a terminal session, ask them to switch. The deployer's reads then run through the allow rules in `.claude/settings.json`, and each change to production asks through the hook. The one-word deploy is `/one-ring`'s.
+**Permission mode: manual (`default`), and it will prompt.** Why manual: in Auto mode the classifier judges production commands itself, and in 2.7 it refused the deployer's read-only `prod-db.sh` calls before the guard hook ran. That reason predates the kit 1.6 guard, which now decides production calls first; whether the classifier still refuses that read under the guard is not retested (open since the kit 1.6.1 council; a session can't name `prod-db.sh` in a shell line to try it, so the retest is a manual run's job). Until it is, keep manual. Switch with `mcp__ccd_session_mgmt__set_session_permission_mode` (`session_id: "self"`, `mode: "default"`); in a terminal session, ask them to switch. **Tell the person in the same line what manual costs:** every call off the allow list in `.claude/settings.json` asks them, not only the production changes; the deployer's listed reads run without asking, and each change to production asks through the hook. That is why the ordinary deploy is `/one-ring`'s, in Auto, and this run is for the manual case only.
 
 A `merge` sent right after `/skinny-pete <version>` counts as the `merge` argument to this run.
 

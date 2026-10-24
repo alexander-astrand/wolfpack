@@ -43,8 +43,8 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
    - a different session's model or effort: `/beam-me-up <skill>`
    - a brief for a chat, agent or person: `/don-draper <for chat|agent|person> <subject>`
    - `/88-mph` and the rest of the newer commands: the "Slash commands" section of `reference.md` in the `oceans-eleven` skill's folder (the wolfpack `release` plugin).
-5. Close with one line: where to read more.
+5. Close with one line: where to read more. The last line of the final message is the `Next:` line (norms.md "Last line"): `Next: <the step> (<who>)`, or `Next: nothing, done.`
 
 ## A talk, not a watch
 - **When the next step is Alexander's, end the turn with no timer** and no polling (kit 1.5, M9: one dojo `/oracle` stayed open 19 h for 46M). `/marco-polo` finds the sessions waiting on him, so nothing is lost.
-- **Ceiling: about 20M** (lens Should 3: one session took 143M over 344 minutes). Past it, stop: say what this session has used, give a five-line summary of where the talk stands, and offer a fresh `/oracle` that starts from it. Carry on only on his word.
+- **Ceiling: about 20M** (lens Should 3: one session took 143M over 344 minutes; three sessions passed it at 52.9M, 47.4M and 27.7M because nobody could read it). Read it at the start of each round: this session's tokens from the `get_usage` context figure, or `node usage.mjs --timeline <this session's id>` from the `release` plugin's `scripts/` folder (`get_session` on `self` gives the id). Past it, stop: say what this session has used, give a five-line summary of where the talk stands, and offer a fresh `/oracle` that starts from it. Carry on only on his word.

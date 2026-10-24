@@ -28,6 +28,7 @@ Look for, in this order:
 - **A free-tier cliff the plan walks into:** a limit hit without a release that meets it, or a paid service with no "Free until" line.
 - **Personal data without a "whose":** accounts, emails, locations or messages with no owner, place or deletion path.
 - **A human step that could be a yes:** anything needing only a login the person already has is a step Claude runs after one yes. Human steps are sign-up, a key, billing.
+- **A headline that is a sum of tags** (kit 1.7, council H2): the plan's expected spend added up from its `[budget]` ceilings instead of planned commits × the measured per-commit rate (the order's, or `[sizing]` in the kit's `lessons-numbers.md`) plus the look and the deploy. Give the expected figure in the fix.
 - **No stop rule:** no "When to park it", or triggers too vague to ever fire.
 - **A generic taste seed:** a UI project's taste file with no project-specific line (no pick with its reason, no app named to steal from or avoid). Flag it as a must, never pass it quietly.
 - Anything in the plan the brief doesn't say, or the brief says and the plan drops.

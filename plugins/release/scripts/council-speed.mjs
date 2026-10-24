@@ -15,7 +15,7 @@ import { dropCounted, hhmm, projectDir, readEntries, resolveSession, sessionComm
 
 const HELP = `Usage: node council-speed.mjs [--dir <transcripts>] <session-id>…
        node council-speed.mjs [--dir <transcripts>] --since <YYYY-MM-DD>
-Prints a markdown table: session, command, wall-clock, agent-minutes, calls, tokens.`
+Prints a markdown table: session, command (or title), the card it counts on, wall-clock, agent-minutes, calls, tokens.`
 
 export function parseArgs(argv) {
   const opts = { dir: null, since: null, ids: [], help: false }
@@ -38,6 +38,39 @@ export function startCommand(entries) {
   return sessionCommand(entries).replace(/^(\(?)\/(?:([\w-]+):)?([\w-]+)(\)?)$/, (all, open, plugin, name, close) =>
     RENAMED[name] ? `${open}/${plugin ? `${plugin}:` : ''}${RENAMED[name]}${close}` : all,
   )
+}
+
+// The session's `project · kind · subject` title: the app writes a
+// `custom-title` line each time it is set (`agent-name` is the same text), so
+// the last one wins.
+export function sessionTitle(entries) {
+  let title = null
+  for (const e of entries) {
+    if (e?.type === 'custom-title' && e.customTitle) title = e.customTitle
+    else if (e?.type === 'agent-name' && e.agentName && !title) title = e.agentName
+  }
+  return title
+}
+
+// What the speed table and the cards both call a session (M1, kit 1.6.1
+// council: the two read the first prompt differently, and 87 sessions were
+// "(none)"). The command when there is one; a session started by another with
+// a brief takes its title; a release whose first prompt was a `/badger` call
+// takes its title too, unless the title says it is the badger session.
+const BADGER = /^\(?\/(?:[\w-]+:)?badger\)?$/
+export function sessionLabel(entries) {
+  const cmd = startCommand(entries)
+  const title = sessionTitle(entries)
+  if (cmd === '(none)') return title ? `title: ${title}` : '(none)'
+  if (BADGER.test(cmd) && title && !/badger/i.test(title)) return `title: ${title} (started ${cmd.replace(/[()]/g, '')})`
+  return cmd
+}
+
+// The skill a label counts under on the cards: `/release:captain-call` and
+// `(/captain-call)` are both `captain-call`; a title label counts under none.
+export function skillKey(label) {
+  const m = /^\(?\/(?:[\w-]+:)?([\w-]+)\)?$/.exec(label || '')
+  return m ? m[1].toLowerCase() : null
 }
 
 // A forked or resumed session starts its transcript with a byte-identical copy
@@ -64,7 +97,10 @@ const fmtHm = (min) => `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, 
 // `seen` set across sessions to count each message once.
 export function sessionRow(baseDir, idPrefix, seen = new Set()) {
   const { id, mainFile, subDir, subFiles } = resolveSession(baseDir, idPrefix)
-  const main = readEntries(mainFile, seen)
+  // The label reads the whole file: a fork's copied first prompt is still its start.
+  const raw = readEntries(mainFile)
+  const label = sessionLabel(raw)
+  const main = dropSeen(raw, seen)
   const rows = [timelineRow(main, 'navigator', 'navigator', id)]
   for (const f of subFiles) rows.push(timelineRow(readEntries(join(subDir, f), seen), f, f, id))
   const timed = rows.filter((r) => r.start)
@@ -72,7 +108,8 @@ export function sessionRow(baseDir, idPrefix, seen = new Set()) {
   const last = timed.length ? Math.max(...timed.map((r) => r.end)) : 0
   return {
     id,
-    command: startCommand(main),
+    command: label,
+    skill: skillKey(label),
     first,
     wall: Math.round((last - first) / 60_000),
     agentMinutes: rows.reduce((s, r) => s + r.minutes, 0),
@@ -83,12 +120,12 @@ export function sessionRow(baseDir, idPrefix, seen = new Set()) {
 
 export function tableOf(sessions) {
   const out = [
-    '| Session | Command | Start | Wall-clock | Agent-min | Calls | Tokens |',
-    '|---|---|---|---|---|---|---|',
+    '| Session | Command or title | Card | Start | Wall-clock | Agent-min | Calls | Tokens |',
+    '|---|---|---|---|---|---|---|---|',
   ]
   for (const s of sessions) {
     out.push(
-      `| ${s.id.slice(0, 8)} | ${s.command} | ${s.first ? hhmm(s.first) : '–'} | ${fmtHm(s.wall)} | ${s.agentMinutes} | ${s.calls} | ${fmtM(s.tokens)} |`,
+      `| ${s.id.slice(0, 8)} | ${s.command.replace(/\|/g, '/')} | ${s.skill ?? '–'} | ${s.first ? hhmm(s.first) : '–'} | ${fmtHm(s.wall)} | ${s.agentMinutes} | ${s.calls} | ${fmtM(s.tokens)} |`,
     )
   }
   return out.join('\n')

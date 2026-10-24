@@ -20,6 +20,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, realpathSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { readTimeout } from './read-clock.mjs'
 
 // The folder these hooks run from: the project's .claude/hooks, or a
 // plugin's hooks/ in Claude Code's install folder (2.14.9.1).
@@ -187,7 +188,7 @@ export function explainSteps(body, pr) {
       const { cmd, why } = classify(normalise(m[1]), pr)
       if (m.index + m[0].length !== lead) {
         // Only worth a line when it reads like a command someone meant as a step.
-        if (cmd) left.push({ text: m[1], why: 'inside a sentence, not a step of its own' })
+        if (cmd) left.push({ text: m[1], why: longLabel(line, m.index) ? `its label is over ${LABEL_MAX} characters` : 'inside a sentence, not a step of its own' })
         continue
       }
       if (cmd && !commands.includes(cmd)) commands.push(cmd)
@@ -200,6 +201,14 @@ export function explainSteps(body, pr) {
 // A list item (-, *, + or 1.), maybe a checkbox, then an optional short
 // label ending in a colon, then the code span that is the step.
 const STEP_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?(?:([^`:]{1,60}):\s*)?`[^`]+`/
+// STEP_RE's label limit.
+const LABEL_MAX = 60
+// A list item whose span follows a label ending in a colon, but a label too
+// long to count: check-plan names why the step fell off (database fix 13).
+const longLabel = (line, at) => {
+  const before = line.slice(0, at).replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/, '')
+  return before !== line.slice(0, at) && !before.includes('`') && /:\s*$/.test(before) && before.replace(/:\s*$/, '').length > LABEL_MAX
+}
 // A label that says not to run it ("Not yet: `…`").
 const NEGATED_RE = /\b(?:don'?t|do not|never|not|skip|avoid|unless|until)\b/i
 
@@ -329,6 +338,12 @@ export function armList(body, pr, facts = {}) {
   return { commands: [...(isDraft ? [`gh pr ready ${pr}`] : []), `gh pr merge ${pr} --squash --admin`], mergeOnly: true }
 }
 
+// The git reads' and the head read's own timeouts, as before kit 1.7: the
+// deploy and the arm read them outside any decision, where a cut to 5 s only
+// failed slow reads. Inside decide the read clock caps them.
+export const GIT_FACTS_MS = 10_000
+export const HEAD_OF_MS = 15_000
+
 /**
  * What git says about the PR's head against origin/main: every path the diff
  * touches (both paths of a rename or a copy) and every symlink under
@@ -340,7 +355,10 @@ export function armList(body, pr, facts = {}) {
  */
 export function gitFacts(sha, cwd = process.cwd()) {
   if (!/^[0-9a-f]{40}$/.test(sha ?? '')) return null
-  const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 10_000, maxBuffer: 64 << 20 })
+  // Runs inside the guard's decide too, where the shared read clock (kit 1.7,
+  // M10) caps it; a spent clock throws, and the catch below makes that
+  // "couldn't be read". Outside a decision it keeps its own GIT_FACTS_MS.
+  const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: readTimeout(GIT_FACTS_MS), maxBuffer: 64 << 20 })
   try {
     return parseGitFacts(git('diff', '--raw', '-z', '-M', '--no-abbrev', `origin/main...${sha}`), git('ls-tree', '-r', '-z', '--full-tree', sha))
   } catch {
@@ -390,9 +408,11 @@ export function prFacts(json) {
   return { body: v.body, files: complete ? v.files.map((f) => f.path) : null, isDraft: typeof v.isDraft === 'boolean' ? v.isDraft : null }
 }
 
-// The time the paged files read may take; WORST_CASE_MS must stay under the
-// 18 s watchdog with it (2.14.6, `[pr-size]`). One call, made only when gh's
-// first list is short, so a PR under 100 files never spends it.
+// The time the paged files read may take (2.14.6, `[pr-size]`). Inside decide
+// the shared read clock caps it too: decide is synchronous, so guard-entry's
+// 18 s timer can't cut a read short, and only the clock keeps the decision
+// inside it. One call, made only when gh's first list is short, so a PR under
+// 100 files never spends it.
 export const GH_FILES_MS = 3000
 
 /**
@@ -425,7 +445,7 @@ export function completeFiles(pr, fetchFiles) {
  */
 export function ghFetchFiles(number, cwd = process.cwd()) {
   const out = execFileSync('gh', ['api', `repos/{owner}/{repo}/pulls/${number}/files`, '--paginate', '--jq', '.[].filename'], {
-    cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: GH_FILES_MS, maxBuffer: 16 << 20,
+    cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: readTimeout(GH_FILES_MS), maxBuffer: 16 << 20,
   })
   return out.split('\n').filter(Boolean)
 }
@@ -595,7 +615,7 @@ export function planCalls(text) {
  */
 export function planCheck(planText, body, version, pr, facts = {}) {
   const arm = armList(body, pr, facts)
-  if (arm.refuse) return { calls: [], problems: [arm.refuse] }
+  if (arm.refuse) return { calls: [], problems: [arm.refuse], dropped: droppedSteps(body, pr) }
   const calls = planCalls(planText)
   const problems = []
   const steps = arm.commands.filter((c) => !mergeCommands(pr).includes(c))
@@ -618,14 +638,25 @@ export function planCheck(planText, body, version, pr, facts = {}) {
   if (facts.isDraft === true && !calls.includes(ready)) problems.push(`the PR is a draft, and the plan doesn't mark it ready (\`${ready}\`)`)
   if (facts.isDraft === false && calls.includes(ready)) problems.push(`the PR isn't a draft, so \`${ready}\` is extra`)
   if (calls.includes(ready) && merge.length === 1 && calls.at(-2) !== ready) problems.push(`\`${ready}\` isn't the step right before the merge`)
-  return { calls, problems }
+  return { calls, problems, dropped: droppedSteps(body, pr) }
+}
+
+/**
+ * The commands written in Before or After merge that fell off the arm list
+ * (not one code span, a label too long): not a mismatch, but each keeps
+ * asking a person at the deploy, so check-plan names them (database fix 13).
+ * Human steps are left off on purpose and aren't listed.
+ */
+export function droppedSteps(body, pr) {
+  return explainSteps(body, pr).left.filter((l) => !/human step/.test(l.why))
 }
 
 /** What `scripts/full-auto.sh check-plan` prints. */
-export function planCheckText({ calls, problems }, version, pr) {
-  if (problems.length) return `Plan check for V${version} (PR #${pr}): the plan doesn't match the PR. A hard stop; fix the plan and check again.\n${problems.map((p) => `  - ${p}`).join('\n')}\n`
+export function planCheckText({ calls, problems, dropped = [] }, version, pr) {
+  const off = dropped.length ? `Dropped from the arm list (each keeps asking a person; write it as one code span after a label under ${LABEL_MAX} characters):\n${dropped.map(({ text, why }) => `  - \`${text}\`: ${why}`).join('\n')}\n` : ''
+  if (problems.length) return `Plan check for V${version} (PR #${pr}): the plan doesn't match the PR. A hard stop; fix the plan and check again.\n${problems.map((p) => `  - ${p}`).join('\n')}\n${off}`
   const db = changesDatabase(calls) ? ', the backup first' : ''
-  return `Plan check for V${version} (PR #${pr}): the plan matches the PR: ${calls.length} production call${calls.length === 1 ? '' : 's'}${db}, the merge last.\n${calls.map((c, i) => `  ${i + 1}. ${c}`).join('\n')}\n`
+  return `Plan check for V${version} (PR #${pr}): the plan matches the PR: ${calls.length} production call${calls.length === 1 ? '' : 's'}${db}, the merge last.\n${calls.map((c, i) => `  ${i + 1}. ${c}`).join('\n')}\n${off}`
 }
 
 // ---------------------------------------------------------------- main
@@ -690,7 +721,7 @@ function readPr(n, json, then, sha = null) {
 
 function headOf(n) {
   try {
-    return execFileSync('gh', ['pr', 'view', String(n), '--json', 'headRefOid', '--jq', '.headRefOid'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 15_000 }).trim()
+    return execFileSync('gh', ['pr', 'view', String(n), '--json', 'headRefOid', '--jq', '.headRefOid'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: readTimeout(HEAD_OF_MS) }).trim()
   } catch {
     return null
   }

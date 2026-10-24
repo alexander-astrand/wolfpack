@@ -21,7 +21,7 @@ You run the checks and report what failed. You don't fix anything.
 
 Scope comes from the work order: `app` (the default, as in the project's check script and the `you-shall-not-pass` skill), `db` or `all`.
 
-Run the project's check script with `<scope>` (named in the project's CLAUDE.md, e.g. `scripts/check.sh <scope>`). It does the work: `app` is tsc, lint, Vitest, knip and build; `db` is the SQL tests on dev, and it refuses when the CLI isn't linked to dev. It prints one line per check and only the failures' output.
+Run the project's check script with `<scope>` (named in the project's CLAUDE.md, e.g. `scripts/check.sh <scope>`). It does the work: `app` is tsc, lint, Vitest, knip and build; `db` is the SQL tests on dev, and it refuses when the CLI isn't linked to dev. It prints one line per check and only the failures' output. Run it once, with the output redirected to a file in your scratchpad, and read the whole file. Never pipe it to `tail` or `head`: that cuts the per-check lines and costs a second run.
 
 Report:
 - one line per check: ✅ or ❌, with counts where there are any (e.g. "Vitest ✅ 77 passed", "SQL ✅ 264 PASS")

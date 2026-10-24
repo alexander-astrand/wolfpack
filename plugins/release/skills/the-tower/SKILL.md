@@ -25,21 +25,22 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 `${CLAUDE_PLUGIN_ROOT}/scripts/the-tower.mjs` reads the session JSON Claude Code pipes in and prints one line, for example:
 
 ```
-session 9.6M ≈0.4% wk (fable 0.3 opus 0.1) · link 2/2 · Hank: chris-de-kok 3.1/10M · week 86%
+session 9.6M ≈0.4% wk (fable 0.3 opus 0.1) · plan 0.31× · link 2/2 · Hank: chris-de-kok 3.1/15M · week 86%
 ```
 
 | Part | Means | Shown when |
 |---|---|---|
 | `session 9.6M ≈0.4% wk (fable 0.3 opus 0.1)` | the session's real tokens, subagents included (each message counted once, by `usage.mjs`), and their share of the week; the split by model in points when two models each count | the input names a transcript |
+| `plan 0.31×` | the session's tokens over the plan's headline, the first `Expected: ≈ <N>M` line in `<plans>V<version>.md` (or the kit's `kit-<version>.md`; `<plans>` is kit.json `plans`, else `~/.claude/plans/`), so a plan running at 0.3 or 1.4 shows at the first step (council Feature 3) | the branch is named as the version (`V2.3`, `kit-1.7`) and its plan has that line; a lane branch such as `kit-1.7-b1` shows no ratio |
 | `link 2/2` | this release's place in the armed chain (`.claude/full-auto-chain.json`) | a chain is armed, not expired, and lists the branch's version |
-| `Hank: <agent> 3.1/10M` | the most recently active subagent's tokens against its budget, from Hank's state files (`<scratchpad>/.hank/<session>/`); `3.1M` alone when no budget is known yet | the session has spawned an agent |
+| `Hank: <agent> 3.1/15M` | the most recently active subagent's tokens against its budget, from Hank's state files (`<scratchpad>/.hank/<session>/`); the budget read the way Hank reads it: the description's `[budget NM]` tag, else kit.json `budgets`, else the defaults in `plugins/release/budgets.json` | the session has spawned an agent |
 | `the Commissioner said no (...) 17:12Z` | the guard's last deny in `.claude/full-auto.log` | within 30 minutes |
 | `auto said no (...) 17:12Z` | auto mode's last refusal in `.claude/permission-denied.log` | within 30 minutes |
 | `week 86% (Fable 40%)` | the live weekly all-models meter from the input's rate limits, else `~/.claude/meter-now.json` (written by `daily-budget.mjs --tower`), `~` in front when that file is older than 30 minutes; Fable's own week while Fable runs here | always, when either source has it |
 
-The share uses one meter figure: `tokensPerPoint` in `usage.mjs`, which is kit.json's `meter.tokensPerPoint` when set, else 46M a point (Fable measured at 8M; H5, kit 1.5). The git branch (read from `.git/HEAD`, no git process) shows only when no part can be read.
+The share uses one meter figure: `tokensPerPoint` in `usage.mjs`, which is kit.json's `meter.tokensPerPoint` when set, else 46M a point (Fable measured at 8M; H5, kit 1.5); a project measures its own with `${CLAUDE_PLUGIN_ROOT}/scripts/meter-calibrate.mjs`. The git branch (read from `.git/HEAD`, no git process) shows only when no part can be read.
 
-Times are UTC. If the line would pass 79 columns, the refusal's command is cut first, then parts drop in this order: the link, Hank, the refusal. The session and the week stay. It never throws: a part that can't be read is left out. It reads small files, the tail of the logs and only a transcript's new bytes (a count cached in the temp folder), with no network and no `gh`, because it runs on every redraw.
+Times are UTC. If the line would pass 79 columns, the refusal's command is cut first, then parts drop in this order: the link, Hank, the plan ratio, the refusal. The session and the week stay. It never throws: a part that can't be read is left out. It reads small files, the tail of the logs and only a transcript's new bytes (a count cached in the temp folder), with no network and no `gh`, because it runs on every redraw.
 
 The daily window's enforcer is its neighbour, `${CLAUDE_PLUGIN_ROOT}/scripts/daily-budget.mjs` (the 14% / 7% rule; `--status` for a dry run).
 

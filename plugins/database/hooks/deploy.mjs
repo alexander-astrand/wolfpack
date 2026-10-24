@@ -10,7 +10,8 @@
 // stopped when run again:
 //   1. the PR, by number or by version (its branch V<v>, or V<v> in its title)
 //   2. out of draft, up to date with main, no conflicts, CI green on its head
-//   3. no unticked "Human steps before the deploy can finish" (a secret waits)
+//   3. no unticked "Human steps before the deploy can finish" tagged [secret],
+//      [password] or [payment] (those wait); the rest go in a PR comment
 //   4. a throwaway checkout of that head, with main's prod-db.sh and kit.json
 //   5. migrations: the backup (Docker started, three tries, never skipped),
 //      the dry run equal to the PR's new migration files, the push
@@ -61,7 +62,7 @@ const HOST_MINUTES = 12
 // to GitHub, so the smoke alone says the site is up.
 const HOST_SILENT_MINUTES = 3
 const SMOKE_SECONDS = 90
-const PR_FIELDS = 'number,title,state,isDraft,headRefName,headRefOid,baseRefName,body,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,mergedAt,createdAt,mergeCommit,url'
+const PR_FIELDS = 'number,title,state,isDraft,headRefName,headRefOid,baseRefName,body,comments,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,mergedAt,createdAt,mergeCommit,url'
 const FROM_MAIN = ['scripts/prod-db.sh', '.claude/kit.json']
 const MIGRATION_RE = /^supabase\/migrations\/(\d{4,})_[^/]*\.sql$/
 
@@ -136,9 +137,9 @@ export function ciState(rollup, jobs = kit.CI_JOBS, workflow = kit.CI_WORKFLOW) 
 }
 
 /**
- * The PR's "Human steps before the deploy can finish" that aren't ticked:
- * each is a secret, a dashboard setting or a payment, which only Alexander
- * gives. "None" and ticked items don't count.
+ * The PR's "Human steps before the deploy can finish" that aren't ticked.
+ * "None" and ticked items don't count. Only some of them hold the deploy:
+ * see holdsDeploy.
  */
 export function openHumanSteps(body) {
   const text = String(body ?? '').replace(/<!--[\s\S]*?(?:-->|$)/g, '')
@@ -149,6 +150,45 @@ export function openHumanSteps(body) {
   return (end < 0 ? rest : rest.slice(0, end))
     .map((l) => l.trim())
     .filter((l) => /^(?:[-*+]|\d+[.)])\s+\[ \]/.test(l) && !/^(?:[-*+]|\d+[.)])\s+\[ \]\s+"?None"?\.?$/i.test(l))
+}
+
+// carousel tags a step only Alexander can give (kit 1.7, council H1).
+const HOLD_TAG_RE = /\[(?:secret|password|payment)\]/i
+// A PR written before the tags existed, or an untagged step: one that names a
+// secret, a password or a payment still holds, so a PR never deploys past
+// one. A secret is often named by its kind instead ("Set RESEND_API_KEY in
+// Vercel", "Add the service role key"), so those words hold too; `[_\s-]?`
+// lets an env name like API_KEY or SERVICE_ROLE count.
+const HOLD_WORD_RE = /(?:\b|_)(?:secrets?|passwords?|payments?|api[_\s-]?keys?|tokens?|credentials?|service[_\s-]?role|secret[_\s-]?keys?)(?:\b|_)/i
+
+/**
+ * Whether an unticked human step holds the deploy: only a secret, a password
+ * or a payment does (his words, 21 Oct 2026: "Only a password, secret or
+ * payment waits for me"). "Check the start page" or "tell Becky" is listed in
+ * the PR comment and the deploy carries on.
+ */
+export const holdsDeploy = (step) => HOLD_TAG_RE.test(step) || HOLD_WORD_RE.test(step)
+
+// The deploy's comment on the PR for the steps left to after it; the marker
+// keeps a re-run from writing the same comment twice.
+export const LEFT_MARKER = '<!-- one-ring: human steps left -->'
+
+/** The PR comment listing the human steps the deploy didn't wait for. */
+export function leftStepsComment(steps) {
+  return [
+    LEFT_MARKER,
+    "The deploy didn't wait for these human steps (none is a secret, a password or a payment); they are left for after it:",
+    '',
+    ...steps,
+  ].join('\n')
+}
+
+/** Whether a comment already lists every one of these steps. */
+export function alreadyListed(comments, steps) {
+  return (Array.isArray(comments) ? comments : []).some((c) => {
+    const body = String(c?.body ?? '')
+    return body.includes(LEFT_MARKER) && steps.every((s) => body.includes(s))
+  })
 }
 
 /**
@@ -263,9 +303,18 @@ function run(argv, io, say) {
     // 2. Ready, current, green.
     pr = readyAndGreen(pr, io, gh, view, say)
     head = pr.headRefOid
-    // 3. What only Alexander gives.
+    // 3. What only Alexander gives: a secret, a password or a payment holds
+    // the deploy; any other open step goes in a PR comment and never does.
     const open = openHumanSteps(pr.body)
-    if (open.length) stop(EXIT.WAITS, `the PR's "Human steps before the deploy can finish" aren't done: ${open.join(' | ')}`)
+    const holds = open.filter(holdsDeploy)
+    const left = open.filter((s) => !holdsDeploy(s))
+    if (left.length && !alreadyListed(pr.comments, left)) {
+      const posted = sh('gh', ['pr', 'comment', String(pr.number), '--body', leftStepsComment(left)])
+      say(posted.status === 0
+        ? `Human steps left for after the deploy, listed on the PR: ${left.join(' | ')}`
+        : `Human steps left for after the deploy (the PR comment failed: ${lastLines(posted)}): ${left.join(' | ')}`)
+    }
+    if (holds.length) stop(EXIT.WAITS, `the PR's "Human steps before the deploy can finish" hold a secret, a password or a payment that isn't done: ${holds.join(' | ')}`)
 
     if (kind === 'database') {
       // 4.-6. Production, from a throwaway checkout of exactly this head.

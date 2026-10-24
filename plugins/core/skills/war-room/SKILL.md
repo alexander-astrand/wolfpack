@@ -21,7 +21,7 @@ war-room · the planning board (Dr. Strangelove: the President in the War Room, 
 - wrap: "Board updated. As you were."
 Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfpack `design` plugin, which ships the card).
 
-Board: its URL lives in memory, never in the repo; in a session without it, ask Alexander (private: only Alexander reads or writes it)
+Board: its URL lives in memory, never in the repo; in a session without it, ask Alexander (private: only Alexander reads or writes it).
 
 **Private.** The board lives only in the artifact's db. Never write project names, next steps or meter rows into the repo, a PR, the roadmap page or any file outside `~/.claude/plans/` and the scratchpad; the repo is public. `page.html` beside this file is the template and holds no rows.
 

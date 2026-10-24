@@ -2,9 +2,26 @@
 
 The Supabase pack: the production guard (the Slap Bet Commissioner) in `hooks/`, `the-playbook` and `bro-code`. The deployer agent is the project's own (in its `.claude/agents/`, named by `deployer` in `.claude/kit.json`). `database-artifacts.md` lists what a project using it carries. The guard finds the project through `CLAUDE_PROJECT_DIR` and reads its values from `.claude/kit.json`.
 
+## The scope sheet and the test runner (kit 1.7)
+
+Two read-and-run helpers for database steps, run from the plugin folder (nothing to copy into the project):
+
+- `node scripts/scope.mjs <table|function> [--root <project>]` prints the suites under `supabase/tests/` naming it, the pinned lists in `src/`, `scripts/` and `supabase/functions/` (a quoted name on a line), the migrations defining it as a function, and its foreign-key pairs from `supabase/migrations/`. Files only, no database. The navigator pastes its output into every `the-playbook` order, so the builder starts from the list instead of reading suites one by one.
+- `node scripts/run-tests.mjs [prefix] [--root <project>]` runs `supabase/tests/*.sql` the way `bro-code` writes them (no `_` files, `_helpers.sql` pasted at `-- @helpers`, the prefix for one suite) and prints only `FAIL <file>` with its failed checks, then one count line; exit 1 on any FAIL. Dev only: `--local` for a local stack, `--linked` only when the CLI is linked to `refs.dev`; it refuses with exit 2 when it can't tell, or when the project's own test command names the other flag. For a project with no database test command of its own.
+
 ## The one-word deploy (kit 1.6)
 
 `/one-ring <version or PR number>`, typed by Alexander in any session of a project, runs this plugin's own `scripts/full-auto.sh deploy <same argument>` (never the project's copy, so `live-sync` keeps it current), and `hooks/deploy.mjs` does the rest: out of draft, the branch up to date, CI green on its head, a throwaway checkout of that head with main's `prod-db.sh` and `kit.json`, the backup (Docker started, three tries), the dry run equal to the PR's new migration files, the push, the PR's `prod-db.sh setting` steps, the functions it touches (`scripts/functions-touched.mjs` when the project has one), the squash merge of exactly the head CI passed, the host's deploy and a smoke. Run again after a stop, it picks up where it stopped. The guard lets that one call through when this session's transcript holds his typed `/one-ring` with the same argument from the last 12 hours (`hooks/one-ring-go.mjs`), and asks him once otherwise. Why, and what a session may fix on production on the way: `docs/decisions/0001-one-word-deploy.md` in the kit.
+
+Only an unticked "Human steps before the deploy can finish" tagged `[secret]`, `[password]` or `[payment]` holds the deploy (kit 1.7; `carousel` writes the tag, and an untagged step naming a secret, a password, a payment, an API key, a token, a credential or a service role key holds too, for PRs from before the tags). Every other open step is listed once in a PR comment and the deploy carries on. `/one-ring check <version or PR>` prints what the deploy would run and what production has, and changes nothing. Under `/one-ring`, `ranjit` is never spawned.
+
+## The deployer, generated (kit 1.7)
+
+A project's `.claude/agents/ranjit.md` is this plugin's `templates/ranjit.md` (or `ranjit-no-database.md` for `"production": "on-merge"`) with its `.claude/kit.json` values filled in, never a hand copy. `node <plugin>/scripts/sync-ranjit.mjs <project dir>` writes it; with `--check` it only compares, prints the diff and exits 1 when the copy differs. The file is frozen, so the write runs where the guard allows it (Alexander, or a setup session); a project's check runs `--check`.
+
+## What the guard logs and allows (kit 1.7)
+
+Every `ask` and `deny` the guard decides goes to the project's `.claude/guard-decisions.log` with its reason, and every Auto mode refusal to `.claude/permission-denied.log` (`hooks/denied-log.mjs`). Both are tab-separated in the same column order, written in `denied-log.mjs`'s header. `node <plugin>/hooks/denied-log.mjs --summary [--since <YYYY-MM-DD>] [--dir <project>]` groups the repeats from both, marks each `guard` or `classifier`, and prints a `settings.json` allow line for the classifier's dev-only repeats. The guard's read allowlist takes `git show|diff|cat-file|ls-tree|rev-parse|status|log` and `grep`, `rg` and `wc` on the repo's own files (not `.claude/`, `.git/` or `.env*`), so those skip the classifier.
 
 ## Install the scripts
 

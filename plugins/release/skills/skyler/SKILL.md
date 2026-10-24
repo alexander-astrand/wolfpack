@@ -30,7 +30,8 @@ The running release is the newest `.jsonl` (by modified time) under `~/.claude/p
 - The books: `node ${CLAUDE_PLUGIN_ROOT}/scripts/usage.mjs --timeline <session id>` from the repo root (`--dir <path>` for another folder). Add `--commits N` (`git log --oneline main..HEAD | wc -l` on the release branch) only when asked.
 
 ## 3. Print, short
-- **Meter:** the weekly percentage now, against the release target (≤5% per big release, `oceans-eleven`), and the pace: percent per day since the release started. The release's own share is the script's `Week:` line: its tokens ÷ `tokensPerPoint` (kit.json `meter.tokensPerPoint`, else 46M a point).
+- **Meter:** the weekly percentage now, against the release target (≤5% per big release, `oceans-eleven`), and the pace: percent per day since the release started. The release's own share is the script's `Week:` line: its tokens ÷ `tokensPerPoint` (kit.json `meter.tokensPerPoint`, a number or one per model family, else 46M a point). Print the figure beside every percent (`4.1% at 46M a point`); when the project has no figure of its own, say so and name `node ${CLAUDE_PLUGIN_ROOT}/scripts/meter-calibrate.mjs` as how it measures one (council H6).
+- **Against the plan:** `node ${CLAUDE_PLUGIN_ROOT}/scripts/the-tower.mjs --headline <version>` from the repo root prints the plan's headline in tokens (its first `Expected: ≈ <N>M` line) and the file. Print spent ÷ headline (`spent 58.2M of 190M expected, 0.31`); it prints nothing when the plan has no headline, and then you print nothing extra.
 - **Per model:** the table's rows (part, model, calls, tokens, share) and the total.
 - **Per agent:** one line each from `--timeline` (description, model, active minutes, calls, tokens), largest first, by the agent's name (`chris-de-kok`, `the-playbook`, ...).
 - **The navigator's share:** `captain-call`'s tokens as a percentage of the total, against the last two releases' shares in their PR Usage sections.

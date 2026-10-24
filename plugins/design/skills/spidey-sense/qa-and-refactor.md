@@ -8,6 +8,7 @@ Driving a creation flow (a new-event wizard, say) by hand uses up a capped QA ru
 - **Marked** "TEST QA seed" in a field the clean-up can find, so the clean-up also catches a seed an earlier run left behind.
 - **Adjustable:** visibility, limits and sign-ups change when the feature needs it (a full list for a waitlist, public for a public-only flow).
 - **One clean-up call** deletes it afterwards (child rows go with it by cascade) and returns how many rows went.
+- **`seed=shared`: lanes side by side never clean.** When the order says `seed=shared` (Bengan Boys or several `bengt-johansson` passes at once), the navigator runs the seed once before it spawns the lanes, passes the ids in each order, and runs the one clean-up after the last lane reports. No lane seeds or cleans: four Boys side by side each ran the seed and its clean-up, and the first to finish deleted the rows the others were checking (`tomas-svensson`'s line, kit 1.6.1 council M4). Without the flag, a single pass seeds and cleans its own.
 
 ## Proving a refactor changed nothing
 Before the change, load each page in a hidden same-origin iframe from `javascript_tool`, and store every element's tag, leaf text and computed styles (colour, background, border, box-shadow, display, font) in `localStorage`. After the change, compare. It catches CSS-order bugs that screenshots miss. It takes about 4 s per page, so run it in the background and poll `window.__report` (calls time out at 45 s). Leave out a page whose rows change on their own (an activity feed): it drifts.

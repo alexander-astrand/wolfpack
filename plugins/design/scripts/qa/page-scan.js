@@ -3,7 +3,7 @@
 // scan finds for almost nothing, so the scan runs first and screenshots only prove what it found.
 // It replaces each project's scripts/qa/layout-check.js (its three lists are in here, unchanged).
 //
-// In the Browser pane (spidey-sense, "The page scan"): the project keeps a copy at
+// In the Browser pane (web-shooters, "The page scan"): the project keeps a copy at
 // public/qa/page-scan.js (Vite and Next both serve public/ at the root), and one javascript_tool
 // call on the page's own tab runs it:
 //   window.__scanArgs = { widths: [375, 1024], themes: ['dark', 'light'], themeVia: 'param:theme' }
