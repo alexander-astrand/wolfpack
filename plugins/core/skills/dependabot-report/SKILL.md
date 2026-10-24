@@ -25,7 +25,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 A scheduled run is unattended: one plain command per call (no pipes, chained commands, heredocs or redirections), the Read, Glob and Grep tools for reading and the Write tool for the note (the dojo's routine rules: `~/dojo/.claude/skills/mr-miyagi`). Take the date from your context, not a shell command.
 
-1. **List them:** `gh pr list --author app/dependabot --json number,title,statusCheckRollup,mergeable,createdAt,url`.
+1. **List them:** `gh pr list --author app/dependabot --limit 100 --json number,title,statusCheckRollup,mergeable,createdAt,url`.
 2. **Per PR:** `mergeable` often comes back `UNKNOWN` from the list (GitHub works it out lazily), so ask once per PR: `gh pr view <n> --json mergeable,mergeStateStatus,statusCheckRollup`. Take the CI state from the checks: `green` (all SUCCESS, SKIPPED or NEUTRAL), `red` (any FAILURE, CANCELLED or TIMED_OUT; name the failing check), `running` (any PENDING or QUEUED, or no checks yet).
 3. **Sort into three lists:**
    - **Safe to merge between releases:** green and `MERGEABLE`. Mark a major-version bump (the first number changes, e.g. `6.0.3 to 7.0.2`) as `major, check locally first`: CI covers the app, not every tool's new defaults. `mergeStateStatus` `BLOCKED` with green checks usually means it waits for a person's approval; say so in a word, don't call it a problem.
