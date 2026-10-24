@@ -1,5 +1,23 @@
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { weeklyStretches } from './meter-calibrate.mjs'
+import { tokensInStretches, weeklyStretches } from './meter-calibrate.mjs'
+
+describe('tokensInStretches', () => {
+  it('streams the transcripts and counts a message once per stretch', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'meter-calibrate-'))
+    const line = (id, ts, n) =>
+      JSON.stringify({ timestamp: ts, message: { id, model: 'claude-opus-x', usage: { input_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: n, output_tokens: 0 } } })
+    const a = join(dir, 'a.jsonl')
+    const b = join(dir, 'b.jsonl')
+    // One message on two lines, a forked copy in a second file, one outside the stretch, and noise.
+    writeFileSync(a, [line('m1', '2026-10-08T10:30:00Z', 9), line('m1', '2026-10-08T10:30:00Z', 9), 'not json', line('m2', '2026-10-09T10:00:00Z', 99)].join('\n'))
+    writeFileSync(b, `${[line('m1', '2026-10-08T10:30:00Z', 9), JSON.stringify({ type: 'user' }), line('m3', '2026-10-08T11:00:00Z', 4)].join('\n')}\n`)
+    const stretch = { t0: Date.parse('2026-10-08T10:00:00Z'), t1: Date.parse('2026-10-08T12:00:00Z') }
+    expect(await tokensInStretches([a, b], [stretch, { t0: 0, t1: Date.parse('2030-01-01') }])).toEqual([15, 115])
+  })
+})
 
 const reset = '2026-10-10T10:00:00.000Z'
 const row = (t, from, now) => `${t}\tseven_day\t${from}\t${now}\t${reset}`

@@ -390,7 +390,9 @@ async function main() {
     console.log(JSON.stringify({ ...st, window: st.window && { ...st.window, start: new Date(st.window.start).toISOString(), reset: new Date(st.window.reset).toISOString() } }, null, 2))
     console.log('tower:', dayLine(st) || '(none)')
     const tokens = dayTokens(st, readKit())
-    if (tokens !== null) console.log(`window so far: about ${(tokens / 1e6).toFixed(0)}M real tokens of ${((CAP * tokensPerPoint(readKit())) / 1e6).toFixed(0)}M`)
+    // The figure beside the numbers, so a reader knows which point they used (council H6).
+    const perPoint = tokensPerPoint(readKit())
+    if (tokens !== null) console.log(`window so far: about ${(tokens / 1e6).toFixed(0)}M real tokens of ${((CAP * perPoint) / 1e6).toFixed(0)}M (at ${(perPoint / 1e6).toFixed(0)}M a point)`)
     const forceActive = args.includes('--active')
     for (const [label, input] of [
       ['Agent saul-goodman', { tool_name: 'Agent', tool_input: { subagent_type: 'saul-goodman' } }],

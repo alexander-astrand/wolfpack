@@ -9,10 +9,14 @@
 //   <iso time>\tplan\t20x
 // Where both a 5x and a 20x stretch exist, the 20x/5x ratio is printed.
 //
+// The transcripts are streamed line by line, so gigabytes of them fit in
+// node's default heap.
+//
 //   node meter-calibrate.mjs [--log <file>] [--projects <dir>]
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
 import { parseEntries, tallyEntries, totalTokens } from './usage.mjs'
 
@@ -61,22 +65,38 @@ function transcriptFiles(dir, since) {
   return out
 }
 
-function tokensBetween(entriesByFile, t0, t1) {
-  const picked = []
-  for (const entries of entriesByFile) {
-    for (const e of entries) {
+// The tokens inside each stretch, one sum per stretch. The transcripts are
+// streamed a line at a time: reading every file whole ran out of memory at
+// node's default 4 GB heap on 5.2 GB of transcripts (kit 1.7, a project's
+// first run). Only a line that carries usage and falls in a stretch is kept,
+// and only as its sum; a message.id counts once per stretch (tallyEntries' rule).
+export async function tokensInStretches(files, stretches) {
+  const sums = stretches.map(() => 0)
+  const seen = stretches.map(() => new Set())
+  for (const file of files) {
+    const lines = createInterface({ input: createReadStream(file, 'utf8'), crlfDelay: Infinity })
+    for await (const line of lines) {
+      if (!line.includes('"usage"')) continue // cheap skip before a parse
+      const [e] = parseEntries(line)
+      if (!e?.message?.usage) continue
       const t = Date.parse(e.timestamp)
-      if (t > t0 && t <= t1) picked.push(e)
+      stretches.forEach((s, i) => {
+        if (!(t > s.t0 && t <= s.t1)) return
+        const id = e.message.id
+        if (id) {
+          if (seen[i].has(id)) return
+          seen[i].add(id)
+        }
+        for (const b of tallyEntries([e]).values()) sums[i] += totalTokens(b)
+      })
     }
   }
-  let sum = 0
-  for (const b of tallyEntries(picked).values()) sum += totalTokens(b)
-  return sum
+  return sums
 }
 
 const fmtM = (t) => `${(t / 1_000_000).toFixed(1)}M`
 
-function main() {
+async function main() {
   const argv = process.argv.slice(2)
   const opt = (flag, dflt) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : dflt)
   const log = opt('--log', DEFAULT_LOG)
@@ -95,11 +115,11 @@ function main() {
     return
   }
   const since = Math.min(...stretches.map((s) => s.t0))
-  const entriesByFile = transcriptFiles(projects, since).map((f) => parseEntries(readFileSync(f, 'utf8')))
+  const sums = await tokensInStretches(transcriptFiles(projects, since), stretches)
 
   const plans = new Map()
-  for (const s of stretches) {
-    const tokens = tokensBetween(entriesByFile, s.t0, s.t1)
+  for (const [i, s] of stretches.entries()) {
+    const tokens = sums[i]
     const p = plans.get(s.plan) || { points: 0, tokens: 0 }
     p.points += s.p1 - s.p0
     p.tokens += tokens
