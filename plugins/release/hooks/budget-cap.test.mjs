@@ -73,9 +73,9 @@ describe('budgets', () => {
   it('finds the budget of a plugin agent named <plugin>:<agent>', () => {
     expect(bareAgentType('release:chris-de-kok')).toBe('chris-de-kok')
     expect(bareAgentType('chris-de-kok')).toBe('chris-de-kok')
-    // 16M is under chris-de-kok's 25M × 80%, but past the 15M default a missed lookup would use.
-    agent('p1', { type: 'release:chris-de-kok', description: 'step F', tokens: 16 * M })
-    expect(call('p1', 'release:chris-de-kok')).toBe('allow')
+    // 5M is past c-3po's 4M, but under the 15M default a missed lookup would use.
+    agent('p1', { type: 'release:c-3po', description: 'readme', tokens: 5 * M })
+    expect(call('p1', 'release:c-3po')).toBe('deny')
   })
 
   it('never counts the main session', () => {
@@ -114,11 +114,12 @@ describe('budgets', () => {
     expect(call('a4', 'chris-de-kok')).toBe('allow')
   })
 
-  it('gives every builder in the pool the same 25M default', () => {
-    for (const name of ['ahmed-och-ahmed', 'saul-goodman', 'jeff-winger', 'troy-and-abed']) {
-      agent(`p-${name}`, { type: name, description: `${name}: step`, tokens: 16 * M })
+  it('gives every builder in the pool the same 15M default', () => {
+    for (const name of ['chris-de-kok', 'ahmed-och-ahmed', 'saul-goodman', 'jeff-winger', 'troy-and-abed']) {
+      expect(DEFAULT_BUDGETS[name]).toBe(15 * M)
+      agent(`p-${name}`, { type: name, description: `${name}: step`, tokens: 10 * M })
       expect(call(`p-${name}`, name)).toBe('allow')
-      agent(`q-${name}`, { type: name, description: `${name}: step`, tokens: 26 * M })
+      agent(`q-${name}`, { type: name, description: `${name}: step`, tokens: 16 * M })
       expect(call(`q-${name}`, name)).toBe('deny')
     }
   })
@@ -436,8 +437,8 @@ describe('kit.json budgets (2.14.6)', () => {
   })
 
   it('falls back to the built-in table when the kit is missing, logging it once', () => {
-    agent('k5', { type: 'chris-de-kok', description: 'chris-de-kok: step', tokens: 24 * M })
-    expect(call('k5', 'chris-de-kok')).toBe('note') // 24M of the built-in 25M
+    agent('k5', { type: 'chris-de-kok', description: 'chris-de-kok: step', tokens: 14 * M })
+    expect(call('k5', 'chris-de-kok')).toBe('note') // 14M of the built-in 15M
     spend('k5', 1.1 * M)
     expect(call('k5', 'chris-de-kok')).toBe('deny')
     expect(logs.filter((l) => /no kit/.test(l))).toHaveLength(1)
@@ -445,8 +446,8 @@ describe('kit.json budgets (2.14.6)', () => {
 
   it('falls back when the kit is malformed, with a log line', () => {
     kit('{ "budgets": ')
-    agent('k6', { type: 'chris-de-kok', description: 'chris-de-kok: step', tokens: 26 * M })
-    expect(call('k6', 'chris-de-kok')).toBe('deny') // the built-in 25M
+    agent('k6', { type: 'chris-de-kok', description: 'chris-de-kok: step', tokens: 16 * M })
+    expect(call('k6', 'chris-de-kok')).toBe('deny') // the built-in 15M
     expect(logs.join('\n')).toMatch(/no readable budgets/)
   })
 
@@ -540,6 +541,8 @@ describe('spawns (kit 1.5)', () => {
     for (const type of [undefined, 'general-purpose', 'Explore', 'Plan', 'claude']) {
       expect(spawn({ subagent_type: type, description: 'find the hooks' }), String(type)).toBe(NAMELESS_REASON)
     }
+    // Kit 1.7 (council M1): the council's lens readers were refused four times with no row named.
+    expect(NAMELESS_REASON).toMatch(/c-3po: skills-lens <plugin> \[budget 4M\]/)
   })
 
   it('lets a nameless type through when the description starts with a kit or project agent', () => {
