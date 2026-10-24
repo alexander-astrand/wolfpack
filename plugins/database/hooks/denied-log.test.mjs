@@ -131,6 +131,25 @@ describe('denied-log --summary', () => {
     expect(text).toContain('2\tguard\tBash\tgit push\tguard asks on purpose: Pushes to main')
   })
 
+  // Review must 3: an allow-list of dev reads, not a deny-list of risks.
+  it.each([
+    ['bash -c "ls"', 'bash'], ['sh run.sh', 'sh'], ['node -e "console.log(1)"', 'node'], ['python3 -c "print(1)"', 'python3'],
+    ['eval "ls"', 'eval'], ['env FOO=1 ls', 'env'], ['curl -s https://example.com/x', 'curl'], ['psql postgresql://u@h/db -c "select 1"', 'psql'],
+    ['supabase db push --linked', 'supabase db'], ['osascript -e x', 'osascript'], ['open -a Safari', 'open'], ['chmod +x f', 'chmod'],
+    ['npx tsx a.ts', 'npx tsx'], ['gh pr create', 'gh pr create'], ['npm install x', 'npm install'],
+  ])('%s repeated gets no allow line', (command, shape) => {
+    const twice = [row('2026-10-20T10:00:00Z', 'Bash', { command }), row('2026-10-20T10:01:00Z', 'Bash', { command })].join('\n')
+    expect(summarize({ denied: twice })).toEqual([expect.objectContaining({ shape, count: 2, allow: null })])
+  })
+
+  it.each([
+    ['git diff --stat', '"Bash(git diff *)"'], ['gh pr checks 3', '"Bash(gh pr checks *)"'], ['rg -n x src', '"Bash(rg *)"'],
+    ['tail -n 5 a.log', '"Bash(tail *)"'], ['npm run typecheck', '"Bash(npm run typecheck *)"'],
+  ])('%s repeated gets its dev-read line', (command, allow) => {
+    const twice = [row('2026-10-20T10:00:00Z', 'Bash', { command }), row('2026-10-20T10:01:00Z', 'Bash', { command })].join('\n')
+    expect(summarize({ denied: twice })[0].allow).toBe(allow)
+  })
+
   it('reads the shape past a cd or VAR= prefix, and from a head cut mid-JSON', () => {
     expect(shapeOf('Bash', JSON.stringify({ command: 'cd /x && R=1 gh pr view 3' }))).toBe('gh pr view')
     expect(shapeOf('Bash', '{"command":"grep -n \\"security definer\\" supabase/migr')).toBe('grep')

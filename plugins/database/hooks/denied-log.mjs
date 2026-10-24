@@ -22,7 +22,7 @@
 // `node denied-log.mjs --summary [--since <YYYY-MM-DD>] [--dir <project>]`
 // reads both logs and prints the repeats grouped by shape, each marked
 // `guard` or `classifier`, with a ready settings.json allow line for the
-// classifier's dev-only repeats. A guard row gets none: an allow rule
+// classifier's dev-read repeats (DEV_READ_SHAPES). A guard row gets none: an allow rule
 // doesn't skip a hook's ask, and its ask is on purpose. Nothing that reaches
 // production, a key, a delete or a push to main ever gets one.
 //
@@ -138,16 +138,28 @@ export function shapeOf(tool, head, path) {
     // The first command after any `cd … &&` or VAR= prefix.
     const first = commandOf(head).split(/&&|\|\||;|\||\n/).map((s) => s.trim()).find((s) => s && !/^cd\b/.test(s)) ?? ''
     const words = first.split(/\s+/).filter((w) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(w))
-    const take = words[0] === 'gh' ? 3 : SUBCOMMANDS.has(words[0]) ? 2 : 1
+    // `npm run <script>` keeps the script's name, so its allow line names it.
+    const take = words[0] === 'gh' || (words[0] === 'npm' && words[1] === 'run') ? 3 : SUBCOMMANDS.has(words[0]) ? 2 : 1
     return words.slice(0, take).filter((w) => !w.startsWith('-')).join(' ')
   }
   if (FILE_TOOLS.has(tool) && path && path !== '-') return `${tool} ${dirname(path)}`
   return tool
 }
 
+// The Bash shapes that may get an allow line: the dev reads, and one named
+// npm script. Everything else gets none (kit 1.7 review must 3): a shell, an
+// interpreter, curl, psql or `supabase db` repeated twice is no reason to
+// allow it, and a deny-list of those always missed one.
+const DEV_READ_SHAPES = [
+  /^git (?:status|log|show|diff|cat-file|ls-tree|rev-parse|blame)$/,
+  /^gh pr (?:view|diff|checks|list)$/,
+  /^(?:rg|grep|wc|ls|cat|head|tail)$/,
+  /^npm run [\w:-]+$/,
+]
+
 function allowLine(tool, shape) {
   if (!shape || NEVER_ALLOW_RE.test(shape)) return null
-  if (tool === 'Bash') return /^[\w./@:-]+(?: [\w./@:-]+)*$/.test(shape) ? `"Bash(${shape} *)"` : null
+  if (tool === 'Bash') return DEV_READ_SHAPES.some((re) => re.test(shape)) ? `"Bash(${shape} *)"` : null
   // In a permission rule `//path` is from the filesystem root; `/path` would
   // be relative to the settings file.
   if (FILE_TOOLS.has(tool)) {
@@ -193,7 +205,7 @@ export function summaryText(rows) {
   const out = ['count\tsource\ttool\tshape\tallow line or why']
   for (const r of rows) {
     const note = r.allow ?? (r.source === 'guard' ? `guard ${r.why ? `asks on purpose: ${r.why}` : 'asks on purpose'}`
-      : r.count > 1 ? 'no allow line: production, a key, a delete or a push' : 'once')
+      : r.count > 1 ? 'no allow line: not a dev read, or it names production, a key, a delete or a push' : 'once')
     out.push([r.count, r.source, r.tool, r.shape, note].join('\t'))
   }
   return out.join('\n') + '\n'
