@@ -5,7 +5,11 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { tallyEntries, totalTokens } from '../scripts/usage.mjs'
 import {
+  ABOVE_CEILING,
   DEFAULT_BUDGETS,
+  MODEL_DEFAULTS,
+  OTHER_BUDGET,
+  loadBudgets,
   NAMELESS_REASON,
   STOPPED,
   WARNING,
@@ -586,5 +590,49 @@ describe('spawns (kit 1.5)', () => {
     expect(spawn({ subagent_type: 'release:c-3po', description: 'write the README' })).toBe('allow')
     expect(spawn({ subagent_type: 'claude-code-guide', description: 'hooks docs' })).toBe('allow')
     expect(spawn({ subagent_type: 'statusline-setup', description: 'line' })).toBe('allow')
+  })
+})
+
+// Kit 1.7 (council Feature 3): budgets.json is the one home; the oceans-eleven
+// table mirrors it, and this is the check that keeps the mirror honest.
+describe('one budgets file (kit 1.7)', () => {
+  const skill = readFileSync(fileURLToPath(new URL('../skills/oceans-eleven/SKILL.md', import.meta.url)), 'utf8')
+  const section = skill.slice(skill.indexOf('## Budgets'), skill.indexOf('\n## ', skill.indexOf('## Budgets') + 1))
+  const rows = section.split('\n').filter((l) => /^\|\s*(`|any other)/.test(l)).map((l) => l.split('|').map((c) => c.trim()))
+  const M_ = (s) => Math.round(Number(s) * M)
+
+  it('keeps the current numbers', () => {
+    expect(DEFAULT_BUDGETS['c-3po']).toBe(4 * M)
+    expect(DEFAULT_BUDGETS['jesse-pinkman']).toBe(8 * M)
+    expect(DEFAULT_BUDGETS['saul-goodman']).toBe(15 * M)
+    expect(OTHER_BUDGET).toBe(15 * M)
+    expect(MODEL_DEFAULTS['mosbius-designs'].fable).toEqual({ budget: 12 * M, shots: 10 })
+    expect(ABOVE_CEILING.has('mike-ehrmantraut')).toBe(true)
+  })
+
+  it('has the oceans-eleven table agree with budgets.json, row by row', () => {
+    const inTable = new Set()
+    for (const [, who, value] of rows) {
+      if (/^any other/.test(who)) {
+        expect(M_(/(\d+(?:\.\d+)?)M/.exec(value)[1]), 'any other role').toBe(OTHER_BUDGET)
+        continue
+      }
+      for (const role of [...who.matchAll(/`([a-z0-9-]+)`/g)].map((m) => m[1])) {
+        inTable.add(role)
+        if (MODEL_DEFAULTS[role]) {
+          for (const [fam, o] of Object.entries(MODEL_DEFAULTS[role])) {
+            const m = new RegExp(`${fam}\\s+(\\d+(?:\\.\\d+)?)M`, 'i').exec(value)
+            expect(m && M_(m[1]), `${role} ${fam}`).toBe(o.budget)
+          }
+        } else expect(M_(/(\d+(?:\.\d+)?)M/.exec(value)?.[1]), role).toBe(DEFAULT_BUDGETS[role])
+      }
+    }
+    for (const role of [...Object.keys(DEFAULT_BUDGETS), ...Object.keys(MODEL_DEFAULTS)]) expect(inTable.has(role), `${role} in the table`).toBe(true)
+  })
+
+  it('falls back to empty tables and the 15M when the file is unreadable', () => {
+    const b = loadBudgets(join(root, 'nope.json'))
+    expect(b.roles).toEqual({})
+    expect(b.other).toBe(15 * M)
   })
 })

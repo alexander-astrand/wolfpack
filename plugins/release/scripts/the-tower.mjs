@@ -23,7 +23,7 @@ import { homedir, tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
-import { bareAgentType, DEFAULT_BUDGETS, kitBudgets, MODEL_DEFAULTS, parseBudget } from '../hooks/budget-cap.mjs'
+import { bareAgentType, DEFAULT_BUDGETS, kitBudgets, MODEL_DEFAULTS, OTHER_BUDGET, parseBudget } from '../hooks/budget-cap.mjs'
 import { agentName, parseEntries, readKit, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
 
 const MAX = 79 // under 80 columns, so it fits a narrow terminal
@@ -131,7 +131,6 @@ function hankLine(input, projectDir) {
 // description's tag, kit.json `budgets` (the role, the model numbers, "*"),
 // then Hank's own table, then the 15M Hank gives a role it doesn't know.
 // Kit 1.7 (council L6): this read 25M defaults that Hank no longer used.
-const OTHER_BUDGET = 15e6 // budget-cap.mjs's OTHER_BUDGET, which it doesn't export
 export function hankBudget(meta, state = {}, projectDir = null) {
   if (state.budget) return state.budget
   const tagged = parseBudget(meta?.description)

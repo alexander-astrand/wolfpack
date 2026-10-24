@@ -49,52 +49,53 @@ export const bareAgentType = (type) => (typeof type === 'string' ? type.replace(
 
 const M = 1_000_000
 
-// Budgets without a tag, per role (tokens): the fallback when `.claude/kit.json`
-// is missing or malformed, which mirrors this table. Seniors and the planner
-// answer in a few calls; builders and the-playbook run whole steps.
-export const DEFAULT_BUDGETS = {
-  'lorenzo-von-matterhorn': 2 * M,
-  'romeo-olsson': 2 * M,
-  // Kit 1.7 (council H2, 24 Oct 2026): defaults at the ceiling, not twice the work.
-  // Medians were 0.5M c-3po, 2.1M jesse-pinkman, 5.9 to 8.1M a pool builder, with
-  // no cap stop in about 200 runs. The oceans-eleven Budgets table says the same.
-  'c-3po': 4 * M,
-  'jesse-pinkman': 8 * M,
-  // The builder pool (2.10.2): the same prompt and model under five names.
-  'chris-de-kok': 15 * M,
-  'ahmed-och-ahmed': 15 * M,
-  'saul-goodman': 15 * M,
-  'jeff-winger': 15 * M,
-  'troy-and-abed': 15 * M,
-  // mosbius-designs depends on its model: see MODEL_DEFAULTS.
-  // 2.10.1's brief and review used 2.7M of 20M; the Fable designer 9.2M of 20M.
-  heisenberg: 8 * M,
-  // 12M → 14M after 2.10.1 and 2.10.2 both overran it (the `oceans-eleven` skill's table too).
-  'bengt-johansson': 14 * M,
-  // 45M → 15M with oceans-eleven's one Budgets table (`[playbook]`: a big migration is cut in two).
-  'the-playbook': 15 * M,
-  kissochbajslowski: 15 * M,
-  'admiral-ackbar': 10 * M,
-  // The senior planner (2.12 wrap-up): Fable, plans the releases whose mistakes spread.
-  'dom-cobb': 20 * M,
-  // The QA pool beside bengt-johansson (2.12.2): same job, same budget.
-  'tomas-svensson': 14 * M,
-  'magnus-wislander': 14 * M,
-  'staffan-olsson': 14 * M,
-  'stefan-lovgren': 14 * M,
-  daredevil: 3 * M,
-  'mike-ehrmantraut': 30 * M,
-  'three-eyed-raven': 8 * M,
+// Budgets without a tag, per role (tokens), from the plugin's one budgets file
+// (`budgets.json` beside `hooks/`; kit 1.7, council Feature 3: the numbers had
+// three copies, this hook, oceans-eleven's table and each kit.json, and drifted).
+// Why each number is what it is lives in oceans-eleven's Budgets section, which
+// mirrors the file. Seniors and the planner answer in a few calls; builders and
+// the-playbook run whole steps.
+export const BUDGETS_FILE = join(dirname(dirname(fileURLToPath(import.meta.url))), 'budgets.json')
+
+/** The budgets file read into tokens; an unreadable file gives empty tables (Hank fails open). */
+export function loadBudgets(file = BUDGETS_FILE) {
+  let raw = {}
+  try {
+    raw = JSON.parse(readFileSync(file, 'utf8')) ?? {}
+  } catch {
+    // no file: every role falls through to the 15M below, which is the ceiling anyway
+  }
+  const roles = {}
+  for (const [role, v] of Object.entries(raw.roles ?? {})) {
+    const t = kitValue(v)
+    if (t) roles[role] = t
+  }
+  // Roles whose numbers depend on the model they run on: the Fable designer
+  // explores wider and is given more room. Before the transcript shows a model,
+  // the Opus (smaller) numbers apply.
+  const byModel = {}
+  for (const [role, fams] of Object.entries(raw.byModel ?? {})) {
+    byModel[role] = {}
+    for (const [fam, o] of Object.entries(fams ?? {})) byModel[role][fam] = { budget: kitValue(o?.budget) ?? 15 * M, shots: o?.shots }
+  }
+  return {
+    roles,
+    byModel,
+    other: kitValue(raw.other) ?? 15 * M,
+    ceiling: kitValue(raw.ceiling) ?? 15 * M,
+    aboveCeiling: Array.isArray(raw.aboveCeiling) ? raw.aboveCeiling : [],
+  }
 }
 
-// Roles whose numbers depend on the model they run on (the `oceans-eleven`
-// skill's table): the Fable designer explores wider and is given more room.
-// Before the transcript shows a model, the Opus (smaller) numbers apply.
-export const MODEL_DEFAULTS = {
-  'mosbius-designs': { opus: { budget: 5 * M, shots: 6 }, fable: { budget: 12 * M, shots: 10 } },
-}
+const SOURCE = loadBudgets()
+export const DEFAULT_BUDGETS = SOURCE.roles
+export const MODEL_DEFAULTS = SOURCE.byModel
+// A role the table doesn't know; the-tower imports it so its line shows Hank's number.
+export const OTHER_BUDGET = SOURCE.other
+// The ceiling for a build or fix order's tag, and the roles allowed above it (the audits).
+export const BUDGET_CEILING = SOURCE.ceiling
+export const ABOVE_CEILING = new Set(SOURCE.aboveCeiling)
 const modelFamily = (model) => (/fable/i.test(model || '') ? 'fable' : 'opus')
-const OTHER_BUDGET = 15 * M
 
 // Counted screenshots: full-size shots and zooms, the ones a design is judged by.
 export const SHOT_CAPS = {
