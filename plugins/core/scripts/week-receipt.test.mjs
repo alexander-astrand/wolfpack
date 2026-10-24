@@ -29,7 +29,7 @@ function fixture() {
     line('m1', 'claude-opus-5-5', '2026-10-20T10:00:00', app, 46e6),
   ])
   // No cwd: named from the folder.
-  write('-x-dojo', 'c.jsonl', [line('m3', 'claude-opus-5-5', '2026-10-22T10:00:00', undefined, 23e6)])
+  write('-x-pylos', 'c.jsonl', [line('m3', 'claude-opus-5-5', '2026-10-22T10:00:00', undefined, 23e6)])
   // A subagent's transcript counts to its session's project.
   mkdirSync(join(projects, '-x-Desktop-App', 'a', 'subagents'), { recursive: true })
   writeFileSync(join(projects, '-x-Desktop-App', 'a', 'subagents', 's.jsonl'), `${line('m4', 'claude-opus-5-5', '2026-10-22T11:00:00', app, 23e6)}\n`)
@@ -53,7 +53,7 @@ describe('week-receipt', () => {
     expect(projectOfCwd('/u/Desktop/Burrow/.claude/worktrees/x')).toBe('Burrow')
     expect(projectOfCwd('/u/Desktop/Burrow-lanes/e2c')).toBe('Burrow')
     expect(projectOfFolder('-Users-a-Desktop-hejtide--claude-worktrees-x')).toBe('hejtide')
-    expect(projectOfFolder('-Users-a-dojo')).toBe('dojo')
+    expect(projectOfFolder('-Users-a-pylos')).toBe('pylos')
   })
 
   it('tallies every folder once, by project, inside the week', () => {
@@ -62,7 +62,7 @@ describe('week-receipt', () => {
     const app = r.projects.find((p) => p.name === 'MyApp')
     expect(app.tokens).toBe(46e6 + 10e6 + 23e6)
     expect(app.folders).toHaveLength(2)
-    expect(r.projects.find((p) => p.name === 'dojo').tokens).toBe(23e6)
+    expect(r.projects.find((p) => p.name === 'pylos').tokens).toBe(23e6)
     expect(r.projects.some((p) => p.name === 'old')).toBe(false)
     // Opus at 46M a point, plus the Sonnet slice at its own figure.
     expect(app.meterPct).toBeGreaterThan(1.5)

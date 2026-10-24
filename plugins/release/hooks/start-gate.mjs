@@ -202,10 +202,10 @@ export function decide(input, env = {}) {
   return null
 }
 
-// One Telegram line through the dojo's script, when it's there; best effort.
+// One Telegram line through Pylos's script (Nestor's push), when it's there; best effort.
 function push(line) {
   if (process.env.WOLFPACK_NO_PUSH) return
-  const script = join(homedir(), 'dojo', 'bin', 'miyagi-push.sh')
+  const script = join(homedir(), 'pylos', 'bin', 'nestor-push.sh')
   if (!existsSync(script)) return
   try {
     execFile(script, [line], { timeout: 5000 }, () => {})

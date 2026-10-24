@@ -28,7 +28,7 @@ Write: `<plans><project>/critique.md` (the findings, what was fixed, what's open
 
 ### 7. The first plan and the files
 
-Finish `<plans><project>/V0.1.md`: every section of the template filled (His words, Where it runs, Free until, Money and data, When to park it, If it fires, Rhythm, Human steps before build, Yours / Mine, Steps, First commit), no `{{…}}` left. "When to park it" holds the 2–3 triggers in his words; they also go to the project's War Room row as `park_when`, a line the hand-off prints (`/mr-miyagi rhythm <project>`, run in `~/dojo`).
+Finish `<plans><project>/V0.1.md`: every section of the template filled (His words, Where it runs, Free until, Money and data, When to park it, If it fires, Rhythm, Human steps before build, Yours / Mine, Steps, First commit), no `{{…}}` left. "When to park it" holds the 2–3 triggers in his words; they also go to the project's War Room row as `park_when`, a line the hand-off prints (`/nestor rhythm <project>`, run in `~/pylos`).
 
 Then render the skeleton with `fill.mjs`, not by hand: write the values (the brief, the research, the roadmap; shape as `templates/fixtures/node.values.json`, with `stack` from step 4 and `packs`) to `<plans><project>/values.json`, then run
 

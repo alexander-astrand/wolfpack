@@ -1,6 +1,6 @@
 ---
 name: dependabot-report
-description: Weekly read-only report of the open Dependabot PRs (Monday about 07:40, before the 08:00 brief) - CI state per PR, conflicts, and which are safe to merge between releases - written as one note in ~/dojo/inbox/. Never merges, comments or closes. Run by a scheduled task with this repo as cwd, or by hand.
+description: Weekly read-only report of the open Dependabot PRs (Monday about 07:40, before the 08:00 brief) - CI state per PR, conflicts, and which are safe to merge between releases - written as one note in ~/pylos/inbox/. Never merges, comments or closes. Run by a scheduled task with this repo as cwd, or by hand.
 model: haiku
 effort: low
 disable-model-invocation: true
@@ -23,7 +23,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 **Read-only.** It runs `gh pr list` and `gh pr view` only: never `gh pr merge`, `review`, `comment`, `close`, `edit` or `ready`, and no git. CLAUDE.md says Dependabot PRs merge between releases once green, merged by a person or through `ranjit`; this report only says which ones are ready.
 
-A scheduled run is unattended: one plain command per call (no pipes, chained commands, heredocs or redirections), the Read, Glob and Grep tools for reading and the Write tool for the note (the dojo's routine rules: `~/dojo/.claude/skills/mr-miyagi`). Take the date from your context, not a shell command.
+A scheduled run is unattended: one plain command per call (no pipes, chained commands, heredocs or redirections), the Read, Glob and Grep tools for reading and the Write tool for the note (Pylos's routine rules: `~/pylos/.claude/skills/nestor`). Take the date from your context, not a shell command.
 
 1. **List them:** `gh pr list --author app/dependabot --limit 100 --json number,title,statusCheckRollup,mergeable,createdAt,url`.
 2. **Per PR:** `mergeable` often comes back `UNKNOWN` from the list (GitHub works it out lazily), so ask once per PR: `gh pr view <n> --json mergeable,mergeStateStatus,statusCheckRollup`. Take the CI state from the checks: `green` (all SUCCESS, SKIPPED or NEUTRAL), `red` (any FAILURE, CANCELLED or TIMED_OUT; name the failing check), `running` (any PENDING or QUEUED, or no checks yet).
@@ -31,7 +31,7 @@ A scheduled run is unattended: one plain command per call (no pipes, chained com
    - **Safe to merge between releases:** green and `MERGEABLE`. Mark a major-version bump (the first number changes, e.g. `6.0.3 to 7.0.2`) as `major, check locally first`: CI covers the app, not every tool's new defaults. `mergeStateStatus` `BLOCKED` with green checks usually means it waits for a person's approval; say so in a word, don't call it a problem.
    - **Needs a look:** red, or `CONFLICTING` (Dependabot rebases it when asked with a `@dependabot rebase` comment, which a person writes, not this skill).
    - **Waiting:** CI still running.
-4. **Write one note,** `~/dojo/inbox/<YYYY-MM-DD>-<project>-dependabot.md` (`<project>` is the project's name from `.claude/kit.json`, as groundhog-day names its note) (Stockholm date; `mkdir -p ~/dojo/inbox`; overwrite the same day's note). Shape:
+4. **Write one note,** `~/pylos/inbox/<YYYY-MM-DD>-<project>-dependabot.md` (`<project>` is the project's name from `.claude/kit.json`, as groundhog-day names its note) (Stockholm date; `mkdir -p ~/pylos/inbox`; overwrite the same day's note). Shape:
 
    ```
    # Dependabot, <date>

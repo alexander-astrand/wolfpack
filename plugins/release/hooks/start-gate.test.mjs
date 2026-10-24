@@ -71,17 +71,17 @@ describe('the start gate', () => {
   })
 
   it('denies a woken-turn card with a preset, folder or host, and pushes once with the brief', () => {
-    const entries = [user('wake'), start('t1', { initiation: 'user_asked', preset: 'homelab' }), result('t1', REFUSED)]
+    const entries = [user('wake'), start('t1', { initiation: 'user_asked', preset: 'kastalia' }), result('t1', REFUSED)]
     const logPath = join(dir, 'session-hooks.log')
     const ask = (ti) => decide({ tool_name: TOOL, tool_input: ti, transcript_path: transcript(entries), cwd: '/x/hutzup', session_id: 's1' }, { push: (l) => pushed.push(l), logPath })
     for (const field of ['preset', 'cwd', 'host']) {
       pushed = []
       writeFileSync(logPath, '')
-      const r = ask({ initiation: 'own_initiative', title: 'homelab · setup', [field]: 'x', prompt: 'Brief: ~/.claude/plans/homelab/units.md, then go.' })
+      const r = ask({ initiation: 'own_initiative', title: 'kastalia · setup', [field]: 'x', prompt: 'Brief: ~/.claude/plans/kastalia/units.md, then go.' })
       expect(r).toEqual({ decision: 'deny', reason: NO_CARD_REASON })
-      expect(pushed).toEqual(['hutzup · start refused: homelab · setup, brief at ~/.claude/plans/homelab/units.md (woken turn, no card)'])
+      expect(pushed).toEqual(['hutzup · start refused: kastalia · setup, brief at ~/.claude/plans/kastalia/units.md (woken turn, no card)'])
       // The same refusal again: no second Telegram line.
-      expect(ask({ initiation: 'own_initiative', title: 'homelab · setup', [field]: 'x' })?.decision).toBe('deny')
+      expect(ask({ initiation: 'own_initiative', title: 'kastalia · setup', [field]: 'x' })?.decision).toBe('deny')
       expect(pushed).toHaveLength(1)
     }
   })

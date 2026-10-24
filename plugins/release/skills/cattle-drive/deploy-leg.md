@@ -12,7 +12,7 @@
 - **Every time comes from tool output,** never `date` or `scripts/stamp.sh` (`[auto]`). **This session never reads a file through Bash** (`sed`, `cat`, `head`, `awk`): Auto's classifier refuses exactly that as "Merge Without Review"; use Read and Grep, and single plain commands, never a compound shell line.
 
 ## Hard stops
-These always wait for Alexander. Ping (a Telegram line, `~/dojo/bin/miyagi-push.sh "<line>"`, plus a message here saying exactly what stopped and what he can do), disarm (`scripts/full-auto.sh disarm`, as its own call), and end the turn:
+These always wait for Alexander. Ping (a Telegram line, `~/pylos/bin/nestor-push.sh "<line>"`, plus a message here saying exactly what stopped and what he can do), disarm (`scripts/full-auto.sh disarm`, as its own call), and end the turn:
 - a failed backup;
 - a migration dry run that doesn't list exactly the release's migrations, or a `repair` proposal;
 - red CI, merge conflicts;

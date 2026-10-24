@@ -118,7 +118,7 @@ describe('readOpenLogs', () => {
 
 describe('gitWorktrees', () => {
   it('treats a folder that is not a git repo as a root with no worktrees', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'dojo-'))
+    const dir = mkdtempSync(join(tmpdir(), 'pylos-'))
     const roots = gitWorktrees(dir)
     expect(roots).toEqual([dir])
     const r = pick({ sessions: [{ ...base, cwd: join(dir, 'inbox') }], now: NOW, self: 'me', worktrees: roots, openLogs: [] })
