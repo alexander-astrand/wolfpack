@@ -66,7 +66,7 @@ function render({ archive, left }) {
   return lines.join('\n')
 }
 
-// A root that isn't a git repo (the dojo is a plain folder) has no worktrees:
+// A root that isn't a git repo (Pylos is a plain folder) has no worktrees:
 // the folder itself still counts. Any other git failure still throws.
 export function gitWorktrees(root) {
   let out

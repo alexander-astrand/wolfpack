@@ -26,7 +26,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 | Document | Where | How |
 |---|---|---|
 | A decision (`adr`) | `docs/decisions/NNNN-*.md` + its row in `docs/decisions/README.md` | repo file, committed by path |
-| A how-to or pattern (`doc`): the dojo inbox pattern, a setup guide | `docs/<short-name>.md` | repo file, committed by path |
+| A how-to or pattern (`doc`): the Pylos inbox pattern, a setup guide | `docs/<short-name>.md` | repo file, committed by path |
 | The Command Deck (`deck`) | the kit's page, https://claude.ai/artifact/PVFEK3fFPJ2bhYxMDqbgjJ (also in the README); not a project's own | safe republish (below), same URL |
 | The Agent Team page (`team`) | the kit's page, https://claude.ai/artifact/FYfMpboL4tv4bGYBTdPQEg (also in the README); not a project's own | safe republish (below), same URL |
 | Something Alexander comments on (`page`): a plan to review, a `/memento` page, an `/inception` summary, an audit, wrap notes | Claude Docs (the docs connector) | a new doc, its link in the reply |
@@ -74,4 +74,4 @@ The roadmap (`/badger`, `the-trail`), the README in a release PR (`c-3po`), code
 
 ## Commit
 
-Repo files only: `git add <your paths>` (never `-A`), a subject saying what's now on record ("ADR 0041: dojo things ship from this repo"), then push the branch the doc was written on, which is the session's own branch (the release branch in a release, the side session's worktree branch otherwise). Never push `main`; if the session stands on `main`, stop and say so. Artifacts and Claude Docs need no commit; give their links.
+Repo files only: `git add <your paths>` (never `-A`), a subject saying what's now on record ("ADR 0041: Pylos things ship from this repo"), then push the branch the doc was written on, which is the session's own branch (the release branch in a release, the side session's worktree branch otherwise). Never push `main`; if the session stands on `main`, stop and say so. Artifacts and Claude Docs need no commit; give their links.

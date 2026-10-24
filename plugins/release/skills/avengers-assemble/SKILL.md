@@ -1,6 +1,6 @@
 ---
 name: avengers-assemble
-description: The audit conductor - runs a project's audits together in their own sessions, in order (leon's dry list, then /black-box, /no-half-measures and /darth-vader side by side, /jedi-council last), only in the week's last two daily windows with the week at or under 60%, and writes one summary page of where each report is. "kit" runs the kit-wide council from the dojo instead. Read and report only.
+description: The audit conductor - runs a project's audits together in their own sessions, in order (leon's dry list, then /black-box, /no-half-measures and /darth-vader side by side, /jedi-council last), only in the week's last two daily windows with the week at or under 60%, and writes one summary page of where each report is. "kit" runs the kit-wide council from Pylos instead. Read and report only.
 argument-hint: "<version, e.g. 2.13.6> | kit"
 disable-model-invocation: true
 ---
@@ -9,7 +9,7 @@ Assemble the audits for **$ARGUMENTS**
 
 You are the conductor: you start the audit sessions, wake them in order, watch them and file one summary page. You audit nothing yourself; each audit's own skill does its work, and every fix stays Alexander's call at `/memento`. Alexander (11 Oct 2026) asked for it; the kit 1.4 council judged it "a skill, thin" (`jedi-council.md`, "New skills, judged"), and he chose it at `/memento` on 17 Oct (kit 1.5, fork C).
 
-**Title:** `<project.name> · audit · avengers-assemble` in the first minute (`set_session_title` on `self`; ToolSearch loads it). From the dojo: `dojo · audit · avengers-assemble`.
+**Title:** `<project.name> · audit · avengers-assemble` in the first minute (`set_session_title` on `self`; ToolSearch loads it). From Pylos: `pylos · audit · avengers-assemble`.
 
 ## Voice
 avengers-assemble · the audit conductor (Nick Fury: runs the team, never fights) · clipped orders, "assemble", "eyes on" for each report that lands
@@ -28,7 +28,7 @@ The global rule "Usage and budget" (`~/.claude/CLAUDE.md`): the day cap is lifte
   - over 60%: "Gate shut: the week is at N%, over 60%; next chance <next reset plus 5 days, Stockholm time>."
   An override is only Alexander's own word in chat, for what he names.
 - **A shut gate schedules its own start** (kit 1.7, Feature 14; a retype he has to remember was the old cost). The opening is the time in the line above. Then, by how far away it is:
-  - **More than 6 h:** one one-off scheduled task (the `scheduled-tasks` tools, ToolSearch loads them) at the opening, cwd this repo (from the dojo: `~/dojo`), prompt "Read `<release>/skills/avengers-assemble/SKILL.md` as a file and run it with: $ARGUMENTS". Nothing is started now: a session parked for days would be archived by `leon quick` first. That run is a turn of its own, so it starts the sessions as section 3 says; if the app refuses a start there, it follows norms.md "Starting sessions" (one Telegram line) and stops.
+  - **More than 6 h:** one one-off scheduled task (the `scheduled-tasks` tools, ToolSearch loads them) at the opening, cwd this repo (from Pylos: `~/pylos`), prompt "Read `<release>/skills/avengers-assemble/SKILL.md` as a file and run it with: $ARGUMENTS". Nothing is started now: a session parked for days would be archived by `leon quick` first. That run is a turn of its own, so it starts the sessions as section 3 says; if the app refuses a start there, it follows norms.md "Starting sessions" (one Telegram line) and stops.
   - **6 h or less:** section 3's starts now, in this typed turn (a turn a timer wakes can't start sessions), then a background `sleep` to the opening plus 60 s (`run_in_background: true`, never a foreground one). On the wake, read the gate again: open, wake wave 1; still shut, stand the parked sessions down (section 3's message) and schedule as above.
   - Say which of the two it set and when it fires (Stockholm time), then end with the `Next:` line (section 5). A scheduled task that can't be made (the tools missing or refused) falls back to the old line for him to retype, and says why.
 
@@ -48,14 +48,14 @@ The order matters: leon's list first, the audits whose findings repeat across wi
 **Budget:** ≈ 130M to 140M for a project (≈ 3% of the week at 1% ≈ 46M), plus darth-vader when it runs, plus the conductor's own ≈ 2M. Kit scope: ≈ 50M.
 
 - **darth-vader runs only when a release's draft PR is open** (`gh pr list --draft --json number,title`, a title starting `V<x>:`), against that PR's version. With none open it is skipped and the summary says "skipped, no release PR". Its skill reads the PR's "What changed" and compares against its screenshots, and the only other target, a preview of `main`, runs on production's database, which darth-vader's own skill rules out.
-- **kit** (`/avengers-assemble kit`, from `~/dojo`): only jedi-council, args `kit-<v>`, as its "From the dojo" paragraph says (`<v>` the kit's `core` version). The project audits belong to each project's own run; the council reads their summaries where they already are.
+- **kit** (`/avengers-assemble kit`, from `~/pylos`): only jedi-council, args `kit-<v>`, as its "From Pylos" paragraph says (`<v>` the kit's `core` version). The project audits belong to each project's own run; the council reads their summaries where they already are.
 
 ## 3. Start every session now, wake them in order
 Woken turns can't start sessions (norms.md in the `core` plugin, "Starting sessions"), so **this first turn starts every session the run needs**, parked; later turns only wake them with `send_message`.
-- For each row that runs: `start_session` with `initiation` "user_asked" (his `/avengers-assemble` is the ask), `context` "fresh", the model and effort from the table, title `<project.name> · research · <audit> <version>` (leon: `<project.name> · routine · leon deep`), and the brief: "Wait; do nothing until your starter messages you. When done or blocked, SendMessage your starter (<your id>) once: what's done, the report's path, the count per severity, and the next step." `use_worktree` true off `main` for black-box, no-half-measures and jedi-council (they run facts commands on the tree and commit a repo copy); false for leon and darth-vader (darth-vader needs the repo root's dev server). From the dojo: no worktree.
+- For each row that runs: `start_session` with `initiation` "user_asked" (his `/avengers-assemble` is the ask), `context` "fresh", the model and effort from the table, title `<project.name> · research · <audit> <version>` (leon: `<project.name> · routine · leon deep`), and the brief: "Wait; do nothing until your starter messages you. When done or blocked, SendMessage your starter (<your id>) once: what's done, the report's path, the count per severity, and the next step." `use_worktree` true off `main` for black-box, no-half-measures and jedi-council (they run facts commands on the tree and commit a repo copy); false for leon and darth-vader (darth-vader needs the repo root's dev server). From Pylos: no worktree.
 - Log each id at the top of the summary page (section 4) before waking anything. A refused start follows norms.md "Starting sessions"; that audit is marked "not started" and the rest go on.
 - Wake wave 1. When its report comes back, re-read `get_usage`: still at or under 60%, wake wave 2 (all at once, side by side); after every wave 2 report is in, wake wave 3 with the other reports' paths and counts in the message, so the council's §1 has them. Over 60% at any re-read: wake nothing more, send each parked session "Stand down; not run this week", and write the summary.
-- **Watchdog** (`[watchdog]`, the interval lives in the lesson): while any session runs, never end a turn without its background `sleep`. On each wake read each running session's last event. One silent 20 minutes gets one message; still silent at the next wake, send Alexander one Telegram line (`~/dojo/bin/miyagi-push.sh "<line>"`), mark it "stalled" and go on with the next wave. A send that comes back "queued" isn't delivered (`[send-confirmed]`): check its events within minutes.
+- **Watchdog** (`[watchdog]`, the interval lives in the lesson): while any session runs, never end a turn without its background `sleep`. On each wake read each running session's last event. One silent 20 minutes gets one message; still silent at the next wake, send Alexander one Telegram line (`~/pylos/bin/nestor-push.sh "<line>"`), mark it "stalled" and go on with the next wave. A send that comes back "queued" isn't delivered (`[send-confirmed]`): check its events within minutes.
 
 ## 4. The summary page
 One private file: `~/.claude/plans/audits-<version>/avengers-assemble.md` (kit: `~/.claude/plans/audits-kit-<v>/avengers-assemble.md`). Not committed; each audit commits its own repo copy.
