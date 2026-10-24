@@ -39,7 +39,7 @@ Malcolm speaks in three places only: the first message, the "Here's what I think
 | medium | `doc-brown` on the stack, a second on competitors | on (he can switch it off) | to V0.4 | `[budget 40M]` |
 | large | as medium, then a fresh `doc-brown` in check mode checks the claims the stack rests on | on (he can switch it off) | to V1.0 | `[budget 90M]` |
 
-Per spawn: `doc-brown` `[budget 6M]`, then `doc-brown` in check mode `[budget 4M]` (as `/88-mph`), `john-hammond` 4 / 8 / 12M and `dr-house` 2 / 4 / 6M by size. These are ceilings for this run, not forecasts: the three agents ran at 0.1 to 0.7M each. The V0.1 plan is sized from the measured per-commit rate, which `john-hammond`'s order carries (`[sizing]` in `${CLAUDE_PLUGIN_ROOT}/lessons-numbers.md` for a project with no history), with its headline the expected spend, not the sum of its tags (kit 1.7, council L5).
+Per spawn: `doc-brown` `[budget 3M]`, then `doc-brown` in check mode `[budget 2M]` (as `/88-mph`), `john-hammond` 4 / 8 / 12M and `dr-house` 2 / 4 / 6M by size. These are ceilings for this run, not forecasts: the three agents ran at 0.1 to 0.7M each. The V0.1 plan is sized from the measured per-commit rate, which `john-hammond`'s order carries (`[sizing]` in `${CLAUDE_PLUGIN_ROOT}/lessons-numbers.md` for a project with no history), with its headline the expected spend, not the sum of its tags (kit 1.7, council L5).
 
 ## Packs
 
