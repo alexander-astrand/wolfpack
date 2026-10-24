@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { cachedReceipt, isoWeek, markdown, projectOfCwd, projectOfFolder, receipt, weekRange } from './week-receipt.mjs'
+import { cachedReceipt, cliReceipt, isoWeek, markdown, projectOfCwd, projectOfFolder, receipt, weekRange } from './week-receipt.mjs'
 
 const line = (id, model, ts, cwd, tokens) =>
   JSON.stringify({ type: 'assistant', cwd, timestamp: ts, message: { id, model, usage: { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: tokens, output_tokens: 0 } } })
@@ -79,5 +79,14 @@ describe('week-receipt', () => {
     expect(again.cached).toMatch(/2026-W43\.json$/)
     expect(again.totalTokens).toBe(first.totalTokens)
     expect(() => cachedReceipt({ week: '2026-W43', projectsDir: join(root, 'missing'), cacheDir, fresh: true })).toThrow(/Can't read/)
+  })
+
+  // Kit 1.7 review: --projects is another folder's count, so the shared cache stays out of it.
+  it('skips the cache on the command line whenever --projects is given', () => {
+    const { root, projects } = fixture()
+    const cacheDir = join(root, 'cache')
+    const r = cliReceipt({ week: '2026-W43', projectsDir: projects, cacheDir, kit: null })
+    expect(r.cached).toBeNull()
+    expect(existsSync(join(cacheDir, '2026-W43.json'))).toBe(false)
   })
 })

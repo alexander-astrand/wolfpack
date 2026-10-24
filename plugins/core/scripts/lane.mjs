@@ -28,7 +28,7 @@
 // lane stays clean for the builder's "tree is clean" check.
 
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
+import { appendFileSync, copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -66,7 +66,12 @@ const readJson = (file) => {
   }
 }
 const readRegistry = (w) => readJson(w.registry) || {}
-const writeRegistry = (w, reg) => writeFileSync(w.registry, `${JSON.stringify(reg, null, 2)}\n`)
+// A temp file and a rename, so a reader never sees half a file (kit 1.7 review).
+function writeRegistry(w, reg) {
+  const tmp = `${w.registry}.${process.pid}.tmp`
+  writeFileSync(tmp, `${JSON.stringify(reg, null, 2)}\n`)
+  renameSync(tmp, w.registry)
+}
 
 function portFree(port) {
   return new Promise((resolve) => {
@@ -140,18 +145,36 @@ export async function add(name, opts = {}, cwd = process.cwd()) {
   }
   if (exists) git(w.main, 'worktree', 'add', path, branch)
   else git(w.main, 'worktree', 'add', '-b', branch, path, opts.base || git(w.main, 'rev-parse', '--abbrev-ref', 'HEAD'))
-  let env = 'none'
-  if (existsSync(join(w.main, '.env.local'))) {
-    copyFileSync(join(w.main, '.env.local'), join(path, '.env.local'))
-    env = 'copied'
+  // From here the worktree exists: a failure says so and names the way out,
+  // instead of a half lane that the next add calls "already exists".
+  try {
+    let env = 'none'
+    if (existsSync(join(w.main, '.env.local'))) {
+      copyFileSync(join(w.main, '.env.local'), join(path, '.env.local'))
+      env = 'copied'
+    }
+    const port = await claimPort(w, name, { path, branch }, kit, opts.port)
+    const d = deps(w, path, kit, opts.install !== false)
+    const db = dbLink(w, path, kit, opts.link !== false)
+    return { name, path, port, branch, deps: d, env, db }
+  } catch (e) {
+    throw new Error(`Lane "${name}" made at ${path}, but setting it up failed (${String(e.message).trim().split('\n')[0]}); run \`lane.mjs remove ${name}\`, then add it again`)
   }
-  const taken = new Set(Object.values(reg).map((l) => l.port))
-  const port = opts.port ? Number(opts.port) : await pickPort(kit, taken)
-  reg[name] = { path, branch, port }
-  writeRegistry(w, reg)
-  const d = deps(w, path, kit, opts.install !== false)
-  const db = dbLink(w, path, kit, opts.link !== false)
-  return { name, path, port, branch, deps: d, env, db }
+}
+
+// Picks a port and writes it, re-reading the registry just before the write,
+// so two adds running side by side don't both take the same one.
+async function claimPort(w, name, lane, kit, fixed) {
+  for (let tries = 0; tries < 5; tries++) {
+    const taken = new Set(Object.values(readRegistry(w)).map((l) => l.port))
+    const port = fixed ? Number(fixed) : await pickPort(kit, taken)
+    const reg = readRegistry(w)
+    if (!fixed && Object.values(reg).some((l) => l.port === port)) continue
+    reg[name] = { ...lane, port }
+    writeRegistry(w, reg)
+    return port
+  }
+  throw new Error('another lane kept taking the free port')
 }
 
 const lanesOf = (w) => {

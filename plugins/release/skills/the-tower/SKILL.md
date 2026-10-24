@@ -31,7 +31,7 @@ session 9.6M ≈0.4% wk (fable 0.3 opus 0.1) · plan 0.31× · link 2/2 · Hank:
 | Part | Means | Shown when |
 |---|---|---|
 | `session 9.6M ≈0.4% wk (fable 0.3 opus 0.1)` | the session's real tokens, subagents included (each message counted once, by `usage.mjs`), and their share of the week; the split by model in points when two models each count | the input names a transcript |
-| `plan 0.31×` | the session's tokens over the plan's headline, the first `Expected: ≈ <N>M` line in `<plans>V<version>.md` (or the kit's `kit-<version>.md`; `<plans>` is kit.json `plans`, else `~/.claude/plans/`), so a plan running at 0.3 or 1.4 shows at the first step (council Feature 3) | the branch is a version whose plan has that line |
+| `plan 0.31×` | the session's tokens over the plan's headline, the first `Expected: ≈ <N>M` line in `<plans>V<version>.md` (or the kit's `kit-<version>.md`; `<plans>` is kit.json `plans`, else `~/.claude/plans/`), so a plan running at 0.3 or 1.4 shows at the first step (council Feature 3) | the branch is named as the version (`V2.3`, `kit-1.7`) and its plan has that line; a lane branch such as `kit-1.7-b1` shows no ratio |
 | `link 2/2` | this release's place in the armed chain (`.claude/full-auto-chain.json`) | a chain is armed, not expired, and lists the branch's version |
 | `Hank: <agent> 3.1/15M` | the most recently active subagent's tokens against its budget, from Hank's state files (`<scratchpad>/.hank/<session>/`); the budget read the way Hank reads it: the description's `[budget NM]` tag, else kit.json `budgets`, else the defaults in `plugins/release/budgets.json` | the session has spawned an agent |
 | `the Commissioner said no (...) 17:12Z` | the guard's last deny in `.claude/full-auto.log` | within 30 minutes |

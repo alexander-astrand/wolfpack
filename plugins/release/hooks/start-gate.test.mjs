@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { DENY_REASON, NO_CARD_REASON, TOOL, decide, logPathFor, refusalThisTurn, refusedThisTurn, tailEntries } from './start-gate.mjs'
+import { DENY_REASON, NO_CARD_REASON, TOOL, decide, logPathFor, refusalThisTurn, tailEntries } from './start-gate.mjs'
 
 process.env.WOLFPACK_NO_PUSH = '1'
 
@@ -138,7 +138,7 @@ describe('the start gate', () => {
 
   it('ignores refusal-like text from another tool', () => {
     const entries = [user('wake'), { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'b1', name: 'Bash', input: {} }] } }, result('b1', REFUSED)]
-    expect(refusedThisTurn(transcript(entries))).toBe(false)
+    expect(refusalThisTurn(tailEntries(transcript(entries)))).toBeNull()
   })
 
   it('denies without a transcript', () => {

@@ -184,6 +184,15 @@ describe('follow-ups', () => {
     expect(followUpBudget('<system-reminder>\nFrom captain-call. Add one item. [budget 20M]\n</system-reminder>\nAddress this first.')).toBe(20 * M)
     expect(followUpBudget('The row says [budget 4M].\nGo.')).toBeNull()
   })
+
+  // Kit 1.7 review M2: the app's real mid-turn wrapper, as a subagent received it.
+  it("reads a follow-up inside the app's mid-turn wrapper", () => {
+    const real =
+      'The coordinator sent a message while you were working:\nFrom captain-call. Your budget is 15M; Hank read the `[budget 4M]` quoted inside your order as your tag. This message resets it; carry on. [budget 15M]\n\nAddress this before completing your current task.'
+    expect(followUpBudget(real)).toBe(15 * M)
+    const quoted = 'The coordinator sent a message while you were working:\nFrom captain-call. The reader row is [budget 4M].\nGo on.\n\nAddress this before completing your current task.'
+    expect(followUpBudget(quoted)).toBeNull()
+  })
 })
 
 describe('exemptions', () => {
@@ -480,6 +489,13 @@ describe('kit.json budgets (2.14.6)', () => {
     agent('k6', { type: 'chris-de-kok', description: 'chris-de-kok: step', tokens: 16 * M })
     expect(call('k6', 'chris-de-kok')).toBe('deny') // the built-in 15M
     expect(logs.join('\n')).toMatch(/no readable budgets/)
+  })
+
+  it('falls back quietly when the kit has no budgets key', () => {
+    kit('{ "project": { "name": "x" } }')
+    agent('k7', { type: 'chris-de-kok', description: 'chris-de-kok: step', tokens: 16 * M })
+    expect(call('k7', 'chris-de-kok')).toBe('deny') // the built-in 15M
+    expect(logs.join('\n')).not.toMatch(/no readable budgets/)
   })
 
   it('ignores a value above 100M, with a log line', () => {

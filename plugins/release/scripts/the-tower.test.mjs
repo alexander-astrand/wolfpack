@@ -69,6 +69,11 @@ describe('the plan part', () => {
     expect(planHeadline('V9.9', { plans })).toBe(null)
   })
 
+  it('reads a headline with the markdown after the colon', () => {
+    writeFileSync(join(plans, 'V2.5.md'), '- **Expected:** ≈ 90M (look and deploy in)\n')
+    expect(planHeadline('V2.5', { plans })?.tokens).toBe(90e6)
+  })
+
   it('prints spent over the headline, and nothing without one', () => {
     expect(planLine({ opus: 27e6, fable: 0.9e6 }, { tokens: 90e6 })).toBe('plan 0.31×')
     expect(planLine({ opus: 27e6 }, null)).toBe(null)

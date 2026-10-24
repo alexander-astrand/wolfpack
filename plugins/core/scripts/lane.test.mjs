@@ -55,6 +55,20 @@ describe('lane', () => {
     expect(r.stdout).toMatch(/port 5174 branch x \(deps installed \(mkdir node_modules\)/)
   })
 
+  // Kit 1.7 review: a failed install used to leave a half lane that a retry called "already exists".
+  it('says the lane was made and how to clear it when the install fails', () => {
+    const { root, main } = repo({ kit: { project: { install: 'exit 3' } }, modules: false })
+    const r = lane(main, 'add', 'y', '--base', 'main')
+    expect(r.status).not.toBe(0)
+    expect(r.stderr).toMatch(new RegExp(`Lane "y" made at ${join(root, 'App-lanes', 'y')}, but setting it up failed .*run \`lane.mjs remove y\`, then add it again`))
+    expect(lane(main, 'remove', 'y').status).toBe(0)
+    expect(lane(main, 'add', 'y', '--base', 'main', '--no-install').status).toBe(0)
+    // The registry was written whole, with no temp file left beside it.
+    const common = join(main, '.git')
+    expect(JSON.parse(readFileSync(join(common, 'wolfpack-lanes.json'), 'utf8')).y.port).toBe(5174)
+    expect(existsSync(join(common, `wolfpack-lanes.json.${process.pid}.tmp`))).toBe(false)
+  })
+
   it('removes a clean lane, keeps the branch, and refuses a dirty one', () => {
     const { root, main } = repo()
     lane(main, 'add', 'a')

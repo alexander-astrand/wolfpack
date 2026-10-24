@@ -182,6 +182,17 @@ export function cachedReceipt({ week = isoWeek(), cacheDir = join(homedir(), '.c
   return { ...r, cached: null }
 }
 
+// The command line's receipt. `--projects` counts another folder, so it
+// neither reads nor writes the shared cache: the Sunday runs would get its
+// numbers, or it theirs (kit 1.7 review).
+export function cliReceipt(opts) {
+  if (opts.projectsDir) {
+    const { cacheDir, fresh, ...rest } = opts
+    return { ...receipt(rest), cached: null }
+  }
+  return cachedReceipt(opts)
+}
+
 function parseArgs(argv) {
   const o = { json: false, fresh: false }
   for (let i = 0; i < argv.length; i++) {
@@ -200,7 +211,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   try {
     const { json, ...opts } = parseArgs(process.argv.slice(2))
     for (const k of Object.keys(opts)) if (opts[k] === undefined) delete opts[k]
-    const r = cachedReceipt(opts)
+    const r = cliReceipt(opts)
     console.log(json ? JSON.stringify(r, null, 2) : markdown(r))
   } catch (e) {
     console.error(e.message)
