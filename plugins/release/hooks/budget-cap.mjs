@@ -288,11 +288,22 @@ function catchUp(file, state) {
 export function followUpBudget(text) {
   let tag = null
   for (const part of String(text ?? '').split(/<\/system-reminder[^>]*>/i)) {
-    const last = part.split('\n').map((l) => l.trim()).filter(Boolean).at(-1)
-    tag = parseBudget(last) ?? tag
+    const last = part
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !APP_WRAPPER.some((re) => re.test(l)))
+      .at(-1)
+    // The tag that ends the line: the same line may quote another one first.
+    const end = /\[budget\s+\d+(?:\.\d+)?\s*[mk]\][\s.`*_)]*$/i.exec(last ?? '')
+    tag = parseBudget(end?.[0]) ?? tag
   }
   return tag
 }
+
+// The lines the app puts around a message that lands mid-turn, so the sender's
+// own last line is the one read (kit 1.7 review M2: the real text ends
+// "Address this before completing your current task.", and a reset never landed).
+const APP_WRAPPER = [/^<\/?system-reminder[^>]*>$/i, /^The coordinator sent a message while you were working:?$/i, /^Address this\b/i]
 
 // The text of a user entry: a plain string, or its text blocks.
 function messageText(message) {
