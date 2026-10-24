@@ -20,7 +20,7 @@ scrooge · the cost watch (DuckTales: Scrooge McDuck) · "every coin counts", "b
 - wrap: "Ledgers counted. Nothing bills that we didn't agree to."
 Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfpack `design` plugin, which ships the card). The voice is for chat only; the inbox note is plain facts, because the dojo's coach gives the brief its voice.
 
-**Why Haiku:** a script does the counting and the CLI calls are copies; the only judgment is one line of advice per finding. About 1M a run.
+**Why Haiku:** a script does the counting and the CLI calls are copies; the only judgment is one line of advice per finding. About 1M as a Skill call inside a navigator; as a session of its own it measured about 11.5M (3 sessions, 34.5M), because the session carries a project's context.
 
 **Read-only, always.** It never upgrades, downgrades, cancels, adds a card, changes a plan or a setting, and never signs in. A plan change or a card is always Alexander's step. The one file it writes is the weekly note.
 
@@ -31,9 +31,9 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 ## Steps
 
-Times are Europe/Stockholm; `<date>` is today as `yyyy-mm-dd` from your context. `<core>` is the folder of the wolfpack `core` plugin. A scheduled run is unattended: one plain command per call, no pipes or redirections.
+Times are Europe/Stockholm; `<date>` is today as `yyyy-mm-dd` from your context. `${CLAUDE_PLUGIN_ROOT}` is the folder of the wolfpack `core` plugin. A scheduled run is unattended: one plain command per call, no pipes or redirections.
 
-1. **The ledgers:** `node <core>/scripts/scrooge.mjs`. It reads `~/.claude/plans/trials.md`, each project's `<plans>free-tiers.md` and `<plans>costs.md` (projects: `~/Desktop/*/.claude/kit.json`) and prints each trial's days left, free-tier rows at 70% or more of their limit, files past their refresh date and rows with no date. A line starting `!!` is due within two days or past; ` !` needs a look. `--json` gives the same as data.
+1. **The ledgers:** `node ${CLAUDE_PLUGIN_ROOT}/scripts/scrooge.mjs`. It reads `~/.claude/plans/trials.md`, each project's `<plans>free-tiers.md` and `<plans>costs.md` (projects: `~/Desktop/*/.claude/kit.json`) and prints each trial's days left, free-tier rows at 70% or more of their limit, files past their refresh date and rows with no date. A line starting `!!` is due within two days or past; ` !` needs a look. `--json` gives the same as data.
 2. **Live usage, only where no password is needed.** Each call is read-only; when a CLI is missing, not logged in, or answers 401, 403 or 404, skip it silently and say "not read" in one word on that line.
    - GitHub Actions minutes: `gh api user --jq .login`, then `gh api /users/<login>/settings/billing/usage` (the older `/users/<login>/settings/billing/actions` where that one 404s). Private repos get 2,000 minutes a month on Free; flag at 1,400. Hutzup's repo is Anton's, so its minutes bill his account, not this one.
    - Vercel, only when `vercel whoami` answers: `vercel teams ls`. The CLI shows no trial or plan, so the trial line still comes from the ledger and says "check the dashboard".
@@ -41,7 +41,7 @@ Times are Europe/Stockholm; `<date>` is today as `yyyy-mm-dd` from your context.
 3. **Write the report.** One line per finding, most urgent first, nothing for what is fine:
    `<what> · <when it bills or ends> · <what to do> · <needs Alexander: yes (why) | no>`.
    A plan change, a card, a cancel or anything on a dashboard only he can open is always "yes". An unknown card on a trial is a finding: he checks whether one is on file. A file past its refresh is "no": the next release's navigator sends `doc-brown` to re-check it. End with one line of what was read (ledgers, and which live reads answered).
-   - **Called by a navigator, `future-ted` or by hand:** the report goes in chat, at most 12 lines.
+   - **Called by a navigator, `future-ted` or by hand:** the report goes in chat, at most 12 lines. A finding marked "yes" is his to act on: end the turn with no timer and no polling (kit 1.5, M9); `/marco-polo` finds sessions waiting on him.
    - **Called by the weekly routine:** write `~/dojo/inbox/<date>-scrooge.md`, overwriting one from earlier today:
 
 ```
@@ -58,4 +58,4 @@ Read: trials.md, 4 free-tiers.md, no cost lists · gh Actions minutes not read (
 
 4. **If the script fails,** say so in the report's first line with the error, and still add the live reads. A report with a gap beats no report.
 
-Report back to the caller in one line: the path written (weekly) or "in chat", and the count of lines that need Alexander.
+Report back to the caller in one line: the path written (weekly) or "in chat", and the count of lines that need Alexander. When run as its own session, the last line is the `Next:` line (norms.md "Last line"): `Next: <the step> (<who>)`, or `Next: nothing, done.`
