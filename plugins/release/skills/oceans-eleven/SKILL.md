@@ -88,21 +88,26 @@ Each row: job → agent, model, effort. `captain-call` applies it itself and pas
 
 ## Budgets
 
-Every Agent `description` ends with the step's budget, e.g. `[budget 12M]`. **A tag is real tokens, written ×1:** Hank counts what Skyler counts (since 2.14.6), so there is no ×1.8 to scale by. Hank (`${CLAUDE_PLUGIN_ROOT}/hooks/budget-cap.mjs`) reads it from the subagent's meta file and counts the agent's real tokens with Skyler's parser: a note at 80%, every call but the final report denied at 100%. A SendMessage follow-up carries its own tag, the agent's new total. Without a tag the role's default holds. **Since 2.14.6 the defaults live in `.claude/kit.json`** (`budgets`, per agent, `"*"` for the rest; Hank ignores a value above 100M and logs it, and falls back to its own table when the file is missing or malformed); the table below mirrors it, so change both together:
+Every Agent `description` ends with the step's budget, e.g. `[budget 12M]`. **A tag is real tokens, written ×1:** Hank counts what Skyler counts (since 2.14.6), so there is no ×1.8 to scale by. Hank (`${CLAUDE_PLUGIN_ROOT}/hooks/budget-cap.mjs`) reads it from the subagent's meta file and counts the agent's real tokens with Skyler's parser: a note at 80%, every call but the final report denied at 100%. A SendMessage follow-up carries its own tag, the agent's new total. Without a tag the role's default holds. **The defaults have one home, `${CLAUDE_PLUGIN_ROOT}/budgets.json`** (kit 1.7, council Feature 3), which Hank and the-tower read. A project's `.claude/kit.json` `budgets` (per agent, `"*"` for the rest) win over it; Hank ignores a kit value above 100M and logs it. The table below mirrors `budgets.json`, and `budget-cap.test.mjs` fails when the two differ, so change the file and the table in one commit:
 
-| Role | Default | Role | Default |
-|---|---|---|---|
-| `lorenzo-von-matterhorn`, `romeo-olsson` | 2M | the builder pool (all five) | 15M each (the ceiling) |
-| `c-3po` | 4M | `the-playbook` | 15M (stopped at 150%; a migration with a cron job is cut in two, not given a bigger tag: `[playbook]`) |
-| `admiral-ackbar` | 10M; `dom-cobb` 20M | `mosbius-designs` (Opus 5M, Fable 12M) | 5M |
-| `heisenberg` | 8M | `daredevil` | 3M |
-| `bengt-johansson` (per feature) | 14M | `ranjit` | logged only |
-| `jesse-pinkman` | 8M | | |
-| `kissochbajslowski`, others | 15M | the four Bengan Boys (as `bengt-johansson`) | 14M |
-| `mike-ehrmantraut` | 30M | `daredevil` whole-app (e.g. `/darth-vader`'s a11y lane, one page family per call) | 10M |
-| `three-eyed-raven` | 8M | | |
+| Role | Default | Note |
+|---|---|---|
+| `lorenzo-von-matterhorn`, `romeo-olsson` | 2M | |
+| `c-3po` | 4M | median 0.5M (kit 1.6.1 council) |
+| `jesse-pinkman` | 8M | median 2.1M |
+| `chris-de-kok`, `ahmed-och-ahmed`, `saul-goodman`, `jeff-winger`, `troy-and-abed` | 15M | the builder pool, at the ceiling; medians 5.9 to 8.1M |
+| `the-playbook` | 15M | stopped at 150%; a migration with a cron job is cut in two, not given a bigger tag (`[playbook]`) |
+| `kissochbajslowski` | 15M | |
+| `heisenberg`, `three-eyed-raven` | 8M | |
+| `bengt-johansson`, `tomas-svensson`, `magnus-wislander`, `staffan-olsson`, `stefan-lovgren` | 14M | QA per feature, and the four Bengan Boys |
+| `admiral-ackbar` | 10M | |
+| `dom-cobb` | 20M | above the ceiling |
+| `mike-ehrmantraut` | 30M | above the ceiling |
+| `daredevil` | 3M | a whole-app pass (e.g. `/darth-vader`'s a11y lane, one page family per call) is tagged 10M |
+| `mosbius-designs` | Opus 5M, Fable 12M | by model; 6 and 10 screenshots |
+| any other role | 15M | `ranjit` is logged only, never stopped |
 
-**The ceiling and the target.** 15M is the ceiling for any build or fix order's tag; a step that sizes over it is cut at `/inception`, never given a bigger tag (the audits `mike-ehrmantraut` 30M and `dom-cobb` 20M are the only rows above it). The defaults sit near the measured medians (kit 1.6.1 council: the pool 5.9 to 8.1M, `jesse-pinkman` 2.1M, `c-3po` 0.5M, no cap stop in about 200 runs), so a cap can stop a runaway before the navigator's eye has to. Turn caps are `maxTurns` in the agent files, so an order carries no turn line (`[turns]`: every 20M step in 3.1.1 hit `maxTurns` 90). The target is ≤ 5% of the weekly meter per release, deploy included, unless Alexander sets another; the daily-window rule (14% finish, 7% step down) is in `~/.claude/CLAUDE.md`'s "Usage and budget", not repeated here. A project's `.claude/kit.json` `budgets` mirror this table; a project whose kit.json still has old rows (the 45M `the-playbook`, retired roles) updates them in its next guard release.
+**The ceiling and the target.** 15M is the ceiling for any build or fix order's tag; a step that sizes over it is cut at `/inception`, never given a bigger tag (the audits `mike-ehrmantraut` 30M and `dom-cobb` 20M are the only rows above it). The defaults sit near the measured medians (kit 1.6.1 council: the pool 5.9 to 8.1M, `jesse-pinkman` 2.1M, `c-3po` 0.5M, no cap stop in about 200 runs), so a cap can stop a runaway before the navigator's eye has to. Turn caps are `maxTurns` in the agent files, so an order carries no turn line (`[turns]`: every 20M step in 3.1.1 hit `maxTurns` 90). The target is ≤ 5% of the weekly meter per release, deploy included, unless Alexander sets another; the daily-window rule (14% finish, 7% step down) is in `~/.claude/CLAUDE.md`'s "Usage and budget", not repeated here. A project's `.claude/kit.json` `budgets` are its own measured numbers, written by `future-ted` from `node ${CLAUDE_PLUGIN_ROOT}/scripts/budgets-derive.mjs --write` (per role the 90th percentile of the last releases' runs ×1.3, capped at the ceiling but for the rows above it); a project whose kit.json still has old rows (the 45M `the-playbook`, retired roles) gets them rewritten that way. The PR's budget table (agent, step, budget, used, stopped by Hank) is `node ${CLAUDE_PLUGIN_ROOT}/scripts/usage.mjs --budget-table <session id>`.
 
 `the-protagonist` is a session (the chain's conductor), never a spawned agent, so Hank has no budget for it; its usage is read from its session.
 

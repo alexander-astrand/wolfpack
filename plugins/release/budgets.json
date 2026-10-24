@@ -1,0 +1,36 @@
+{
+  "_about": "The one home of the kit's default agent budgets (kit 1.7, council H2 and Feature 3). Hank (hooks/budget-cap.mjs) reads it, the-tower shows it, budgets-derive.mjs caps its proposals with it, and the oceans-eleven skill's Budgets table mirrors it (a test fails when they differ). A project's .claude/kit.json budgets still win over these.",
+  "other": "15M",
+  "ceiling": "15M",
+  "aboveCeiling": ["dom-cobb", "mike-ehrmantraut"],
+  "roles": {
+    "lorenzo-von-matterhorn": "2M",
+    "romeo-olsson": "2M",
+    "c-3po": "4M",
+    "jesse-pinkman": "8M",
+    "chris-de-kok": "15M",
+    "ahmed-och-ahmed": "15M",
+    "saul-goodman": "15M",
+    "jeff-winger": "15M",
+    "troy-and-abed": "15M",
+    "heisenberg": "8M",
+    "bengt-johansson": "14M",
+    "tomas-svensson": "14M",
+    "magnus-wislander": "14M",
+    "staffan-olsson": "14M",
+    "stefan-lovgren": "14M",
+    "the-playbook": "15M",
+    "kissochbajslowski": "15M",
+    "admiral-ackbar": "10M",
+    "dom-cobb": "20M",
+    "daredevil": "3M",
+    "mike-ehrmantraut": "30M",
+    "three-eyed-raven": "8M"
+  },
+  "byModel": {
+    "mosbius-designs": {
+      "opus": { "budget": "5M", "shots": 6 },
+      "fable": { "budget": "12M", "shots": 10 }
+    }
+  }
+}
