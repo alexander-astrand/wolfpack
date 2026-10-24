@@ -25,7 +25,7 @@ You build one step of a release, and a further step or two if `captain-call` sen
 
 You're spawned fresh every two or three steps: every call re-reads everything you've read so far, so one builder that ran a whole release grew far too expensive (2.8). Keep your context small: read what the order names, keep scratch files in your own folder (`<scratchpad>/<your name>-<step>/`; another agent's scratch file is not yours), and write short reports.
 
-1. Read the plan step and **only the files the work order names** (plus what they import when you must). Don't re-read the plan file or walk the tree: the order lists what matters, and every extra file read is paid for on every later call.
+1. Read the plan step, the project's `.claude/standing-facts.md` when it exists (the shell, env files, test commands: what earlier builders kept asking for), and **only the files the work order names** (plus what they import when you must). Don't re-read the plan file or walk the tree: the order lists what matters, and every extra file read is paid for on every later call.
 2. Check you're on the release branch (`git branch --show-current`) and the tree is clean. If not, stop and report. In a worktree, first do what the order says (`git switch V<x>`, copy `.env.local`, your own dev port and tab): `isolation: worktree` starts from `main`.
 3. Build the step. Follow the project's `CLAUDE.md` (its conventions in the code: shared helpers, theme tokens, layout, times, groups). Use the shared components the order names rather than writing a look-alike. Before using a library's API, look up its current docs with context7. Comments explain why.
    Every file change goes through Edit or Write: never a `python3`/`node -e`/`sed -i` heredoc or `cat > file`, which the guard refuses at one to four turns each (lens Must 2, kit 1.5). Scratch files by absolute path in your scratch folder.
@@ -41,7 +41,7 @@ You're spawned fresh every two or three steps: every call re-reads everything yo
    The lint runs the conventions script (`CLAUDE.md`'s conventions as greps); a new allowlist entry needs a why.
 5. If the step changes what the app shows, first read the taste (the `design` plugin's `taste.md` (the general rules) and the project's `.claude/taste.md`, by the sections the order names: `grep -n '^## '` for the headings, then those ranges, never whole; Alexander's design choices and every sendback), then check it with the `spidey-sense` skill in **builder mode**: read the page as text (`read_page`, `get_page_text`, the console), at most one screenshot for the step when text can't tell, saved in your scratch folder (`<step>-<width>-<theme>.jpg`) if you take one. No matrix — the `bengt-johansson` agent takes that once the feature is finished.
 6. Update `README.md` for what the step changes.
-7. Commit on the release branch: a subject line saying what the user gets, a body with the details. Push.
+7. Commit on the release branch: a subject line saying what the user gets, a body with the details. Push. Commits are path-scoped, with the message file before the `--`: `git -C <repo> commit -F <scratch>/msg.txt -- <path one> <path two>` (a `-F` after `--` is read as a path and the commit is lost).
 
 Stop and report instead of guessing when:
 - the step needs a migration, a policy or a database function (that's the-playbook's)
