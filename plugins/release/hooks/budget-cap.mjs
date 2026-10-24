@@ -55,14 +55,17 @@ const M = 1_000_000
 export const DEFAULT_BUDGETS = {
   'lorenzo-von-matterhorn': 2 * M,
   'romeo-olsson': 2 * M,
-  'c-3po': 10 * M,
-  'jesse-pinkman': 15 * M,
+  // Kit 1.7 (council H2, 24 Oct 2026): defaults at the ceiling, not twice the work.
+  // Medians were 0.5M c-3po, 2.1M jesse-pinkman, 5.9 to 8.1M a pool builder, with
+  // no cap stop in about 200 runs. The oceans-eleven Budgets table says the same.
+  'c-3po': 4 * M,
+  'jesse-pinkman': 8 * M,
   // The builder pool (2.10.2): the same prompt and model under five names.
-  'chris-de-kok': 25 * M,
-  'ahmed-och-ahmed': 25 * M,
-  'saul-goodman': 25 * M,
-  'jeff-winger': 25 * M,
-  'troy-and-abed': 25 * M,
+  'chris-de-kok': 15 * M,
+  'ahmed-och-ahmed': 15 * M,
+  'saul-goodman': 15 * M,
+  'jeff-winger': 15 * M,
+  'troy-and-abed': 15 * M,
   // mosbius-designs depends on its model: see MODEL_DEFAULTS.
   // 2.10.1's brief and review used 2.7M of 20M; the Fable designer 9.2M of 20M.
   heisenberg: 8 * M,
@@ -245,7 +248,7 @@ function catchUp(file, state) {
   const fd = openSync(file, 'r')
   try {
     const size = fstatSync(fd).size
-    if (size < state.offset) Object.assign(state, { offset: 0, tokens: 0, shots: 0, seen: [] })
+    if (size < state.offset) Object.assign(state, { offset: 0, tokens: 0, shots: 0, seen: [], started: false })
     if (size === state.offset) return
     const buf = Buffer.alloc(size - state.offset)
     readSync(fd, buf, 0, buf.length, state.offset)
@@ -261,13 +264,33 @@ function catchUp(file, state) {
         state.frames = (state.frames ?? 0) + k.frames
       }
       if (e.type === 'assistant' && e.message?.model) state.model = e.message.model
-      const tag = e.type === 'user' ? parseBudget(messageText(e.message)) : null
+      // The prompt (the first entry, a user one) never sets the budget: an order
+      // that quotes another agent's `[budget 4M]` set this builder's (kit 1.7, a
+      // 15M builder read as 4M). The spawn's tag is the description's.
+      // (`!state.offset`: a state file from before this rule has read past the prompt.)
+      const prompt = !state.started && !state.offset && e.type === 'user'
+      if (e.type === 'user' || e.type === 'assistant') state.started = true
+      const tag = e.type === 'user' && !prompt ? followUpBudget(messageText(e.message)) : null
       if (tag) state.budget = tag
     }
     state.offset += end + 1
   } finally {
     closeSync(fd)
   }
+}
+
+/**
+ * A follow-up's new total: a `[budget NM]` on the message's last non-empty
+ * line, or on the last line of a message the app wrapped in a system reminder
+ * (a SendMessage that lands mid-turn). A tag quoted in the body never counts.
+ */
+export function followUpBudget(text) {
+  let tag = null
+  for (const part of String(text ?? '').split(/<\/system-reminder[^>]*>/i)) {
+    const last = part.split('\n').map((l) => l.trim()).filter(Boolean).at(-1)
+    tag = parseBudget(last) ?? tag
+  }
+  return tag
 }
 
 // The text of a user entry: a plain string, or its text blocks.
@@ -378,7 +401,7 @@ export function decide(input, env = {}) {
 const SPAWN_TOOLS = new Set(['Agent', 'Task'])
 export const NAMELESS = new Set(['general-purpose', 'Explore', 'Plan', 'claude'])
 export const NAMELESS_REASON =
-  'Never general-purpose: a job with no row goes to lorenzo-von-matterhorn (find), c-3po (write) or the next free builder (oceans-eleven, Routing).'
+  'Never general-purpose: a job with no row goes to lorenzo-von-matterhorn (find), c-3po (write, or read and write one file, such as a council\'s skills-lens reader: "c-3po: skills-lens <plugin> [budget 4M]") or the next free builder (oceans-eleven, Routing).'
 export const draftDoneReason = (followUp) =>
   `The draft is done; this navigator spawns nothing more. Send it to ${followUp || 'the follow-up session'} (the follow-up session).`
 

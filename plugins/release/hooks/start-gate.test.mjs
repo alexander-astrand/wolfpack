@@ -1,8 +1,8 @@
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { beforeEach, describe, expect, it } from 'vitest'
-import { DENY_REASON, TOOL, decide, refusedThisTurn } from './start-gate.mjs'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { DENY_REASON, NO_CARD_REASON, TOOL, decide, logPathFor, refusalThisTurn, refusedThisTurn, tailEntries } from './start-gate.mjs'
 
 process.env.WOLFPACK_NO_PUSH = '1'
 
@@ -10,10 +10,17 @@ process.env.WOLFPACK_NO_PUSH = '1'
 const REFUSED =
   "Start sessions only on the user's own words to you here; this turn runs an automated event, another session's message, or the task another session gave you. Propose the session instead (initiation \"own_initiative\"), or start it once the user asks you here."
 
-let dir, pushed
+let dir, pushed, savedProject
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'start-gate-'))
   pushed = []
+  // The test setup points CLAUDE_PROJECT_DIR at a temp project; these tests
+  // name the project from the call's cwd and log only where they say.
+  savedProject = process.env.CLAUDE_PROJECT_DIR
+  delete process.env.CLAUDE_PROJECT_DIR
+})
+afterEach(() => {
+  if (savedProject !== undefined) process.env.CLAUDE_PROJECT_DIR = savedProject
 })
 
 const user = (text) => ({ type: 'user', message: { role: 'user', content: text } })
@@ -59,7 +66,68 @@ describe('the start gate', () => {
     } finally {
       process.env.CLAUDE_PROJECT_DIR = saved
     }
-    expect(pushed).toEqual(['burrow · card left: burrow · wrap (start refused in a woken turn)'])
+    // Kit 1.7 (council M2): the line no longer says "card left" before a card exists.
+    expect(pushed).toEqual(['burrow · start refused: burrow · wrap (woken turn, a card follows)'])
+  })
+
+  it('denies a woken-turn card with a preset, folder or host, and pushes once with the brief', () => {
+    const entries = [user('wake'), start('t1', { initiation: 'user_asked', preset: 'homelab' }), result('t1', REFUSED)]
+    const logPath = join(dir, 'session-hooks.log')
+    const ask = (ti) => decide({ tool_name: TOOL, tool_input: ti, transcript_path: transcript(entries), cwd: '/x/hutzup', session_id: 's1' }, { push: (l) => pushed.push(l), logPath })
+    for (const field of ['preset', 'cwd', 'host']) {
+      pushed = []
+      writeFileSync(logPath, '')
+      const r = ask({ initiation: 'own_initiative', title: 'homelab · setup', [field]: 'x', prompt: 'Brief: ~/.claude/plans/homelab/units.md, then go.' })
+      expect(r).toEqual({ decision: 'deny', reason: NO_CARD_REASON })
+      expect(pushed).toEqual(['hutzup · start refused: homelab · setup, brief at ~/.claude/plans/homelab/units.md (woken turn, no card)'])
+      // The same refusal again: no second Telegram line.
+      expect(ask({ initiation: 'own_initiative', title: 'homelab · setup', [field]: 'x' })?.decision).toBe('deny')
+      expect(pushed).toHaveLength(1)
+    }
+  })
+
+  it('names no brief when the call names none', () => {
+    const entries = [user('wake'), start('t1', { initiation: 'user_asked' }), result('t1', REFUSED)]
+    gate({ initiation: 'own_initiative', title: 'x · y', cwd: '/x/other' }, entries)
+    expect(pushed).toEqual(['burrow · start refused: x · y (woken turn, no card)'])
+  })
+
+  it('both texts carry the woken-turn clause', () => {
+    for (const t of [DENY_REASON, NO_CARD_REASON]) {
+      expect(t).toMatch(/send_message/)
+      expect(t).toMatch(/never re-spell/i)
+    }
+    expect(DENY_REASON).toMatch(/woken \(a timer, a hand-back, another session's message, or a session's first task from its starter\)/)
+    expect(NO_CARD_REASON).toMatch(/send none of your own/)
+  })
+
+  it('writes one log line per decision', () => {
+    const logPath = join(dir, 'session-hooks.log')
+    const run = (ti, entries = [user('go')]) =>
+      decide({ tool_name: TOOL, tool_input: ti, transcript_path: transcript(entries), session_id: 's9' }, { push: (l) => pushed.push(l), logPath, now: 0 })
+    run({ initiation: 'user_asked' })
+    run({ proposal_id: 'task_1' })
+    run({ initiation: 'offer' })
+    run({ initiation: 'own_initiative', title: 't' }, [user('wake'), start('r1', { initiation: 'user_asked' }), result('r1', REFUSED)])
+    const lines = readFileSync(logPath, 'utf8').trim().split('\n').map((l) => l.split('\t'))
+    expect(lines.map((c) => c.length)).toEqual([5, 5, 5, 5])
+    expect(lines.map((c) => c[3])).toEqual(['allow', 'allow', 'deny', 'woken-turn card'])
+    expect(lines[0].slice(0, 3)).toEqual(['1970-01-01T00:00:00.000Z', 's9', 'start-gate'])
+    expect(lines[3][4]).toBe('pushed refusal=r1')
+  })
+
+  it("writes no log in a folder with no .claude, and logs into the project's own", () => {
+    expect(logPathFor({ cwd: dir })).toBeNull()
+    mkdirSync(join(dir, '.claude'))
+    expect(logPathFor({ cwd: dir })).toBe(join(dir, '.claude', 'session-hooks.log'))
+  })
+
+  it("reads only the transcript's tail, skipping the cut line", () => {
+    const file = transcript([user('wake'), start('t1', { initiation: 'user_asked' }), result('t1', REFUSED)])
+    expect(tailEntries(file, 10_000)).toHaveLength(3)
+    // A 60-byte tail cuts into the refusal entry, so nothing whole is left to count.
+    expect(refusalThisTurn(tailEntries(file, 60))).toBeNull()
+    expect(tailEntries(join(dir, 'none.jsonl'))).toEqual([])
   })
 
   it('still denies when the refusal was in an earlier turn', () => {
