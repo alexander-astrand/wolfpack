@@ -10,14 +10,16 @@ Alexander's design taste that holds for any app he builds: buttons, colour and c
 
 The worst sendback is a repeat. "Please be better at self learning here, it's an identical situation" (shelf, 2.10). When one page has solved something (the event page's scrolling, the polls row's drag), every later page copies that solution.
 
-`future-ted` adds each new sendback at the wrap-up: the rule, then (page, release: what was sent back). No entry without a source. A rule that would hold in any app goes here (a kit edit, made in a worktree off the kit's `main` and merged by PR); one that names the project's page, kind or component goes in the project's file.
+**The repeat index: `Solved on: <page>`.** A rule whose pattern one page already gets right carries that page in a tag at the end of the rule, before its source: `- <rule>. Solved on: <page>. (<page sent back>, <release>: "<his words>")`. A reader with a diff's page list greps `Solved on:` in the sections for those pages and checks that each page copies the one that solved it; a page in the list that lacks the solved pattern is the likely repeat (kit 1.7, the 1.6.1 council's Feature 13: four repeats in one project in one week). A rule no page has solved yet has no tag; the first page to get it right adds one.
+
+`future-ted` adds each new sendback at the wrap-up: the rule, its `Solved on:` tag when a page already gets it right, then (page, release: what was sent back). No entry without a source. A rule that would hold in any app goes here (a kit edit, made in a worktree off the kit's `main` and merged by PR); one that names the project's page, kind or component goes in the project's file.
 
 ## Scrolling and columns
-- One scrollbar per page. A two-column page scrolls like the event page: the main column moves with the page, the side column is sticky and scrolls on its own with no visible bar. (Profile, 2.12.1: two visible scrollbars; "Scrolls showing on both columns should be obvious not to do, should have learned from event page"; "The Profile page should NEVER pass through in its current state")
+- One scrollbar per page. A two-column page scrolls like the event page: the main column moves with the page, the side column is sticky and scrolls on its own with no visible bar. Solved on: event page. (Profile, 2.12.1: two visible scrollbars; "Scrolls showing on both columns should be obvious not to do, should have learned from event page"; "The Profile page should NEVER pass through in its current state")
 - His first words and his later answer both count. (Profile, 2.12: "Separate the columns for scrolling", answered as two panes, came back in 2.12.1 as "stack the left column till max screen size and then have scroll only without bar on right column")
 - Two-column pages are two stacks, one per column, never one grid whose rows stretch. (Profile, 2.11: "Columns warped on profile page")
 - A sticky side column never scrolls over the box above it. (Dahan page, 2.13.2: "Scroll bug for the right column with right now at the top on dahan page, it's schools over the top box when scrolling up")
-- Sideways rows drag with a mouse (`ScrollRow`), and the grab works anywhere, cards included. (Shelf, 2.10: "No pull and drag on the side scroll on the shelf, did we not learn to include this from the polls on front page?"; polls row, 2.8.2: dragged only between cards)
+- Sideways rows drag with a mouse (`ScrollRow`), and the grab works anywhere, cards included. Solved on: polls row. (Shelf, 2.10: "No pull and drag on the side scroll on the shelf, did we not learn to include this from the polls on front page?"; polls row, 2.8.2: dragged only between cards)
 - A settings page scrolls as one page: no column scrolls on its own; a rail or preview stays put only while it fits the screen (the event page's sticky side is for content pages, not settings). (Your profile and Group settings, 3.3.2 part 5, 9 Oct 2026: "Can we also remove the dual scrolling columns, it's just confusing, both here and on group settings")
 - A sideways row shows each picture whole: covers in a `ScrollRow` are never cut at the row's top, bottom or ends. (Shelf on the profile page, 3.3 morning look, 9 Oct 2026: "Images cut off when side scrolling on the shelf on profile looks weird")
 - Each jump marker (a scroll dot or square) lands somewhere of its own; markers that would land on the same spot merge into one. (Side squares, portfolio 0.3: "The bottom two dots on the side scroller are both the bottom of the page.")
@@ -31,7 +33,7 @@ The worst sendback is a repeat. "Please be better at self learning here, it's an
 
 ## Layout and balance
 - Two columns are balanced by height, not by number of cards. (Profile, 2.12: "the right side having way more boxes than the left")
-- Sections fold, on phones and on desktop, and stay folded when you come back. (Event page talk, 2.8.3: "Foldable fields ... on both desktop and mobile"; game page, 2.9: "make all the parts foldable"; profile settings, 2.11: "foldable on mobile, like the event page"; profile, 2.12: "add the fold icons on desktop too")
+- Sections fold, on phones and on desktop, and stay folded when you come back. Solved on: event page. (Event page talk, 2.8.3: "Foldable fields ... on both desktop and mobile"; game page, 2.9: "make all the parts foldable"; profile settings, 2.11: "foldable on mobile, like the event page"; profile, 2.12: "add the fold icons on desktop too")
 - No bare corners: space beside a poster or header carries something useful. (Movie page, 2.9: "Top part next to movie posters on movie page is very bare now ... just make it look better")
 - A single centred poster reads sparse on desktop: from lg it splits into two columns, never a narrow column on a wide backdrop. (Public page, /memento 3.0: picked two columns over a bigger poster)
 - No stretched-out desktop pages. (Movies page, 2.9: "could use a less stretched out design on desktop")
@@ -59,8 +61,8 @@ The worst sendback is a repeat. "Please be better at self learning here, it's an
 - A feature switched off takes its nav item, page and links with it. (Buying together, 2.11: "the page and nav item needs to be removed")
 - A control says what it does and shows that it did it. (Dahan page, 2.10: "What does the only me/group toggle do on every section ... Very unclear. Also no confirmation or anything when clicked")
 - A setting goes where settings live (the profile), not on every section. (Dahan page, 2.10: the per-section toggle; CLAUDE.md)
-- An undo sits in the status line it undoes, never alone on a line of its own. (Book night at 375, 2.13.1 pick at `/memento`: "✓ Finished · Loved it · undo")
-- A settings form saves from a bar that appears at the bottom only when there is something to save, and sits above the phone nav. No Save button at rest. (Group settings, 2.13.8's K12, picked at `/memento` 2 Oct over a labelled-groups option and as built: "I like the sticky save bar at the bottom that appear when you have something to save. Just keep it above mobile nav." Built in 2.14.)
+- An undo sits in the status line it undoes, never alone on a line of its own. Solved on: book night. (Book night at 375, 2.13.1 pick at `/memento`: "✓ Finished · Loved it · undo")
+- A settings form saves from a bar that appears at the bottom only when there is something to save, and sits above the phone nav. No Save button at rest. Solved on: Group settings. (Group settings, 2.13.8's K12, picked at `/memento` 2 Oct over a labelled-groups option and as built: "I like the sticky save bar at the bottom that appear when you have something to save. Just keep it above mobile nav." Built in 2.14.)
 - Share on a desktop opens our own menu of chat apps (WhatsApp, Telegram, Email, Copy message); phones keep the native share sheet. (Share, 3.0.5, on macOS's sheet: "Where is what's app, telegram? There are a bunch of weird apps here that are not messaging app. Also no pointer and the menu is pretty ugly.")
 
 ## Titles and notes
@@ -78,7 +80,7 @@ The worst sendback is a repeat. "Please be better at self learning here, it's an
 - A status is a mark, never a toggle: "You're in" doesn't take you out when tapped; the way out is its own button ("Not this time"). (Chip in, 3.1.1 draft, 8 Oct 2026: "why is your'e in clickable and then your'e not in when clicking it? The point of not this time is to abort")
 - A control that sits on the page background, outside a card, is opaque: the background art never shows through it. (Libraries shelf pills, 2.13.5.3: "Background of tabs in library can't be see through")
 - A secondary action on a card is compact on desktop; it never matches the card's main action in size. (Event cards, 2.13.5.2: "Make I'm out button smaller on the event cards on desktop")
-- One red button per state: a live night shows Cancel event; Delete appears only once the night is cancelled or past. (Event page, 2.13.5.2: "Why does an event have both cancel event and delete now?"; picked at `/memento` 2 Oct)
+- One red button per state: a live night shows Cancel event; Delete appears only once the night is cancelled or past. Solved on: event page. (Event page, 2.13.5.2: "Why does an event have both cancel event and delete now?"; picked at `/memento` 2 Oct)
 - Hover belongs to buttons and unselected tabs, nothing else: no hover on a card, a title or a hero. (Hut hero, 2.13.4: "Hover should only be on buttons and unselected tabs, nothing else")
 - An action that opens a form opens it in a modal, like the rest of the app. (Log a cost, 2.13.x: "Why is log a cost not a modal popup? Goes against the design of the rest of the app")
 - Text over a picture reads on every picture: it gets a scrim of its own. (Hut hero, 2.13.4: "Next board game night on hut hard to read depending on the background")
@@ -91,7 +93,7 @@ The worst sendback is a repeat. "Please be better at self learning here, it's an
 - A backdrop must be visible in light theme too: contrast comes from a panel behind each text block, never a full-page scrim that hides the art. (Group backdrops, 3.0.2 → /memento 3.0: "The new lightmode backdrops are non existent, can't see them")
 
 ## Icons and drawn things
-- Covers show whole, never cropped or blown up behind a title: a book or poster stands as a tile beside the words. (No Dahan's Hut card, 3.3.2 part 5, 9 Oct 2026: The Intelligent Investor running into the title, "looks terrible"; Lonesome Dove's tile beside the title, good)
+- Covers show whole, never cropped or blown up behind a title: a book or poster stands as a tile beside the words. Solved on: the Hut card. (No Dahan's Hut card, 3.3.2 part 5, 9 Oct 2026: The Intelligent Investor running into the title, "looks terrible"; Lonesome Dove's tile beside the title, good)
 - Drawn marks are colourful and read as what they are at real size. (Jedi icons, 2.11: "I want them cooler with more color, can't really see what they are besides yoda")
 - Our own drawn icons over emoji and stock pictures. (Jedi ranks, 2.10.2: "Custom icons for the Jedi levels would be cooler, yoda at grandmaster"; hut logo, 2.12: "we should probably design our own hut logo")
 - A figure shown big is drawn for that size, not a small icon scaled up. (404 page, 2.14 wrap-up, the set's `hand` at 48px: "The hand emoji on the 404 Star Wars page is very ugly, remake") Picked: B, the mind trick (fingers together, thumb out, three lit rays), over `mosbius-designs`' A, the open palm, that 2.14.3 shipped (`/memento` 4 Oct: "Changed my mind and liked b hand instead."). A drawn thing handed to one designer still gets its options shown to him afterwards: he changed his mind on seeing them at real size.
@@ -103,12 +105,12 @@ The worst sendback is a repeat. "Please be better at self learning here, it's an
 
 ## Wording
 - The group's name or slogan never stands as the product's line on a product page. (Start page, 2.14 S1: "no No Dahan, No Party left as in the designs now")
-- A title names everything its rows hold. (Book page, 2.13.1 pick at `/memento`: "Readers · 2 finished", not "Who's read it" over rows that say "Wants to read it")
+- A title names everything its rows hold. Solved on: book page. (Book page, 2.13.1 pick at `/memento`: "Readers · 2 finished", not "Who's read it" over rows that say "Wants to read it")
 - One number gets one phrase everywhere. (Pages a day, 2.13.1 pick at `/memento`: "to make it" on Smart pick and the night page)
 - After Next week, what's left of the current month reads "Rest of <month>"; later months keep their name. (Events board, 3.1.1 build, 8 Oct 2026: "SInce we have this week and next week, we might do "rest of now" for the rest of the same month, so rest of october on this one.")
 - A figure says its unit beside it ("38M tokens planned", never a bare "38M planned"). (Write-up numbers row, portfolio 0.2: "The numbers are also a bit confusing, unclear that we are talking about tokens...")
 - Text for outside readers names roles and models ("an agent on Opus at medium effort"), never the team's own nicknames. (Write-up, portfolio 0.2: "We should probably take out our agent names from the write up too, otherwise it's confusing for others. Just say agent on opus medium etc insteas")
-- A voice line may bend a movie quote past three words when it's a parody, not the quote: maverick's (the navigator's name until kit 1.5) "I feel the need. The need for a smaller diff." and captain-call's "I won't tolerate rudeness in a diff." stay. (Voice cards, 2.14.6.1, pick at `/memento`: "Keep both as is", over the trims)
+- A voice line may bend a movie quote past three words when it's a parody, not the quote: the navigator's "I feel the need. The need for a smaller diff." and captain-call's "I won't tolerate rudeness in a diff." stay. (Voice cards, 2.14.6.1, pick at `/memento`: "Keep both as is", over the trims)
 
 ## Feedback and confirmations
 - Every action that changes something shows a pop-up. (Event page, 2.8.3: "Cancelling my spot or dealing me in should trigger toastify, as well as all other functions like that!")

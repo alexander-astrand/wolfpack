@@ -93,10 +93,14 @@
 // as well, which only the script and this file write. `done <version>` is
 // ranjit's alone; the script checks production before it closes a release.
 //
-// 2.12.3: the drive's reads are allowed in every session (readAllowed), so
-// Auto mode's classifier can't stop a drive after its merge as it did in
-// 2.12.2: a fixed list, and only when every other rule passed the whole call
-// and nothing redirects, feeds a shell or substitutes; logged under a marker.
+// 2.12.3: the drive's reads are allowed in every session, marker or not
+// (readAllowed), so Auto mode's classifier can't stop a drive after its merge
+// as it did in 2.12.2: a fixed list, and only when every other rule passed
+// the whole call and nothing redirects, feeds a shell or substitutes. The
+// allow needs no marker; while one exists the allow is also logged to it.
+// Kit 1.7 (H5) widened the list to the dev reads sessions make (git show,
+// diff, cat-file, ls-tree, rev-parse; grep, rg and wc on the repo's own
+// files), so they stop reaching the classifier.
 // Closed from review 4 (musts A–D): git -c values and GIT_* commands, writes
 // to the global git config, `gh config set`, and claude by any path. Asks name
 // the file and its role (E). Interpreter code is read as code, not shell: a
@@ -246,6 +250,16 @@ const DYNAMIC_RE = /[$`*?[]/
  * @returns {{ decision: 'deny' | 'ask' | 'allow', reason: string } | null}
  */
 export function decide(input, env = {}) {
+  // The reads' shared clock (readTimeout) runs for this decision only.
+  readsFrom = Date.now()
+  try {
+    return decideCall(input, env)
+  } finally {
+    readsFrom = null
+  }
+}
+
+function decideCall(input, env) {
   const tool = input.tool_name ?? ''
   const args = input.tool_input ?? {}
   const ctx = {
@@ -441,12 +455,25 @@ function orderAllow(tool, args, input, ctx) {
   } else {
     if (!isDeployer(args.subagent_type)) return null
     const named = new Set([...String(args.prompt ?? '').matchAll(NAMED_VERSION_RE)].map((h) => h[1]))
-    if (named.size !== 1) return null
+    if (named.size !== 1 || !markerCovers([...named][0], ctx)) return oneRingSpawn(ctx)
     version = [...named][0]
   }
   if (!markerCovers(version, ctx)) return null
   const what = tool === 'SendMessage' ? `SendMessage ${args.message}` : `Agent ${DEPLOYER}: ${args.description ?? ''}`
   return allowBoth(ctx, what, `arm-and-go for V${version}`, `The drive's order to ${DEPLOYER} for V${version}, under its marker; logged.`)
+}
+
+// A ranjit spawn no marker covers, after Alexander typed `/one-ring <go>` in
+// this session (kit 1.7, H1): under /one-ring the deploy is the script in
+// this session, and a stale ranjit text sent the session to spawn it, so the
+// classifier showed him a bare prompt seven minutes after his go (19 Oct
+// 2026). The deny says what to do instead. With no typed go the spawn gets
+// no decision, as before (/skinny-pete's path).
+function oneRingSpawn(ctx) {
+  let typed = null
+  try { typed = ctx.humanGo() } catch { typed = null }
+  if (!typed?.arg) return null
+  return deny(`Under /one-ring the deploy is \`scripts/full-auto.sh deploy ${typed.arg}\`, run in this session; do not spawn ${DEPLOYER}.`)
 }
 
 // The chain's wrap-up files (answer 3): V<v>-wrap.md, V<first>-chain-log.md
@@ -683,6 +710,22 @@ const GIT_MS = 1000
 const GIT_CALLS = 3
 export const WORST_CASE_MS = GH_PR_MS + GH_COMPARE_MS + GIT_MS * GIT_CALLS + GH_FILES_MS
 
+// Kit 1.7 (M10): the reads of one decision share a clock as well, so a
+// network hang in a gh read (each has its own 5 s) can't add up past
+// guard-entry's 18 s watchdog, whose block stops the call outright. A read
+// that would start with the clock spent fails at once; every reader turns a
+// failure into "couldn't be read", which refuses the allow and leaves the
+// call to its ask. decide starts the clock and stops it; a read outside a
+// decision (a test, the arm script) keeps its own timeout only.
+export const READ_BUDGET_MS = 12_000
+let readsFrom = null
+export function readTimeout(own, now = Date.now()) {
+  if (readsFrom === null) return own
+  const left = READ_BUDGET_MS - (now - readsFrom)
+  if (left < 250) throw new Error(`the guard's ${READ_BUDGET_MS / 1000} s for reads is spent`)
+  return Math.min(own, left)
+}
+
 // Throws on any git error; repoWhyNot turns that into a refusal. git is told
 // to look at the tree itself: no replace refs (a replaced HEAD can match an
 // edited index), no fsmonitor or untracked cache (either can report nothing
@@ -692,7 +735,7 @@ export const WORST_CASE_MS = GH_PR_MS + GH_COMPARE_MS + GIT_MS * GIT_CALLS + GH_
 export function readRepoState(dir = REPO_ROOT) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')))
   const git = (...args) => execFileSync('git', ['--no-replace-objects', '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false', ...args], {
-    cwd: dir, env, encoding: 'utf8', timeout: GIT_MS, stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: dir, env, encoding: 'utf8', timeout: readTimeout(GIT_MS), stdio: ['ignore', 'pipe', 'pipe'],
   })
   const [root = '', head = ''] = git('rev-parse', '--show-toplevel', 'HEAD').split('\n')
   return {
@@ -710,7 +753,7 @@ function readBehindBy(base, head) {
   if (typeof base !== 'string' || !/^[\w./-]+$/.test(base) || typeof head !== 'string' || !/^[0-9a-f]{40}$/.test(head)) return null
   try {
     const out = execFileSync('gh', ['api', `repos/{owner}/{repo}/compare/${base}...${head}`, '--jq', '.behind_by'], {
-      cwd: REPO_ROOT, encoding: 'utf8', timeout: GH_COMPARE_MS, stdio: ['ignore', 'pipe', 'ignore'],
+      cwd: REPO_ROOT, encoding: 'utf8', timeout: readTimeout(GH_COMPARE_MS), stdio: ['ignore', 'pipe', 'ignore'],
     }).trim()
     return /^\d+$/.test(out) ? Number(out) : null
   } catch {
@@ -747,7 +790,7 @@ export function readJsonMarker(file) {
 function readPr(n) {
   try {
     const out = execFileSync('gh', ['pr', 'view', String(n), '--json', 'headRefOid,headRefName,baseRefName,state,body,isDraft,mergeable,statusCheckRollup'], {
-      cwd: REPO_ROOT, encoding: 'utf8', timeout: GH_PR_MS, stdio: ['ignore', 'pipe', 'ignore'],
+      cwd: REPO_ROOT, encoding: 'utf8', timeout: readTimeout(GH_PR_MS), stdio: ['ignore', 'pipe', 'ignore'],
     })
     return JSON.parse(out)
   } catch {
@@ -760,7 +803,7 @@ function readPr(n) {
 function readReleasePr(version) {
   try {
     const out = execFileSync('gh', ['pr', 'list', '--state', 'open', '--limit', '100', '--json', RELEASE_PR_FIELDS], {
-      cwd: REPO_ROOT, encoding: 'utf8', timeout: GH_PR_MS, stdio: ['ignore', 'pipe', 'ignore'],
+      cwd: REPO_ROOT, encoding: 'utf8', timeout: readTimeout(GH_PR_MS), stdio: ['ignore', 'pipe', 'ignore'],
     })
     return releasePrFrom(JSON.parse(out), version, (n) => ghFetchFiles(n, REPO_ROOT))
   } catch {
@@ -898,8 +941,10 @@ function checkMcp(tool, args, ctx) {
 
 // The drive's read-only calls (2.12.3, settled at its inception): allowed in
 // every session, marker or not, since an allow skips Auto mode's classifier,
-// which stopped 2.12.2's drive after its merge. Fixed on purpose;
-// don't widen it. `git log --output` writes a file, so it isn't a read.
+// which stopped 2.12.2's drive after its merge. Kit 1.7 (H5) added the dev
+// reads the classifier asked about (gitRead, textRead below); anything wider
+// is a council's call, not a builder's. `git log --output` writes a file, so
+// it isn't a read.
 const READ_MCP = new Set(['query_logs', 'get_advisors', 'get_deployment', 'list_deployments'])
 const SUPABASE_READ_MCP = new Set(['query_logs', 'get_advisors'])
 // The Vercel status as the drive reads it through GitHub: a deployment list
@@ -979,7 +1024,9 @@ function listedRead(words, ctx) {
   if (!words.length || words.some((w) => /[$`]/.test(w))) return false
   const [cmd, a, b] = words
   const rest = words.slice(2)
-  if (cmd === 'git') return (a === 'status' || a === 'log') && !rest.some((w) => /^--output\b/.test(w))
+  if (cmd === 'git') return gitRead(words.slice(1))
+  if (cmd === 'grep' || cmd === 'rg' || cmd === 'wc') return textRead(cmd, words.slice(1), ctx)
+  if (cmd === 'head' || cmd === 'tail') return pipeFilter(words.slice(1))
   if (cmd === 'gh' && a === 'pr') return b === 'view' || b === 'checks'
   if (cmd === 'gh' && a === 'api') return deploymentsRead(words.slice(2))
   if (cmd === 'supabase') {
@@ -994,6 +1041,129 @@ function listedRead(words, ctx) {
   // --chart and --decisions write files, so those runs aren't reads.
   if (cmd === 'node') return usageScript(a, ctx) && !rest.some((w) => /^--(?:chart|decisions)/.test(w))
   return false
+}
+
+// Kit 1.7 (H5): the dev reads sessions make most, which Auto mode's
+// classifier asked about in the kit 1.6.1 window (`git show <ref>:<path>`,
+// a `grep` of migrations). git reads its own objects: only `-C <dir>` and
+// --no-pager may come before the subcommand (no -c, --git-dir or
+// --work-tree), and nothing that runs a program (an external diff, textconv,
+// a filter), writes a file (--output) or reads one outside the repo
+// (--no-index). Config that sets an external diff is a write checkGit asks
+// about already.
+const GIT_READS = new Set(['status', 'log', 'show', 'diff', 'cat-file', 'ls-tree', 'rev-parse'])
+const GIT_READ_NOT = /^(?:--output\b|--ext-diff$|--textconv$|--filters$|--no-index$)/
+function gitRead(args) {
+  let i = 0
+  while (i < args.length && args[i] !== undefined) {
+    if (args[i] === '-C' && args[i + 1] !== undefined && !/[*?[{}~]/.test(args[i + 1])) i += 2
+    else if (args[i] === '--no-pager') i++
+    else break
+  }
+  return GIT_READS.has(args[i]) && !args.slice(i + 1).some((w) => GIT_READ_NOT.test(w))
+}
+
+// grep, rg and wc on the repo's own files (kit 1.7, H5): every path inside the
+// checkout, none in .claude, .git or an .env file, and no option that writes,
+// runs a program, follows a link out or reads past what is named. Each tool
+// has an allow-list of options, so a new flag stays with the classifier. grep
+// doesn't recurse here (`grep -r` over a folder reads its .env files too); rg
+// does, but skips hidden and ignored files unless told, so -u, --hidden and
+// --no-ignore stay off. `-o` is refused for all three, as the council wrote it.
+const TEXT_READ = {
+  grep: { letters: 'nHhilLcvwxFEGPsqIZz', value: ['-e', '-f', '-A', '-B', '-C', '-m'], numbered: /^-[ABCm]\d+$/,
+    long: ['line-number', 'ignore-case', 'files-with-matches', 'files-without-match', 'count', 'invert-match', 'word-regexp', 'line-regexp', 'fixed-strings',
+      'extended-regexp', 'basic-regexp', 'perl-regexp', 'no-filename', 'with-filename', 'no-messages', 'quiet', 'silent', 'null', 'null-data', 'byte-offset'],
+    longValue: ['regexp', 'file', 'max-count', 'context', 'after-context', 'before-context', 'color', 'colour', 'label'] },
+  rg: { letters: 'niIlcvwxFSsHNUqP', value: ['-e', '-f', '-g', '-t', '-T', '-A', '-B', '-C', '-m', '-M'], numbered: /^-[ABCmM]\d+$/,
+    long: ['line-number', 'no-line-number', 'ignore-case', 'smart-case', 'case-sensitive', 'files-with-matches', 'files-without-match', 'count', 'count-matches',
+      'invert-match', 'word-regexp', 'line-regexp', 'fixed-strings', 'no-heading', 'heading', 'with-filename', 'no-filename', 'files', 'multiline', 'json',
+      'vimgrep', 'column', 'no-messages', 'quiet', 'trim', 'stats', 'pcre2'],
+    longValue: ['regexp', 'file', 'glob', 'iglob', 'type', 'type-not', 'max-count', 'context', 'after-context', 'before-context', 'color', 'colour', 'sort',
+      'sortr', 'max-columns', 'max-depth', 'max-filesize'] },
+  wc: { letters: 'lwcmL', value: [], numbered: /^$/, long: ['lines', 'words', 'bytes', 'chars', 'max-line-length'], longValue: [] },
+}
+function textRead(cmd, args, ctx) {
+  const spec = TEXT_READ[cmd]
+  const paths = []
+  const positional = []
+  let patternGiven = cmd === 'wc'
+  let files = false
+  for (let i = 0; i < args.length; i++) {
+    const w = args[i]
+    if (w === '--') { positional.push(...args.slice(i + 1)); break }
+    if (spec.value.includes(w)) {
+      const v = args[++i]
+      if (v === undefined || !unexpanded(v, ctx)) return false
+      if (w === '-e') patternGiven = true
+      else if (w === '-f') { patternGiven = true; paths.push(v) }
+      else if (!['-g', '-t', '-T'].includes(w) && !/^\d+$/.test(v)) return false
+      continue
+    }
+    if (spec.numbered.test(w)) continue
+    if (w.startsWith('--')) {
+      const [, name, value] = /^--([a-z0-9-]+)(?:=(.*))?$/s.exec(w) ?? []
+      if (name === undefined) return false
+      if (value === undefined && spec.long.includes(name)) { if (name === 'files') files = true; continue }
+      if (!spec.longValue.includes(name)) return false
+      // `--regexp pat` as two words isn't taken: its value would read as a path.
+      if (value === undefined) return false
+      if (name === 'regexp') patternGiven = true
+      if (name === 'file') { patternGiven = true; paths.push(value) }
+      continue
+    }
+    if (w.startsWith('-') && w !== '-') {
+      if (![...w.slice(1)].every((c) => spec.letters.includes(c))) return false
+      continue
+    }
+    positional.push(w)
+  }
+  if (!patternGiven && !files) {
+    const pattern = positional.shift()
+    if (pattern === undefined || !unexpanded(pattern, ctx)) return false
+  }
+  paths.push(...positional)
+  // rg with no path searches the folder it runs in.
+  if (cmd === 'rg' && !positional.length) paths.push('.')
+  return paths.every((p) => p === '-' || repoPath(p, ctx))
+}
+
+// The shell expands an unquoted pattern or option value before the tool sees
+// it (the quotes are gone by now): a brace list, or a glob that could match a
+// dot name or a file elsewhere, becomes more paths, so such a word is judged
+// as a path.
+function unexpanded(word, ctx) {
+  if (/\{[^}]*(?:,|\.\.)/.test(word)) return false
+  return !DYNAMIC_RE.test(word) || repoPath(word, ctx)
+}
+
+// head and tail fed by a pipe only (`git show … | head -n 40`): a count, no file.
+function pipeFilter(args) {
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === '-n' || args[i] === '-c') && /^\d+$/.test(args[i + 1] ?? '')) i++
+    else if (!/^-(?:[nc]?\d+)$/.test(args[i])) return false
+  }
+  return true
+}
+
+// A path a listed read may name: inside the checkout (through links too), not
+// in its .claude or .git folder and not an .env file. A glob is judged by the
+// folder it starts in and may not start a name with a dot (`.*` matches `..`
+// and every hidden file). ~ and a brace list expand to what can't be read here.
+const READ_NOT_IN = (s) => s === '.claude' || s === '.git' || /^\.env/i.test(s)
+function repoPath(word, ctx) {
+  if (typeof word !== 'string' || !word || word.startsWith('~') || /[{}]/.test(word)) return false
+  if (!isAbsolute(word) && !ctx.cwd) return false
+  const abs = normalize(isAbsolute(word) ? word : resolve(ctx.cwd, word))
+  const parts = abs.split('/')
+  const g = parts.findIndex((s) => /[*?[]/.test(s))
+  const globbed = g < 0 ? [] : parts.slice(g)
+  if (globbed.some((s) => s.startsWith('.'))) return false
+  const fixed = realPath(g < 0 ? abs : parts.slice(0, g).join('/') || '/')
+  const root = realPath(ctx.root)
+  if (fixed !== root && !fixed.startsWith(root + '/')) return false
+  const inside = [...fixed.slice(root.length).split('/'), ...globbed].filter(Boolean)
+  return !inside.some(READ_NOT_IN)
 }
 
 // `gh api` GET of the deployments list: only --jq and --paginate beside it.
@@ -1367,7 +1537,7 @@ function laterCommands(seg, ctx) {
       for (const body of opened.shells) results.push(checkShell(body, ctx, { ...where, code: false }))
     } else for (let prev; prev !== line;) { prev = line; line = line.replace(/\$\([^()]*\)|`[^`]*`/g, '$S') }
     if (/\s/.test(line)) results.push(checkShell(line, ctx, where))
-    else if (j > 0 && runs) results.push(checkSegment({ words: words.slice(j), writes: [], where: seg.where }, ctx))
+    else if (j > 0 && runs) results.push(checkSegment({ words: words.slice(j), writes: [], where: seg.where, rescanned: true }, ctx))
   })
   // `node <<'EOF'`, `python3 - <<EOF`: with no script named, the heredoc is
   // the program, read like an -e or -c word (2.14.9.1, B2: an execSync of gh
@@ -2862,7 +3032,7 @@ function segmentRules(seg, ctx) {
   // Merging a release PR ships it: Vercel deploys main. It isn't a database
   // call, but it's production all the same, so it goes through ranjit too.
   if (HTTP_CLIENTS.has(cmd) && (GITHUB_MERGE_RE.test(raw) || contentsWrite(raw))) return prodCall(ctx, deny(MERGE_BY_API))
-  if (cmd === 'gh') return checkGh(rest, ctx, where)
+  if (cmd === 'gh') return ghHelpInCode(seg, rest, where) ? null : checkGh(rest, ctx, where)
   if (cmd === 'git') return checkGit(rest, ctx)
 
   // `source script.sh` and `. script.sh` run a script like `bash script.sh`.
@@ -2913,6 +3083,21 @@ function segmentRules(seg, ctx) {
   return null
 }
 
+// In interpreter code read as a command line, a `gh` that starts its own
+// segment with nothing after it, or only `pr`, is a regex or a list, not a
+// call (kit 1.7, M10: the admiral's `node -e` with `/gh (run|pr) list/` was
+// refused as a release command). Run, either one only prints gh's help: gh
+// never reads its subcommand from stdin. The missing-subcommand rule still
+// holds wherever something runs gh with more words (`xargs gh pr`, a runner
+// rescanned by laterCommands), and in plain shell. A `gh (run|pr)` group is
+// not taken as text: zsh reads `(a|b)` as a glob, so with a file named `pr`
+// in the folder it runs `gh pr …`. Its deny says to run such code from a file.
+function ghHelpInCode(seg, rest, where) {
+  // The head word as code splits it (`[/gh` in `[/gh (run|pr) list/]`), with
+  // nothing stripped in front of it, so no runner or wrapper feeds it words.
+  return where?.code === true && !seg.rescanned && commandName(seg.words[0] ?? '') === 'gh' && (rest.length === 0 || (rest.length === 1 && rest[0] === 'pr'))
+}
+
 // Commit messages and PR bodies may mention anything, so only the subcommand
 // is read, never the text after it.
 function checkGh(args, ctx, where) {
@@ -2947,7 +3132,10 @@ function checkGh(args, ctx, where) {
     const what = sub[0] === 'pr' && sub[1] !== undefined && !built(sub[1]) ? `\`gh pr ${sub[1]}\``
       : alias ? `\`gh ${sub[0]}\` (an alias or extension, which may be merge)`
         : `\`gh ${sub.join(' ')}\` (a subcommand that isn't spelled out may be merge)`
-    if (!ctx.deployer) return deny(`${what} ships a release. Only ranjit runs it, through /skinny-pete (or /cattle-drive).`)
+    // In code, a regex or a list is the likely source (M10); the way past it
+    // is a file, which the guard runs by name without reading.
+    const inCode = where?.code ? ' If this is a regex or a string in interpreter code, not a call, put the code in a scratch file and run it by name (`node <file>`).' : ''
+    if (!ctx.deployer) return deny(`${what} ships a release. Only ranjit runs it, through /skinny-pete (or /cattle-drive).${inCode}`)
     return ask(ctx, `Ships the release: gh ${args.join(' ')}`)
   }
   if (sub[0] === 'api') {
@@ -3650,22 +3838,42 @@ export async function main() {
   let raw = ''
   for await (const chunk of process.stdin) raw += chunk
   let result
+  let input = null
   try {
-    result = decide(JSON.parse(raw))
+    input = JSON.parse(raw)
+    result = decide(input)
   } catch (err) {
     // Every call fails closed (yoda's must 5): text built to make the guard
     // throw (2,000 nested `$(`) needn't hold any word a filter could look
     // for, so no call passes on an error. A person fixes the guard.
     result = deny(`guard-production failed (${String(err?.message ?? err).split('\n')[0]}); refusing to be safe.`)
   }
-  if (!result) return
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse',
-      permissionDecision: result.decision,
-      permissionDecisionReason: result.reason,
-    },
-  }))
+  if (result) {
+    process.stdout.write(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: result.decision,
+        permissionDecisionReason: result.reason,
+      },
+    }))
+  }
+  // Decided: the watchdog stands down (a slow decision already written
+  // stands; exit 2 after it would block the call anyway, M10).
+  globalThis.guardDecided = true
+  if (result && input && (result.decision === 'ask' || result.decision === 'deny')) await logDecision(input, result)
+}
+
+// Kit 1.7 (Feature 5): every ask and deny, with its reason, to the project's
+// .claude/guard-decisions.log, in denied-log.mjs's columns plus decision and
+// reason (its header lists them), so a council can tell a guard ask from a
+// classifier refusal. Production reaches keep their own logs as before. Best
+// effort, after the decision is out: a logger never changes a verdict, and
+// denied-log.mjs is loaded here only, so a broken copy can't stop the guard.
+async function logDecision(input, result) {
+  try {
+    const { guardLine, GUARD_LOG } = await import('./denied-log.mjs')
+    appendFileSync(join(CLAUDE_DIR, GUARD_LOG), guardLine(input, result, { mask: maskSecrets }) + '\n')
+  } catch { /* no log, same verdict */ }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()

@@ -1,7 +1,7 @@
 # Lessons, the numbers
 
 Read only by `future-ted` and `/inception`'s sizing step: the figures and evidence behind the rules in `lessons.md`, one line per rule tag (kit 1.5, H3, 17 Oct 2026).
-A project keeps its own figures the same way, in `<project>/.claude/lessons-numbers.md` (per-commit rate, look, deploy, meter point, one line each), so its `.claude/lessons.md` holds each rule in 300 characters and a planner reads one rate, not the release history (kit 1.7, council M5). The 300-character cap in `scripts/check.mjs` is meant for a project's `lessons.md` too; today it reads only the kit's file, even with `--project <dir>`.
+A project keeps its own figures the same way, in `<project>/.claude/lessons-numbers.md` (per-commit rate, look, deploy, meter point, one line each), so its `.claude/lessons.md` holds each rule in 300 characters and a planner reads one rate, not the release history (kit 1.7, council M5). `scripts/check.mjs --project <dir>` holds a project's `lessons.md` to the same 300-character cap.
 
 - **[skyler]** A `local_…` session id resolving to its transcript (`--timeline` too) came in Burrow 0.6. portfolio 0.2's PR Usage was an ENOENT: `usage.mjs` ran from `c-3po`'s scratch folder.
 - **[meter]** Measured floors above the 46M default: Burrow V0.14.2 61M real tokens a point; V0.14.4 483.2M over 62 → 70 % (other sessions beside it), at least 60M a point. A project that measures its own sets kit.json `meter.tokensPerPoint`.

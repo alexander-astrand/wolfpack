@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { buildCards, frontList, renderCards, segmentTurns, transcriptKey } from './council-skills.mjs'
+import { buildCards, closingLines, frontList, renderCards, segmentTurns, transcriptKey } from './council-skills.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
 const asst = (id, block, ts) => ({ type: 'assistant', timestamp: ts, message: { id, model: 'claude-sonnet-x', usage, content: [block] } })
@@ -84,6 +84,21 @@ describe('the cards on a tiny fixture', () => {
   it('flags a path that exists in one project only', () => {
     expect(cards).toContain('- paths in one project only: `.claude/only-here.md` (a)')
     expect(cards).not.toContain('`.claude/both.md` (')
+  })
+
+  it('shows the closing-lines table: jedi has no Next: and no no-timer line', () => {
+    expect(cards).toContain('| /jedi | release | no | no |')
+    expect(closingLines('End on `Next: x`. Keep no timer.')).toEqual({ next: true, noTimer: true })
+  })
+
+  it('counts a session keyed as the speed table keys it: a later command in brackets lands on its card, a titled brief on none', () => {
+    const o = fixture()
+    const tdir = join(o.transcripts, transcriptKey(o.projects.a))
+    put(join(tdir, 's2.jsonl'), jsonl([prompt('please review', '2026-10-17T11:00:00Z'), { type: 'user', timestamp: '2026-10-17T11:00:05Z', message: { content: '<command-name>/release:jedi</command-name>' } }, asst('n2', { type: 'text', text: 'ok' }, '2026-10-17T11:00:10Z')]))
+    put(join(tdir, 's3.jsonl'), jsonl([prompt('a brief', '2026-10-17T12:00:00Z'), { type: 'custom-title', customTitle: 'a · build · x' }, asst('n3', { type: 'text', text: 'ok' }, '2026-10-17T12:00:10Z')]))
+    const out = renderCards(buildCards(o), o).cards
+    expect(out).toContain('- runs: 2 sessions started with it')
+    expect(out).toContain('Sessions started with no command: 1 labelled by their title')
   })
 
   it('collects real cheaper lines and the lessons that cite an agent', () => {

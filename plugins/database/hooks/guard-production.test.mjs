@@ -33,7 +33,7 @@ const SANDBOX = realpathSync(mkdtempSync(join(tmpdir(), 'guard-sandbox-')))
 process.once('exit', () => rmSync(SANDBOX, { recursive: true, force: true }))
 mkdirSync(join(SANDBOX, '.claude', 'hooks'), { recursive: true })
 const sandboxed = (file) => join(SANDBOX, '.claude', 'hooks', file)
-for (const f of ['guard-entry.mjs', 'guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs']) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), sandboxed(f))
+for (const f of ['guard-entry.mjs', 'guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs', 'denied-log.mjs', 'step-aside.mjs']) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), sandboxed(f))
 // Rows that only say "not refused": a listed read comes back allow (2.12.3),
 // anything else passes to the permission rules.
 const OPEN = /^(?:pass|allow)$/
@@ -1129,7 +1129,8 @@ describe("yoda's review: forged keys and other routes", () => {
     expect(bash('B=main; git push origin $B')).toBe('ask')
     expect(bash('git push origin "HEAD:$B"')).toBe('ask')
     expect(bash('P=push; git $P origin main')).toBe('ask')
-    expect(bash('git -C push status')).toBe('pass')
+    // A listed read since kit 1.7 (H5), so allowed rather than passed on.
+    expect(bash('git -C push status')).toMatch(OPEN)
     expect(bash('git -C . push origin HEAD:V2.12.2')).toBe('pass')
     expect(bash('git log --grep push origin main')).toBe('allow')
   })
@@ -1232,7 +1233,8 @@ describe("(c) the guard's own files ask a person", () => {
       'git add .claude/hooks/guard-production.mjs', 'cp scripts/prod-db.sh /tmp/x', 'grep -n allow .claude/settings.json', 'bash -n scripts/prod-db.sh',
       "awk '/x/' .claude/hooks/guard-production.mjs", 'node --check .claude/hooks/guard-production.mjs', 'rm -rf dist/*.json', 'cp x.json src/',
     ]) {
-      expect(bash(cmd), cmd).toBe('pass')
+      // git diff is a listed read since kit 1.7 (H5): allowed, still not asked.
+      expect(bash(cmd), cmd).toMatch(OPEN)
     }
     // A deny for the same words still wins over the ask.
     expect(bash(`curl -X PUT https://api.github.com/repos/o/r/pulls/1/merge > .claude/hooks/x`)).toBe('deny')
@@ -1393,7 +1395,7 @@ describe('C8: the chain marker', () => {
       'chmod -R u+w dist/*.js', 'rm -rf dist/*.json', 'scripts/check.sh app', 'bash scripts/check.sh', 'cat .github/workflows/ci.yml',
       'git add .github/pull_request_template.md .claude/agents/yoda.md', 'git diff .claude/agents/ranjit.md', 'rm .claude/agents/gus-*.md',
     ]) {
-      expect(bash(cmd), cmd).toBe('pass')
+      expect(bash(cmd), cmd).toMatch(OPEN)
     }
     // A glob reaches a dot-name only when it starts with a dot, as in the shell.
     expect(namesProtected('.g*')).toBe(true)
@@ -1916,6 +1918,24 @@ describe('the script', () => {
 
   it('prints nothing when it has no say', () => {
     expect(call({ tool_name: 'Bash', tool_input: { command: 'npm test' } })).toBe('')
+  })
+
+  // Kit 1.7, Feature 5: the guard's own asks and denies, in denied-log's
+  // columns plus decision and reason, in the project's .claude folder.
+  it('logs an ask or deny to guard-decisions.log, and nothing for a call it passes or allows', () => {
+    const file = join(process.env.CLAUDE_PROJECT_DIR, '.claude', 'guard-decisions.log')
+    rmSync(file, { force: true })
+    call({ tool_name: 'Bash', tool_input: { command: 'npm test' }, session_id: 's1' })
+    call({ tool_name: 'Bash', tool_input: { command: 'git status' }, cwd: process.env.CLAUDE_PROJECT_DIR, session_id: 's1' })
+    expect(existsSync(file)).toBe(false)
+    call({ tool_name: 'Bash', tool_input: { command: 'touch .claude/full-auto.json' }, permission_mode: 'auto', session_id: 's1' })
+    const rows = readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => l.split('\t'))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveLength(9)
+    expect(rows[0].slice(1, 3)).toEqual(['main', 'Bash'])
+    expect(rows[0].slice(4, 8)).toEqual(['auto', 's1', '-', 'deny'])
+    expect(rows[0][8]).toMatch(/written only by scripts\/full-auto\.sh/)
+    rmSync(file, { force: true })
   })
 })
 
