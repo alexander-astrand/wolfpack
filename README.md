@@ -30,7 +30,7 @@ Five agents run on `model: fable` (`heisenberg`, `barney-stinson`, `dom-cobb`, `
 
 Source of truth: the kit's `main` on GitHub. Every project loads `<kit>` (`~/wolfpack-live` on Alexander's machines, detached at `origin/main`), so a merged change reaches them all on their next session after `scripts/live-sync.sh` runs.
 
-**Keeping the live checkout level:** `scripts/live-sync.sh` fetches and detaches `~/wolfpack-live` (or `$1`) onto `origin/main`, and stops with the changes printed if the checkout holds work that differs from `main`. On the Air, `scripts/launchd/xyz.astrand.wolfpack-live-sync.plist` runs it every 30 minutes (log: `~/Library/Logs/wolfpack-live-sync.log`); after the merge, load it once with `launchctl bootstrap gui/$(id -u) ~/wolfpack-live/scripts/launchd/xyz.astrand.wolfpack-live-sync.plist`.
+**Keeping the live checkout level:** `scripts/live-sync.sh` fetches and detaches `~/wolfpack-live` (or `$1`) onto `origin/main`, and stops with the changes printed if the checkout holds work that differs from `main`. On Pollux, `scripts/launchd/xyz.astrand.wolfpack-live-sync.plist` runs it every 30 minutes (log: `~/Library/Logs/wolfpack-live-sync.log`); after the merge, load it once with `launchctl bootstrap gui/$(id -u) ~/wolfpack-live/scripts/launchd/xyz.astrand.wolfpack-live-sync.plist`.
 
 `scripts/user-commands.mjs` lists the skills marked `disable-model-invocation: true` and, with `--write`, rewrites the marked block under "Commands only I type" in `~/.claude/CLAUDE.md`; `future-ted` runs it when a skill is added or renamed.
 
@@ -140,7 +140,7 @@ Eval cases are only for skills the model may invoke (`[evals]`): a skill with `d
 
 ## Publish the kit
 
-The kit is its own repo, so publishing is the merge of its release PR to `main`. The merge go is `/one-ring <PR number>`, typed in any kit session: the kit's own `.claude/kit.json` says `"production": "none"`, so it only merges (CI's `test` job green, squash). After the merge, `scripts/live-sync.sh` moves `~/wolfpack-live` (the checkout every session loads) onto `origin/main`; on the Air the launchd job above does the same every 30 minutes, and `future-ted` runs it at a kit wrap. A kit release bumps the plugin versions it changed (`scripts/bump.mjs`) and puts the one `live-sync.sh` line in its PR's "Human steps afterwards" (`carousel` does it).
+The kit is its own repo, so publishing is the merge of its release PR to `main`. The merge go is `/one-ring <PR number>`, typed in any kit session: the kit's own `.claude/kit.json` says `"production": "none"`, so it only merges (CI's `test` job green, squash). After the merge, `scripts/live-sync.sh` moves `~/wolfpack-live` (the checkout every session loads) onto `origin/main`; on Pollux the launchd job above does the same every 30 minutes, and `future-ted` runs it at a kit wrap. A kit release bumps the plugin versions it changed (`scripts/bump.mjs`) and puts the one `live-sync.sh` line in its PR's "Human steps afterwards" (`carousel` does it).
 
 ## Full auto from the installed kit (database 1.1.0)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The envelope for a message between sessions (norms.md, "How sessions talk"):
 // prints `[<project> · <kind>] <subject>:` for the message's first line. It no
-// longer logs to the dojo's switchboard: norms dropped that log and nothing read
+// longer logs to Pylos's switchboard: norms dropped that log and nothing read
 // it back (kit 1.5). Node only, no dependencies.
 //
 // Usage: node envelope.mjs <project> <kind> <subject…>
