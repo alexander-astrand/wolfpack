@@ -35,10 +35,12 @@ Read only `CLAUDE.md` and the roadmap in memory (`project_roadmap.md`), so ideas
 5. Keep replies short; a wall of options loses the thread.
 6. **Between rounds the next step is his:** end the turn with no timer and no polling (kit 1.5, M9: one `/legendary` stayed open 43 h). `/marco-polo` finds sessions waiting on him, so nothing is lost.
 
+7. **Ceiling: about 20M** (two sessions ran to 47.4M and 22.6M with no ceiling). Read it at the start of each round: this session's tokens from the `get_usage` context figure, or `node usage.mjs --timeline <this session's id>` from the `release` plugin's `scripts/` folder (`get_session` on `self` gives the id). Past it, stop: say what the session has used, give the closing list below as it stands, and offer a fresh `/legendary` that starts from it. Carry on only on his word.
+
 ## Closing checklist
 When Alexander says he's done (or the ideas dry up), give one list with every idea, his words verbatim, and where it lands, each with a recommendation he can accept or change:
 - **Roadmap** via `/badger` (say which release or "later"); run `badger` for the ones he accepts. Which roadmap is the record: `the-trail`'s rule (kit.json `roadmap`: page, file or none; with `none`, ask which project's roadmap it goes on).
 - **A plan's ideas section** (`~/.claude/plans/V<x>.md`), for an idea that belongs to a release already planned.
 - **Parked**: kept in the list with a reason, no action.
 
-Tick each off as it lands and check that none is left without a place. End with the list and the state of each; a new release or `/heisenberg` session starts from it in a session of its own.
+Tick each off as it lands and check that none is left without a place. End with the list and the state of each; a new release or `/heisenberg` session starts from it in a session of its own. The last line of the final message is the `Next:` line (norms.md "Last line"): `Next: <the step> (<who>)`, or `Next: nothing, done.`
