@@ -364,14 +364,19 @@ export function stepOf(description, name) {
 
 const bareType = (t) => (typeof t === 'string' ? t.replace(/^[a-z0-9-]+:/i, '') : t)
 
-// Did Hank deny this run a call at 100%? His deny reason lands in a tool result.
+// Did Hank deny this run a call at 100%? His deny lands as a short error
+// result: "PreToolUse:Write hook error: Budget reached: … (Hank: 102% (…) used.)".
+// Only that shape counts: an agent that Read Hank's own source got both
+// phrases back in a 31 KB result that was no stop (kit 1.7 review M1).
+const HANK_DENY = /^(?:[^\n]*hook error:\s*)?Budget reached:[\s\S]*\(Hank: \d+%/
+const DENY_MAX = 400
 export function stoppedInTranscript(entries) {
   for (const e of entries) {
     if (e.type !== 'user' || !Array.isArray(e.message?.content)) continue
     for (const c of e.message.content) {
-      if (c?.type !== 'tool_result') continue
+      if (c?.type !== 'tool_result' || c.is_error !== true) continue
       const text = typeof c.content === 'string' ? c.content : Array.isArray(c.content) ? c.content.map((p) => p?.text ?? '').join('\n') : ''
-      if (/Budget reached/.test(text) && /Hank:/.test(text)) return true
+      if (text.length < DENY_MAX && HANK_DENY.test(text.trim())) return true
     }
   }
   return false

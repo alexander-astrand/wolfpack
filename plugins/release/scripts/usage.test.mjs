@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { budgetRows, budgetTableMarkdown, stepOf, stoppedInLog, countCalls, hhmm, projectFolderName, readEntries, resolveLocalId, sessionCommand, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
+import { budgetRows, budgetTableMarkdown, stepOf, stoppedInLog, stoppedInTranscript, countCalls, hhmm, projectFolderName, readEntries, resolveLocalId, sessionCommand, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
 const line = (id, block) => ({
@@ -157,6 +157,15 @@ describe('--budget-table (kit 1.7)', () => {
     writeFileSync(log, '2026-10-24T11:01:00Z stopped lorenzo-von-matterhorn a3 at 101% (2.0M of 2.0M)\n')
     expect(stoppedInLog(readFileSync(log, 'utf8'))).toEqual(new Set(['a3']))
     expect(budgetRows(dir, ['cccc3333'], { budgets, hankLog: log }).find((r) => r.agentId === 'a3').stopped).toBe(true)
+  })
+
+  it("counts only Hank's short error result as a stop, never a read of his source (review M1)", () => {
+    const result = (content, is_error) => [{ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't', is_error, content }] } }]
+    const source = `const STOPPED = "Budget reached: report what you did"\nreason: \`\${STOPPED} (Hank: \${pct} used.)\`\n${'x'.repeat(30_000)}`
+    expect(stoppedInTranscript(result(source, false))).toBe(false)
+    expect(stoppedInTranscript(result('Budget reached: x (Hank: 102% (4.1M of 4.0M) used.)', false))).toBe(false)
+    expect(stoppedInTranscript(result(source, true))).toBe(false) // too long to be a deny
+    expect(stoppedInTranscript(result('PreToolUse:Write hook error: Budget reached: report what you did. (Hank: 102% (4.1M of 4.0M) used.)', true))).toBe(true)
   })
 
   it('takes the step from a description with or without the plugin prefix', () => {
