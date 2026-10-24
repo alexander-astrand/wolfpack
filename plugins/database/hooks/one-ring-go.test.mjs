@@ -3,8 +3,11 @@
 // sent. The entries are shaped as Claude Code 2.1.304 writes them (Burrow's
 // 21 Oct 2026 transcripts: a typed /release:one-ring, a peer message, a
 // session's first prompt from its starter, a scheduled task).
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { GO_HOURS, TRANSCRIPT_RE, goArg, humanGo, ownTranscript, readHumanGo } from './one-ring-go.mjs'
+import { GO_HOURS, TRANSCRIPT_RE, goArg, humanGo, ownTranscript, readHumanGo, readTailOf } from './one-ring-go.mjs'
 
 const SID = '8d4d3aad-e0f3-455f-85f9-a3a579637e6f'
 const NOW = Date.parse('2026-10-21T10:00:00Z')
@@ -24,7 +27,11 @@ describe('the go he typed', () => {
     expect(go([typed(command('release:one-ring', '0.14.3.1'))])).toMatchObject({ arg: '0.14.3.1' })
     expect(go([typed(command('one-ring', 'V0.14.3.1'))])).toMatchObject({ arg: '0.14.3.1' })
     expect(go([typed(command('one-ring', '#34'))])).toMatchObject({ arg: '34' })
-    expect(go([typed(command('release:special-delivery', '2.13.6'))])).toMatchObject({ arg: '2.13.6' })
+  })
+
+  it('no longer reads /special-delivery, deleted in kit 1.7', () => {
+    expect(go([typed(command('release:special-delivery', '2.13.6'))])).toBeNull()
+    expect(go([typed(command('special-delivery', '34'))])).toBeNull()
   })
 
   it('reads text blocks as well as a string', () => {
@@ -103,6 +110,27 @@ describe('the transcript it reads', () => {
     expect(readHumanGo({ transcriptPath: path, sessionId: SID, now: NOW, home, readFile: () => text })).toMatchObject({ arg: '34' })
     expect(readHumanGo({ transcriptPath: path, sessionId: SID, now: NOW, home, readFile: () => { throw new Error('EACCES') } })).toBeNull()
     expect(readHumanGo({ transcriptPath: '/tmp/x.jsonl', sessionId: SID, now: NOW, home, readFile: () => text })).toBeNull()
+  })
+
+  it('reads the tail first and the whole file only when the tail has no go', () => {
+    const goLine = typed(command('one-ring', '34'))
+    const reads = []
+    const readFile = () => { reads.push('whole'); return goLine }
+    // The go is in the tail: the whole file is never read.
+    expect(readHumanGo({ transcriptPath: path, sessionId: SID, now: NOW, home, readFile, readTail: () => `cut half a line\n${goLine}` })).toMatchObject({ arg: '34' })
+    expect(reads).toEqual([])
+    // The tail has none (or can't be read): the whole file answers.
+    expect(readHumanGo({ transcriptPath: path, sessionId: SID, now: NOW, home, readFile, readTail: () => 'nothing here' })).toMatchObject({ arg: '34' })
+    expect(readHumanGo({ transcriptPath: path, sessionId: SID, now: NOW, home, readFile, readTail: () => { throw new Error('EIO') } })).toMatchObject({ arg: '34' })
+    expect(reads).toEqual(['whole', 'whole'])
+  })
+
+  it('readTailOf returns the last bytes of a real file', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'one-ring-go-'))
+    const f = join(dir, 't.jsonl')
+    writeFileSync(f, 'a'.repeat(100) + '\nlast line')
+    expect(readTailOf(f, 9)).toBe('last line')
+    expect(readTailOf(f)).toHaveLength(110)
   })
 
   it('names transcripts and their subagents, not memory files', () => {

@@ -11,7 +11,7 @@
 //
 // Pure but for readHumanGo, which reads the file: facts in, a go or null out.
 
-import { readFileSync } from 'node:fs'
+import { closeSync, fstatSync, openSync, readFileSync, readSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, normalize, resolve } from 'node:path'
 
@@ -20,9 +20,8 @@ import { basename, dirname, join, normalize, resolve } from 'node:path'
 export const GO_HOURS = 12
 // A clock a little ahead of the file's still reads the entry as now.
 const SKEW_MS = 5 * 60_000
-// `/special-delivery` is an alias of `/one-ring` since kit 1.6; a plugin skill
-// is typed bare or with its plugin's name.
-const GO_COMMANDS = new Set(['one-ring', 'release:one-ring', 'special-delivery', 'release:special-delivery'])
+// A plugin skill is typed bare or with its plugin's name.
+const GO_COMMANDS = new Set(['one-ring', 'release:one-ring'])
 // `/one-ring stop` takes the go back.
 const STOP_WORDS = new Set(['stop', 'hold', 'cancel'])
 // How Claude Code writes a typed slash command into the transcript.
@@ -53,7 +52,7 @@ export function humanGo(text, { sessionId, now, hours = GO_HOURS }) {
   let go = null
   for (const line of String(text ?? '').split('\n')) {
     // Most lines never name the command; JSON.parse only the ones that might.
-    if (!line.includes('one-ring') && !line.includes('special-delivery')) continue
+    if (!line.includes('one-ring')) continue
     let e
     try { e = JSON.parse(line) } catch { continue }
     if (e?.type !== 'user' || e.isSidechain || e.isMeta) continue
@@ -82,9 +81,36 @@ export function ownTranscript(path, sessionId, home = homedir()) {
   return basename(p) === `${sessionId}.jsonl` && dirname(dirname(p)) === join(home, '.claude', 'projects')
 }
 
-/** The go in this session's transcript, or null when there is none or it can't be read. */
-export function readHumanGo({ transcriptPath, sessionId, now, home, readFile = (f) => readFileSync(f, 'utf8') }) {
+// A long release's transcript runs to tens of MB and the guard has 18 s
+// (kit 1.6.1 council M10); his go is almost always near the end.
+export const TAIL_BYTES = 2 * 1024 * 1024
+
+/** The file's last `bytes` bytes as text; the first line may be cut, and humanGo skips it. */
+export function readTailOf(path, bytes = TAIL_BYTES) {
+  const fd = openSync(path, 'r')
+  try {
+    const size = fstatSync(fd).size
+    const len = Math.min(size, bytes)
+    const buf = Buffer.alloc(len)
+    readSync(fd, buf, 0, len, size - len)
+    return buf.toString('utf8')
+  } finally {
+    closeSync(fd)
+  }
+}
+
+/**
+ * The go in this session's transcript, or null when there is none or it can't
+ * be read. The tail is read first; a go found there is the newest in the file,
+ * since file order is time order. Only when the tail holds none is the whole
+ * file read, so the answer is always the same as a whole-file read.
+ */
+export function readHumanGo({ transcriptPath, sessionId, now, home, readFile = (f) => readFileSync(f, 'utf8'), readTail = readTailOf }) {
   if (!ownTranscript(transcriptPath, sessionId, home)) return null
+  try {
+    const go = humanGo(readTail(transcriptPath), { sessionId, now })
+    if (go) return go
+  } catch { /* fall through to the whole file */ }
   let text
   try { text = readFile(transcriptPath) } catch { return null }
   return humanGo(text, { sessionId, now })
