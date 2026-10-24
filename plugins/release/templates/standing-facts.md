@@ -4,7 +4,7 @@ The facts this project's builders keep asking for in their `Cheaper next time` l
 
 ## Shell
 - The shell is zsh: spell every path out, one per line; a space-separated `$P` list is not split.
-- One command per Bash call, `git -C <repo>`, no `cd <dir> &&`, no `VAR=…` prefix.
+- One command per Bash call, `git -C <repo>`, no `cd <dir> &&`, no `VAR=value` prefix.
 - Commit path-scoped: `git -C <repo> commit -F <msg file> -- <paths>` (the `-F` before `--`).
 
 ## Files
