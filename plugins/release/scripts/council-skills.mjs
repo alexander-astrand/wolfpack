@@ -17,7 +17,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { readEntries, tallyEntries, timelineRow } from './usage.mjs'
-import { byBirth, dropSeen, startCommand } from './council-speed.mjs'
+import { byBirth, dropSeen, sessionLabel, skillKey } from './council-speed.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
@@ -67,6 +67,16 @@ export function frontList(t, key) {
   return block.split('\n').map((l) => l.replace(/^\s*-\s*/, '').trim()).filter(Boolean)
 }
 
+// The stall lens's two greps (kit 1.6.1 council, "For the next council": a
+// table read, not a grep of 26 files): does the skill end on a `Next:` line
+// (norms.md, "Report back"), and does it say when not to keep a timer.
+export function closingLines(text) {
+  return {
+    next: /`Next:/.test(text) || /^\s*[-*]?\s*Next:/m.test(text),
+    noTimer: /\bno(?:-| )timer\b|\bno (?:background )?`?sleep`?\b|without a timer/i.test(text),
+  }
+}
+
 export function loadKit(kit) {
   const skills = []
   const agents = []
@@ -77,7 +87,7 @@ export function loadKit(kit) {
         const file = join(sdir, s, 'SKILL.md')
         if (!existsSync(file)) continue
         const text = readFileSync(file, 'utf8')
-        skills.push({ kind: 'skill', plugin, name: s, file, text, lines: text.split('\n').length, description: front(text, 'description'), userOnly: /disable-model-invocation:\s*true/.test(text) })
+        skills.push({ kind: 'skill', plugin, name: s, file, text, lines: text.split('\n').length, description: front(text, 'description'), userOnly: /disable-model-invocation:\s*true/.test(text), ...closingLines(text) })
       }
     }
     const adir = join(kit, plugin, 'agents')
@@ -205,6 +215,7 @@ export function buildCards({ kit, projects, transcripts, since }) {
   const seen = new Set()
   let sessionsRead = 0
   let subRead = 0
+  const untitled = { titled: 0, none: 0 }
 
   const agentOf = (meta) => {
     const raw = stripPlugin(meta.agentType || meta.agent_type || meta.subagentType || '')
@@ -243,7 +254,9 @@ export function buildCards({ kit, projects, transcripts, since }) {
     for (const f of byBirth(dir, files)) {
       const id = f.slice(0, -6)
       const raw = readEntries(join(dir, f))
-      const cmd = stripPlugin(startCommand(raw))
+      // The speed table's key, so a session it lists under a skill lands on that card (M1).
+      const label = sessionLabel(raw)
+      const cmd = skillKey(label)
       const start = firstTime(raw)
       const main = dropSeen(raw, seen)
       const subDir = join(dir, id, 'subagents')
@@ -307,7 +320,9 @@ export function buildCards({ kit, projects, transcripts, since }) {
         const st = skillStats.get(cmd)
         st.started.push({ project, session: id.slice(0, 8), tokens, active })
         st.projects.add(project)
-      } else if (start && start >= FROM && cmd && cmd !== '(none)') bump(otherSkills, `/${cmd} (start)`)
+      } else if (start && start >= FROM && cmd) bump(otherSkills, `/${cmd} (start)`)
+      else if (start && start >= FROM && label.startsWith('title: ')) untitled.titled += 1
+      else if (start && start >= FROM) untitled.none += 1
     }
   }
 
@@ -339,7 +354,7 @@ export function buildCards({ kit, projects, transcripts, since }) {
     })
   }
 
-  return { skills, agents, skillStats, agentStats, otherSkills, otherAgents, denied, sessionsRead, subRead, lessonFiles: lessonFiles.map(shortPath), lessonsFor, mismatches: new Map(agents.map((a) => [a.name, toolMismatches(a)])), onePaths: new Map([...skills, ...agents].map((x) => [`${x.kind} ${x.name}`, oneProjectPaths(x, projects, kit)])) }
+  return { skills, agents, skillStats, agentStats, otherSkills, otherAgents, denied, sessionsRead, subRead, untitled, lessonFiles: lessonFiles.map(shortPath), lessonsFor, mismatches: new Map(agents.map((a) => [a.name, toolMismatches(a)])), onePaths: new Map([...skills, ...agents].map((x) => [`${x.kind} ${x.name}`, oneProjectPaths(x, projects, kit)])) }
 }
 
 // ---- the cards
@@ -359,6 +374,13 @@ export function renderCards(r, { kit, since }) {
   out.push('- A started session\'s tokens and minutes are the whole session (navigator plus agents), so a release command carries everything its release did.')
   out.push('- Cap stops count turns per segment: a run resumed by SendMessage starts a new segment with a fresh maxTurns. A run that finished on its last turn looks like a stop; the list is candidates.')
   out.push('- Tool mismatches and one-project paths are greps (backticked paths only; a line saying the agent lacks the tool is skipped). Readers confirm them.')
+  out.push('- A session is keyed as the speed table keys it (council-speed.mjs\'s sessionLabel): a command run later, in brackets there, counts as a start here and also in the later-call counts. Sessions labelled by title count on no card.')
+  out.push('')
+  out.push('## Closing lines (the stall lens)', '')
+  out.push('Greps, not judgements: `Next:` is a `Next:` line anywhere in the file; no timer is a line saying not to keep one.', '')
+  out.push('| Skill | Plugin | Next: | No timer |', '|---|---|---|---|')
+  for (const s of r.skills) out.push(`| /${s.name} | ${s.plugin} | ${s.next ? 'yes' : 'no'} | ${s.noTimer ? 'yes' : 'no'} |`)
+  out.push(`| **missing** | | ${r.skills.filter((s) => !s.next).length} | ${r.skills.filter((s) => !s.noTimer).length} |`)
   out.push('')
   for (const plugin of [...new Set([...r.skills, ...r.agents].map((x) => x.plugin))]) {
     out.push(`## ${plugin}`, '')
@@ -412,6 +434,7 @@ export function renderCards(r, { kit, since }) {
   out.push('## Not on any card', '')
   out.push(`- Other agent types (not kit agents, or generic with no name prefix): ${top(r.otherAgents, 25) || 'none'}`)
   out.push(`- Other skill names (Skill tool or start command; old names, project or built-in skills): ${top(r.otherSkills, 30) || 'none'}`)
+  out.push(`- Sessions started with no command: ${r.untitled.titled} labelled by their title (the speed table lists them), ${r.untitled.none} with no title either`)
   out.push(`- Permission refusals in the window: ${r.denied.rows} rows, ${r.denied.main} by a navigator ("main"), others: ${top(r.denied.other, 10) || 'none'}`)
   out.push('')
   const cheaper = ['# Skills lens: every "Cheaper next time:" line, by agent', '']

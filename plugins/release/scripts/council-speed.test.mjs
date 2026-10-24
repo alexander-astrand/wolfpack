@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { dropSeen, sessionRow, startCommand } from './council-speed.mjs'
+import { dropSeen, sessionLabel, sessionRow, skillKey, startCommand, tableOf } from './council-speed.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
 const msg = (id, block, ts) => ({ type: 'assistant', timestamp: ts, message: { id, model: 'claude-opus-x', usage, content: [block] } })
@@ -31,6 +31,31 @@ describe('sessionRow with a forked copy', () => {
     expect(a.tokens).toBe(100)
     expect(b.tokens).toBe(100)
     expect(a.command).toBe('/jedi-council')
+  })
+})
+
+describe('sessionLabel and skillKey (one keying for the speed table and the cards)', () => {
+  const title = (t) => ({ type: 'custom-title', customTitle: t })
+  it('labels a session with no command by its last title', () => {
+    const e = [{ type: 'user', message: { content: 'Kit 1.7, lane B2' } }, title('kit · build · b1'), title('kit · build · b2')]
+    expect(sessionLabel(e)).toBe('title: kit · build · b2')
+    expect(skillKey(sessionLabel(e))).toBe(null)
+    expect(sessionLabel([{ type: 'user', message: { content: 'hi' } }])).toBe('(none)')
+  })
+  it('labels a release that started with /badger by its title, and keeps a real badger session', () => {
+    const start = { type: 'user', message: { content: '<command-name>/core:badger</command-name>' } }
+    expect(sessionLabel([start, title('hutzup · release · 3.4')])).toBe('title: hutzup · release · 3.4 (started /core:badger)')
+    expect(sessionLabel([start, title('hutzup · side · badger dark mode')])).toBe('/core:badger')
+  })
+  it('keys a plugin prefix and a later command in brackets to the bare skill name', () => {
+    expect(skillKey('/release:captain-call')).toBe('captain-call')
+    expect(skillKey('(/core:memento)')).toBe('memento')
+    expect(skillKey('(none)')).toBe(null)
+  })
+  it('shows the label and the card key in the table', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'council-speed-'))
+    writeFileSync(join(dir, 'cccc3333.jsonl'), jsonl([{ type: 'user', timestamp: '2026-10-17T10:00:00Z', message: { content: 'brief' } }, title('kit · build · b2'), msg('m9', { type: 'text', text: 'a' }, '2026-10-17T10:01:00Z')]))
+    expect(tableOf([sessionRow(dir, 'cccc')])).toContain('| cccc3333 | title: kit · build · b2 | – |')
   })
 })
 
