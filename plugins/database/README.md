@@ -2,6 +2,13 @@
 
 The Supabase pack: the production guard (the Slap Bet Commissioner) in `hooks/`, `the-playbook` and `bro-code`. The deployer agent is the project's own (in its `.claude/agents/`, named by `deployer` in `.claude/kit.json`). `database-artifacts.md` lists what a project using it carries. The guard finds the project through `CLAUDE_PROJECT_DIR` and reads its values from `.claude/kit.json`.
 
+## The scope sheet and the test runner (kit 1.7)
+
+Two read-and-run helpers for database steps, run from the plugin folder (nothing to copy into the project):
+
+- `node scripts/scope.mjs <table|function> [--root <project>]` prints the suites under `supabase/tests/` naming it, the pinned lists in `src/`, `scripts/` and `supabase/functions/` (a quoted name on a line), the migrations defining it as a function, and its foreign-key pairs from `supabase/migrations/`. Files only, no database. The navigator pastes its output into every `the-playbook` order, so the builder starts from the list instead of reading suites one by one.
+- `node scripts/run-tests.mjs [prefix] [--root <project>]` runs `supabase/tests/*.sql` the way `bro-code` writes them (no `_` files, `_helpers.sql` pasted at `-- @helpers`, the prefix for one suite) and prints only `FAIL <file>` with its failed checks, then one count line; exit 1 on any FAIL. Dev only: `--local` for a local stack, `--linked` only when the CLI is linked to `refs.dev`; it refuses with exit 2 when it can't tell, or when the project's own test command names the other flag. For a project with no database test command of its own.
+
 ## The one-word deploy (kit 1.6)
 
 `/one-ring <version or PR number>`, typed by Alexander in any session of a project, runs this plugin's own `scripts/full-auto.sh deploy <same argument>` (never the project's copy, so `live-sync` keeps it current), and `hooks/deploy.mjs` does the rest: out of draft, the branch up to date, CI green on its head, a throwaway checkout of that head with main's `prod-db.sh` and `kit.json`, the backup (Docker started, three tries), the dry run equal to the PR's new migration files, the push, the PR's `prod-db.sh setting` steps, the functions it touches (`scripts/functions-touched.mjs` when the project has one), the squash merge of exactly the head CI passed, the host's deploy and a smoke. Run again after a stop, it picks up where it stopped. The guard lets that one call through when this session's transcript holds his typed `/one-ring` with the same argument from the last 12 hours (`hooks/one-ring-go.mjs`), and asks him once otherwise. Why, and what a session may fix on production on the way: `docs/decisions/0001-one-word-deploy.md` in the kit.

@@ -15,6 +15,12 @@ bro-code · the database tester (Barney Stinson's Bro Code, article by article) 
 
 Database logic is tested on **dev** with SQL files in `supabase/tests/`, run with `supabase db query --linked -f <file>` (the CLI must be linked to dev). **On a local stack** (`refs.dev` in `.claude/kit.json` is a placeholder such as `localstacknotahosted`, or the project's `CLAUDE.md` says dev is local) there is no `--linked`: run the project's own test command (Burrow: `npm run test:db`, or `npm run test:db -- <file>` for one), which runs each file against the local stack (lens Must 4, kit 1.5). Each file acts as fixture users inside one transaction and always ends by raising an exception, so nothing is kept. The message is `PASS <name> (n checks)` or `FAIL <name>` followed by the failed checks.
 
+## Budget, when run inside another session
+Inside `the-playbook` its `maxTurns` and tag hold. Typed as `/bro-code` in someone else's session, nothing caps it: one such hour ran 80.9M (kit 1.6.1 council, M8). So in the first message say the expected size: extending a suite about 4M, a new suite for a new function about 12M (the playbook's prices in `oceans-eleven`, "Sizing the-playbook"). That figure is the line, at most 15M. After each suite run, read this session's tokens: `node <the release plugin>/scripts/usage.mjs --timeline <id>` (`--timeline` is a flag, the id from `get_session` `self` is positional), or `get_usage` before and after when the script isn't reachable (1% of the week is about 46M, so it is coarse). At the line, stop: commit what is green and report what is left.
+
+## Scope first
+Before writing, find what already covers the name: `node ${CLAUDE_PLUGIN_ROOT}/scripts/scope.mjs <table|function>` prints the suites naming it, the pinned lists in `src/`, `scripts/` and `supabase/functions/`, and its foreign-key pairs (no script reachable: `grep -ln '<name>' supabase/tests src supabase/functions`). Put the count and the list in your first message. When the order already carries the sheet, use it and don't run it again. When a change renames, splits or removes a policy, wall, function or column and the list is over 10 files, ask for the step to be split before editing (kit 1.6.1 council, M8: 26 suites read one by one for one wall).
+
 ## Add to an existing file first
 The project's own access rules and test suites (its `CLAUDE.md` lists them) say which file covers what. The general rule: a grants file that says exactly which functions `anon`/`authenticated` may execute (**every new function goes there**), an access-holes file for closed holes, and one file per area (isolation between owners or groups, roles, the domain's own logic).
 
@@ -35,5 +41,9 @@ A new file only for a new area, in the same style: the header comment says what 
 - `supabase db query` returns errors as JSON; the PASS/FAIL text is inside the message.
 - **Prove the test can fail:** loosen the rule on purpose once (in the transaction), see FAIL, then put it back.
 
-## Run them all
-After every database change, the project's database test command (its `CLAUDE.md` names it). With none: hosted, `for f in supabase/tests/*.sql; do supabase db query --linked -f "$f"; done`; local, the same loop with `--local`, skipping `_` files (they are pasted, never run alone). Every file must say PASS.
+## Run one while writing, all once at the end
+- **While writing:** only the suite you touched, by its prefix: the project's database test command with the file (such as `npm run test:db -- 0035`), or with none, `node ${CLAUDE_PLUGIN_ROOT}/scripts/run-tests.mjs 0035`.
+- **Once, before the report:** every suite, with the same command and no prefix, written to a file in your scratch folder (`> <scratch>/db-tests.txt 2>&1`), then `echo $?` on its own line, then read only the FAIL lines. Never pipe it to `tail`: the pipe hides the exit code and cost a second full run.
+- `run-tests.mjs` does what this skill says by hand: skips `_` files, pastes `_helpers.sql` at `-- @helpers`, never sends a suite with no closing `raise exception 'PASS`, prints only `FAIL <file>` with its failed checks and one count line, and exits 1 on any FAIL. It runs only on dev (`--local` or `--linked` to `refs.dev`, as above) and refuses with exit 2 when it can't tell.
+- **No green after three tries on one suite: stop and report** the suite, the failing check and what you tried. A fourth try is the caller's call.
+- Every file must say PASS.
