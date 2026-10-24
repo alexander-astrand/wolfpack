@@ -112,10 +112,6 @@ export function refusalThisTurn(entries) {
   return null
 }
 
-/** True when the transcript, since its last real user message, holds the app's refusal of a start_session. */
-export function refusedThisTurn(transcriptPath) {
-  return refusalThisTurn(tailEntries(transcriptPath)) !== null
-}
 
 const flat = (s) => String(s ?? '').replace(/\s+/g, ' ').trim()
 

@@ -491,6 +491,13 @@ describe('kit.json budgets (2.14.6)', () => {
     expect(logs.join('\n')).toMatch(/no readable budgets/)
   })
 
+  it('falls back quietly when the kit has no budgets key', () => {
+    kit('{ "project": { "name": "x" } }')
+    agent('k7', { type: 'chris-de-kok', description: 'chris-de-kok: step', tokens: 16 * M })
+    expect(call('k7', 'chris-de-kok')).toBe('deny') // the built-in 15M
+    expect(logs.join('\n')).not.toMatch(/no readable budgets/)
+  })
+
   it('ignores a value above 100M, with a log line', () => {
     kit({ 'chris-de-kok': '500M' })
     agent('k7', { type: 'chris-de-kok', description: 'chris-de-kok: step', tokens: 26 * M })

@@ -202,7 +202,10 @@ export function kitBudgets(file, notes = []) {
   }
   let budgets
   try {
-    budgets = JSON.parse(raw)?.budgets
+    const kit = JSON.parse(raw)
+    // A kit with no budgets key is the ordinary case, not worth a hank.log line (kit 1.7 review).
+    if (kit && typeof kit === 'object' && !('budgets' in kit)) return null
+    budgets = kit?.budgets
   } catch {
     budgets = undefined
   }

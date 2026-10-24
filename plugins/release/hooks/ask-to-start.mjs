@@ -68,9 +68,6 @@ export function lastText(entries) {
   return ''
 }
 
-/** The last assistant text in the transcript's tail. */
-export const lastAssistantText = (file) => lastText(tailEntries(file))
-
 // Markdown in front of the label ("- **Next:**", "> Next:") still counts.
 const LAST_LINE = /^(?:next\s*:|handed to\b)/i
 const MARKUP = /^[\s>*_`#-]+/
