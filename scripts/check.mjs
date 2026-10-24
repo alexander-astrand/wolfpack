@@ -314,6 +314,22 @@ export function kitVersionNote(project, kitDir) {
   }
 }
 
+// A project's ranjit is generated from the kit's template (kit 1.7, council
+// Feature 9): with `--project`, a copy that differs is a problem line. Only when
+// the project has `.claude/agents/ranjit.md`; the sync script does the compare.
+export function checkRanjit(project, kitDir) {
+  if (!project || !existsSync(join(project, '.claude', 'agents', 'ranjit.md'))) return []
+  const script = join(kitDir, 'plugins', 'database', 'scripts', 'sync-ranjit.mjs')
+  if (!existsSync(script)) return []
+  try {
+    execFileSync('node', [script, project, '--check'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+    return []
+  } catch (err) {
+    const first = String(err.stdout || err.stderr || '').split('\n')[0] || 'ranjit.md differs from the kit template'
+    return [`.claude/agents/ranjit.md:1  stale copy: ${first} (node plugins/database/scripts/sync-ranjit.mjs <project>)`]
+  }
+}
+
 function defaultGit(dir, args) {
   return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
 }
@@ -336,6 +352,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const what = p.missing ? `${p.missing} is missing` : `${p.lines} lines differ`
     problems.push(`${where}  drifted from ${p.hutzup}: ${what} (node scripts/drift.mjs <project>)`)
   }
+  problems.push(...checkRanjit(project, kitDir))
   for (const p of problems) console.log(p)
   if (problems.length) process.exit(1)
   console.log(plugins ? `kit ok: ${plugins} plugin${plugins === 1 ? '' : 's'}` : 'no plugins yet')
