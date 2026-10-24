@@ -28,7 +28,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/ask-to-start.mjs\"",
-            "timeout": 5
+            "timeout": 10
           }
         ]
       }
