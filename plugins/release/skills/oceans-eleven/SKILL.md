@@ -35,7 +35,15 @@ Each row: job → agent, model, effort. `captain-call` applies it itself and pas
 - **Lanes:** parallel builders only on files no other agent touches (one page or folder each), each in a worktree the navigator makes outside `.claude` (`~/Desktop/<Project>-lanes/<lane>`, the release branch as base; `captain-call`, "Parallel lanes"), its path in the order, set up per the `tesseract` skill; never `isolation: "worktree"` (`[lane-home]`, kit 1.5, H2). `captain-call` merges each worktree before a step that touches its files; `tesseract` cleans them up at the release's end. **When builders run side by side, each order names the owner of any helper they share** (`[parallel]`: 2.13.2 wrote "Playing this now" twice).
 - **Browser lanes in one session** (`[one-session]`): each lane runs its own dev port (`npm run dev -- --port 51NN --strictPort`), signed in at the start; a fixed QA layout group nobody toggles, named in the order; restart the lane's server after any `package.json` change.
 - **A builder's own check before QA covers the `[builder-checks]` list:** pages under the size cap; no secret in a URL and no private or spoiler text in push or email; typed text escaped in email HTML; tests that reach the Supabase client mock it; every button shows the pointer and matches its type.
-- **Every page order carries a "Fixtures" block** (`[fixtures]`): the QA group ids (a club one, a non-club one), seed URLs, the measured stack heights, the existing components and tokens to reuse (the navigator greps them before writing the order), and where each new button leads. A wrap-up page order carries the exact lines or array to change.
+- **Every page order carries a "Fixtures" block** (`[fixtures]`): the QA group ids (a club one, a non-club one), seed URLs, the measured stack heights, the existing components and tokens to reuse (the navigator greps them before writing the order), and where each new button leads. It also carries what builders kept asking for (M4, kit 1.7; the order composer under Find gathers it):
+  - the tests that read the changed files (`grep -l <file or name>` over the tests), and for a text change the tests that pin the strings;
+  - the loader that already has the data, so nobody writes a second query;
+  - the gitignored env files the step needs (copied into a lane, never committed);
+  - "the shell is zsh, spell paths out" (one path per line; a `$P` list is not split);
+  - the service-role requirement, in the first order that needs it;
+  - the exact test command with the file name;
+  - the trigger selector or fold id the check clicks.
+  When the order says `seed=shared`, the navigator owns one seed and one clean-up, no lane cleans. A wrap-up page order carries the exact lines or array to change.
 - A review finding, a CI failure, or a first try at a bug → `jesse-pinkman`, with the finding and file:line (`chris-de-kok` when it's in the shared helpers or logic); after two failed tries, an Opus builder at xhigh with both earlier reports in its order. No separate fixer agent: it would be the builder with a different prompt.
 - **A new library with its tests** (a loader, a forecast, an Edge Function door) is two spawns, the module then its tests and wiring, each tagged ≤ 10M. A fix order over ~6 findings is split by area, and **each fix round is its own order with its own tag**, a second round to a fresh agent (`[fix-rounds]`). The pool's over-budget steps four releases running were these shapes, whichever name took them.
 - **A step whose file:line column names more than 6 files is cut at `/inception`**, a shared part first, then its pages (`[turns]`): the pool hit Hank two releases running on 8- and 9-file steps (Burrow 0.12.1, 0.12.2).
@@ -46,11 +54,13 @@ Each row: job → agent, model, effort. `captain-call` applies it itself and pas
 - **Paths in an order are a literal list** (2.14.6.1, confirmed at `/memento`): one path per line or a zsh array, never a space-separated variable; zsh doesn't split it, and three builders of 2.14.6.1 lost calls on that.
 - **A silent lane is stopped** (`[watchdog]`, the `captain-call` skill's Build has the steps): while anything runs the navigator never ends a turn without a background `sleep` timer that wakes it; on each wake it checks each lane's last commit and file write and each session's last event, stops one silent for 20 minutes (on the 20-minute tick, one silent 20 minutes is caught within 40) and hands its files to a fresh agent of the same role, and does a step stuck on a prompt itself. Every work order carries "never run a command that doesn't exit on its own; a refused call is never retried; edit with Edit or Write, scratch files by absolute path".
 - **Every order lists what the guard refuses in a shell call** (`[frozen]`, `[guard-noise]`): a shell line naming `prod-db.sh`, `full-auto.sh` or the plugins' `hooks/`, or writing `${…}`, is refused, so use Read, Grep or Edit for those; a nested `claude` is refused in Bypass; hook tests run as `npx vitest run` on the hooks folder, never `node --test`. Under a chain marker it also carries "no `cd` into a folder built at run time" (chain 3.0: seven guard refusals, all one shape).
+- **Shell shape** (H5, kit 1.7; `captain-call`'s Build has the same rule): one command per Bash call, `git -C <repo>` with absolute paths, no `cd <dir> &&` and no `VAR=…` prefix, tracked files edited with Edit or Write, and `gh pr checks --watch` once instead of a poll loop. 15 of 26 prompts in the kit 1.6.1 window were these shapes.
 - **Commits in an order are path-scoped:** `git commit -- <paths>`, never a bare `git commit` after `git add` (`[parallel]`: three ride-alongs in 3.1, one lane's commit carrying another's staged files). An order for a page that writes data names the query keys it invalidates (3.1's club cache).
 - **No skill or agent ships unnamed or unvoiced:** the step that adds one writes its `## Voice` card from the `design` plugin's `voice-card.md` in the same commit (2.14.6.2). A procedure that comes up twice becomes a skill (`.claude/skills/<name>/SKILL.md`), listed in the PR's "Notes for review"; improve an existing skill over a near-duplicate.
 
 **Find**
 - "Where is X" → `lorenzo-von-matterhorn`, Haiku, low.
+- **The order composer** (Feature 1, kit 1.7) → `lorenzo-von-matterhorn`, Haiku, low, `[budget 2M]`, before each build step: given the step's files, it lists the tests that read them, the loader that holds the data, the lines of the project's `.claude/standing-facts.md` that touch the step, and the step's selectors; `captain-call` appends the list to the order's Fixtures. The standing facts file (starter: `templates/standing-facts.md`) is read there and by the builders; the navigator appends to it at the wrap from `order`-tagged cheaper lines that hold for any step.
 - A broad sweep across the tree → `lorenzo-von-matterhorn` (several in parallel for a wide tree, each its own folder). The built-in Explore agent is not used: Hank denies nameless spawns (council M4).
 - Web research → `/88-mph <small|medium|large> <topic>` with the decision it serves and the person's questions in their words: small inline (≈ 1M); medium scopes the questions and angles, then one `doc-brown` (6M); large shows the scope first, then 2–4 `doc-brown` lanes (6M each), a counter pass (3M) and a check (4M), run ≤ 35M. Medium and large get their own session when asked from a side session (`oracle`, `wilson`); never the built-in deep research.
 
@@ -58,7 +68,7 @@ Each row: job → agent, model, effort. `captain-call` applies it itself and pas
 - Features the plan marks **qa** (new pages or layouts; sign-up, waitlist, access or link flows) → `bengt-johansson`, Sonnet, medium: a fresh one per marked feature (side by side is fine, each in its own tab), one pass each, shots by `spidey-sense`'s "Shot counts", text checks between, **at most three checks per agent** (more checks go to another fresh `bengt-johansson` beside it: one agent runs out of budget before check 4); its budget is the `[budget …]` tag in the work order. The builder of a qa feature leaves the seeded test row's URL in its report, so `bengt-johansson` opens the page instead of creating its own data. Everything else is checked by its builder as text and by the reviewer.
 - The full matrix → only on demand, as `/darth-vader`.
 - `bengt-johansson` is the single-feature pass. A release with several UI features or any layout work sends the Bengan Boys instead, one per lane: `magnus-wislander` (1024/1440), `staffan-olsson` (375), `stefan-lovgren` (interactions), then `tomas-svensson` last against `.claude/taste.md`; each in its own tab. QA's share target is ≤10% of the release.
-- The pre-merge review of a finished branch → `kissochbajslowski`, Sonnet, high; give it the screenshot folders and name the release branch, its base and the app's source folder. Every reviewer and QA pass gets the builders' and earlier passes' shot folders in its order, so it shoots only what they lack (portfolio 0.3: four QA passes took 15 shots of the same two pages, none handed the earlier ones).
+- The pre-merge review of a finished branch → `kissochbajslowski`, Sonnet, high (Alexander's call B, 24 Oct 2026: a plan may name Opus for one wall review only with the reason in that row); give it the screenshot folders and name the release branch, its base and the app's source folder. Every reviewer and QA pass gets the builders' and earlier passes' shot folders in its order, so it shoots only what they lack (portfolio 0.3: four QA passes took 15 shots of the same two pages, none handed the earlier ones).
 - A whole-part review splits into a database lane and an app lane, one `kissochbajslowski` each (`[turns]`: one reviewer runs out of turns on a whole part).
 - The second reviewer, for design and accessibility → `daredevil`, Sonnet, high, read-only, in every release with UI; its order names the release branch, its base and the app's source folder too.
 
@@ -82,16 +92,17 @@ Every Agent `description` ends with the step's budget, e.g. `[budget 12M]`. **A 
 
 | Role | Default | Role | Default |
 |---|---|---|---|
-| `lorenzo-von-matterhorn`, `romeo-olsson` | 2M | the builder pool (all five) | 25M each |
-| `c-3po` | 10M | `the-playbook` | 15M (stopped at 150%; a migration with a cron job is cut in two, not given a bigger tag: `[playbook]`) |
+| `lorenzo-von-matterhorn`, `romeo-olsson` | 2M | the builder pool (all five) | 15M each (the ceiling) |
+| `c-3po` | 4M | `the-playbook` | 15M (stopped at 150%; a migration with a cron job is cut in two, not given a bigger tag: `[playbook]`) |
 | `admiral-ackbar` | 10M; `dom-cobb` 20M | `mosbius-designs` (Opus 5M, Fable 12M) | 5M |
 | `heisenberg` | 8M | `daredevil` | 3M |
 | `bengt-johansson` (per feature) | 14M | `ranjit` | logged only |
-| `jesse-pinkman`, `kissochbajslowski`, others | 15M | the four Bengan Boys (as `bengt-johansson`) | 14M |
+| `jesse-pinkman` | 8M | | |
+| `kissochbajslowski`, others | 15M | the four Bengan Boys (as `bengt-johansson`) | 14M |
 | `mike-ehrmantraut` | 30M | `daredevil` whole-app (e.g. `/darth-vader`'s a11y lane, one page family per call) | 10M |
 | `three-eyed-raven` | 8M | | |
 
-**The ceiling and the target.** 15M is the ceiling for any build or fix order's tag; a step that sizes over it is cut at `/inception`, never given a bigger tag (the audits `mike-ehrmantraut` 30M and `dom-cobb` 20M, and the pool's untagged default, are the only rows above it). Turn caps are `maxTurns` in the agent files, so an order carries no turn line (`[turns]`: every 20M step in 3.1.1 hit `maxTurns` 90). The target is ≤ 5% of the weekly meter per release, deploy included, unless Alexander sets another; the daily-window rule (14% finish, 7% step down) is in `~/.claude/CLAUDE.md`'s "Usage and budget", not repeated here. A project's `.claude/kit.json` `budgets` mirror this table; a project whose kit.json still has old rows (the 45M `the-playbook`, retired roles) updates them in its next guard release.
+**The ceiling and the target.** 15M is the ceiling for any build or fix order's tag; a step that sizes over it is cut at `/inception`, never given a bigger tag (the audits `mike-ehrmantraut` 30M and `dom-cobb` 20M are the only rows above it). The defaults sit near the measured medians (kit 1.6.1 council: the pool 5.9 to 8.1M, `jesse-pinkman` 2.1M, `c-3po` 0.5M, no cap stop in about 200 runs), so a cap can stop a runaway before the navigator's eye has to. Turn caps are `maxTurns` in the agent files, so an order carries no turn line (`[turns]`: every 20M step in 3.1.1 hit `maxTurns` 90). The target is ≤ 5% of the weekly meter per release, deploy included, unless Alexander sets another; the daily-window rule (14% finish, 7% step down) is in `~/.claude/CLAUDE.md`'s "Usage and budget", not repeated here. A project's `.claude/kit.json` `budgets` mirror this table; a project whose kit.json still has old rows (the 45M `the-playbook`, retired roles) updates them in its next guard release.
 
 `the-protagonist` is a session (the chain's conductor), never a spawned agent, so Hank has no budget for it; its usage is read from its session.
 
@@ -138,7 +149,7 @@ An argument to `/captain-call` (default normal); `/night-watch <version>` is slo
 
 | Speed | What changes |
 |---|---|
-| **slow** | Overnight and `/night-watch`. One agent at a time. Builders may go one model up when in doubt; `bengt-johansson` adds 1440 on marked layout work; the second design reviewer runs; the Opus xhigh escalation after one failed attempt instead of two. |
+| **slow** | Overnight and `/night-watch`. One agent at a time. It spends the time on checking, not tokens on a bigger model (as `/night-watch` says): the routing table's models hold; `bengt-johansson` adds 1440 on marked layout work; the second design reviewer runs; the Opus xhigh escalation after one failed attempt instead of two. |
 | **normal** | This table as written; how many agents run side by side is lesson `[parallel]`'s rule, not set here. One editing agent per lane, one browser-using agent per tab (each QA agent opens its own with `tabs_create` and closes it), one migration writer at a time, Fable within `stars=`. |
 | **quick** | Decide and move on. Agents side by side as normal (`[parallel]`). Sonnet wherever the spec is clear; builders check as text only; `bengt-johansson` only on flows (sign-up, waitlist, access, links); no `mosbius-designs` unless a step is marked important design; `stars=0`. |
 
@@ -154,9 +165,9 @@ Speed only sets how many agents run at once; how careful and how costly the run 
 
 | | cheap | normal | high | unlimited |
 |---|---|---|---|---|
-| Budget tags | ×0.6 | ×1 | ×1.5 | as normal, with a note that Hank's limits are not enforced by the tag |
+| Budget tags | ×0.6 | ×1 | ×1.5, at or under the 15M ceiling | as normal, with a note that Hank's limits are not enforced by the tag |
 | Meter target per release | 3% | 5% | 8% | none, reported |
-| Model floor | Sonnet wherever the spec is clear | the routing table | Opus for every build step | a Fable navigator allowed |
+| Model floor | Sonnet wherever the spec is clear | the routing table | Opus for every build step in code, not docs or the PR writer | a Fable navigator allowed |
 | Efforts | medium | as in the table | one step up; `the-playbook` xhigh on policies | as high as fits |
 | Stars | 0 | 1 | 2 | no cap |
 | Checking | one reviewer; QA on qa-marked features only | the table | `daredevil` runs in every release with UI, whatever the allowance; QA on every feature; `/darth-vader`'s matrix before the PR | as high |
