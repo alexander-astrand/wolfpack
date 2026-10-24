@@ -2,7 +2,7 @@
 // trees in a temp dir, so the real guard copies never have to be bent.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -128,4 +128,23 @@ test('the script exits 1 on drift and --json says so', () => {
     assert.equal(JSON.parse(err.stdout).drift, true)
     return true
   })
+})
+
+// A project that pastes the pairs gets every file the guard loads: a paired
+// hook importing a file the list lacks fails the guard's load, which blocks
+// every tool call (kit 1.7 review: read-clock.mjs, and one-ring-go.mjs since
+// kit 1.6). The kit-only step-aside import is dropped before the compare.
+test('the real pairs list every file a paired hook imports', () => {
+  const kitRoot = fileURLToPath(new URL('..', import.meta.url))
+  const config = JSON.parse(readFileSync(join(kitRoot, 'scripts/drift-pairs.json'), 'utf8'))
+  const paired = new Set(config.files.map((f) => f.kit))
+  const kitOnly = new Set(config.kitOnly)
+  for (const kit of paired) {
+    if (!kit.endsWith('.mjs')) continue
+    const text = readFileSync(join(kitRoot, kit), 'utf8').split('\n').filter((l) => !kitOnly.has(l.trim())).join('\n')
+    // `from './x'` anywhere, so an import split over lines counts too.
+    for (const [, file] of text.matchAll(/\bfrom '\.\/([^']+)'/g)) {
+      assert.ok(paired.has(join(dirname(kit), file)), `${kit} imports ./${file}, which drift-pairs.json doesn't list`)
+    }
+  }
 })

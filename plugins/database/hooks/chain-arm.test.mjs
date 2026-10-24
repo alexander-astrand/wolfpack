@@ -7,8 +7,9 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { READ_BUDGET_MS, readTimeout, startReads, stopReads } from './read-clock.mjs'
 import {
-  FROZEN, FROZEN_RE, chainArgs, chainWhyNot, doneLine, doneWhyNot, finishChain, frozenHash, localSettingsForHash, markDone, newChain, nextVersion,
+  ARM_READ_MS, FROZEN, FROZEN_RE, chainArgs, chainWhyNot, doneLine, doneWhyNot, finishChain, frozenHash, localSettingsForHash, markDone, newChain, nextVersion,
   oneTapText, oneTapVerdict, pluginLine, projectRoot, readFrozen,
 } from './chain-arm.mjs'
 import { decide } from './guard-production.mjs'
@@ -597,6 +598,24 @@ describe('2.14.9.1: the project root and the plugin line', () => {
       expect(run({ CLAUDE_PROJECT_DIR: join(dir, 'nope') })).toMatch(/no {2}in the arm given at the start/)
     } finally {
       rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+// Kit 1.7 review: the arm's production reads run in main(), outside any
+// decision, so a slow network gets its old 120 s instead of disarming the chain.
+describe('the arm read timeout', () => {
+  it('is 120 s outside a decision', () => {
+    expect(ARM_READ_MS).toBe(120_000)
+    expect(readTimeout(ARM_READ_MS)).toBe(120_000)
+  })
+
+  it('readFrozen shares the read clock inside a decision: a spent clock fails before git runs', () => {
+    startReads(Date.now() - READ_BUDGET_MS)
+    try {
+      expect(() => readFrozen(tmpdir())).toThrow(/spent/)
+    } finally {
+      stopReads()
     }
   })
 })

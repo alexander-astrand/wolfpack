@@ -415,7 +415,9 @@ export const frozenOnDisk = (root = REPO_ROOT) => frozenHash(readFrozen(root), p
 export function readFrozen(root = REPO_ROOT) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')))
   const out = execFileSync('git', ['--no-replace-objects', '-c', 'core.fsmonitor=false', 'ls-files', '-z', '--', ...FROZEN], {
-    cwd: root, env, encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'pipe'],
+    // The guard reads this inside decide (the one-tap check), so it shares the
+    // read clock there; elsewhere it keeps its 3 s.
+    cwd: root, env, encoding: 'utf8', timeout: readTimeout(3000), stdio: ['ignore', 'pipe', 'pipe'],
   })
   const paths = out.split('\0').filter(Boolean)
   if (!paths.includes(LOCAL_SETTINGS) && existsSync(join(root, LOCAL_SETTINGS))) paths.push(LOCAL_SETTINGS)
@@ -445,12 +447,17 @@ function readJson(file) {
   try { return JSON.parse(raw) } catch { return {} }
 }
 
-// stdout of a read, or null when it fails. Inside the guard's decide it
-// shares the read clock (kit 1.7, M10), so a hang can't pass guard-entry's
-// 18 s watchdog; a spent clock throws and reads as a failure.
+// The arm's own reads (gh, prod-db.sh migrations, supabase functions list)
+// get 120 s: they run in the arm script's main(), never inside the guard's
+// decide, and a slow network that failed one would disarm the chain. Kit 1.7
+// cut this to 5 s by mistake; readTimeout keeps the cap should a decision
+// ever call it.
+export const ARM_READ_MS = 120_000
+
+// stdout of a read, or null when it fails.
 function readOut(cmd, args) {
   try {
-    return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: 'utf8', timeout: readTimeout(5000), stdio: ['ignore', 'pipe', 'pipe'] })
+    return execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: 'utf8', timeout: readTimeout(ARM_READ_MS), stdio: ['ignore', 'pipe', 'pipe'] })
   } catch {
     return null
   }

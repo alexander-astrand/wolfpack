@@ -154,9 +154,12 @@ export function openHumanSteps(body) {
 
 // carousel tags a step only Alexander can give (kit 1.7, council H1).
 const HOLD_TAG_RE = /\[(?:secret|password|payment)\]/i
-// A PR written before the tags existed: a step that names a secret, a
-// password or a payment still holds, so an old PR never deploys past one.
-const HOLD_WORD_RE = /\b(?:secrets?|passwords?|payments?)\b/i
+// A PR written before the tags existed, or an untagged step: one that names a
+// secret, a password or a payment still holds, so a PR never deploys past
+// one. A secret is often named by its kind instead ("Set RESEND_API_KEY in
+// Vercel", "Add the service role key"), so those words hold too; `[_\s-]?`
+// lets an env name like API_KEY or SERVICE_ROLE count.
+const HOLD_WORD_RE = /(?:\b|_)(?:secrets?|passwords?|payments?|api[_\s-]?keys?|tokens?|credentials?|service[_\s-]?role|secret[_\s-]?keys?)(?:\b|_)/i
 
 /**
  * Whether an unticked human step holds the deploy: only a secret, a password

@@ -335,6 +335,22 @@ describe('the helpers', () => {
     expect(holdsDeploy('- [ ] Confirm the dates with the group')).toBe(false)
   })
 
+  // Kit 1.7 review: an untagged step that names a secret by its kind holds too.
+  it('holdsDeploy: an api key, a token, a credential, a service role or a secret key holds', () => {
+    for (const step of [
+      '- [ ] Set RESEND_API_KEY in Vercel',
+      '- [ ] Add the service role key to the host',
+      '- [ ] Paste the API key into the dashboard',
+      '- [ ] Rotate the GitHub token',
+      '- [ ] Store the new Credentials',
+      '- [ ] Set SUPABASE_SERVICE_ROLE_KEY',
+      '- [ ] Copy the Stripe secret key',
+      '- [ ] Add an api-key for the mailer',
+    ]) expect(holdsDeploy(step), step).toBe(true)
+    expect(holdsDeploy('- [ ] Look at the keyboard shortcuts page')).toBe(false)
+    expect(holdsDeploy('- [ ] Check the role picker on the start page')).toBe(false)
+  })
+
   it('alreadyListed: a marked comment that names every step', () => {
     const c = [{ body: leftStepsComment(['- [ ] A', '- [ ] B']) }]
     expect(alreadyListed(c, ['- [ ] A'])).toBe(true)
