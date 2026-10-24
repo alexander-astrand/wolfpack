@@ -89,7 +89,7 @@ Make a topic slug (lowercase, hyphens, ≤ 6 words). The findings file is `~/.cl
 
 Sober and realistic: rank by realistic need, not by everything that could go wrong; say what is normal for comparable groups; no inflated urgency (Alexander, 15 Oct 2026: "no unnecessary urgency or stress"). Plain language a person outside tech can act on, free of the AI tells.
 - **The tells line** in every `doc-brown` order: "Write free of the AI tells in `~/.claude/global/voice/tells-en.md` (read its `## Grep` blocks and swap tables first)." `doc-brown` runs with `omitClaudeMd`, so it never sees `~/.claude/CLAUDE.md` and the order has to name the file (skills lens Should 5).
-- **The tells check:** before relaying, run `node ~/.claude/global/voice/tells-grep.mjs ~/.claude/plans/research/<slug>.md` here (`doc-brown` has no Bash) and fix each hit until it says clean, never changing a fact to clear one.
+- **The tells check:** before relaying, run `node ~/.claude/global/voice/tells-grep.mjs ~/.claude/plans/research/<slug>.md` here (`doc-brown` has no Bash, so any copy-run that needs a shell gets its results from the caller) and fix each hit until it says clean, never changing a fact to clear one.
 - **The harvest:** append `## Cheaper next time` at the findings file's very end, one line per spawn: who (research, lane name, counter, check) and its `Cheaper next time:` line word for word. The next run on the topic reads them, and the council collects them from here (jedi-council 2.5).
 
 ## The findings file
