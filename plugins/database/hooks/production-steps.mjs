@@ -188,7 +188,7 @@ export function explainSteps(body, pr) {
       const { cmd, why } = classify(normalise(m[1]), pr)
       if (m.index + m[0].length !== lead) {
         // Only worth a line when it reads like a command someone meant as a step.
-        if (cmd) left.push({ text: m[1], why: 'inside a sentence, not a step of its own' })
+        if (cmd) left.push({ text: m[1], why: longLabel(line, m.index) ? `its label is over ${LABEL_MAX} characters` : 'inside a sentence, not a step of its own' })
         continue
       }
       if (cmd && !commands.includes(cmd)) commands.push(cmd)
@@ -201,6 +201,14 @@ export function explainSteps(body, pr) {
 // A list item (-, *, + or 1.), maybe a checkbox, then an optional short
 // label ending in a colon, then the code span that is the step.
 const STEP_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?(?:([^`:]{1,60}):\s*)?`[^`]+`/
+// STEP_RE's label limit.
+const LABEL_MAX = 60
+// A list item whose span follows a label ending in a colon, but a label too
+// long to count: check-plan names why the step fell off (database fix 13).
+const longLabel = (line, at) => {
+  const before = line.slice(0, at).replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/, '')
+  return before !== line.slice(0, at) && !before.includes('`') && /:\s*$/.test(before) && before.replace(/:\s*$/, '').length > LABEL_MAX
+}
 // A label that says not to run it ("Not yet: `…`").
 const NEGATED_RE = /\b(?:don'?t|do not|never|not|skip|avoid|unless|until)\b/i
 
@@ -599,7 +607,7 @@ export function planCalls(text) {
  */
 export function planCheck(planText, body, version, pr, facts = {}) {
   const arm = armList(body, pr, facts)
-  if (arm.refuse) return { calls: [], problems: [arm.refuse] }
+  if (arm.refuse) return { calls: [], problems: [arm.refuse], dropped: droppedSteps(body, pr) }
   const calls = planCalls(planText)
   const problems = []
   const steps = arm.commands.filter((c) => !mergeCommands(pr).includes(c))
@@ -622,14 +630,25 @@ export function planCheck(planText, body, version, pr, facts = {}) {
   if (facts.isDraft === true && !calls.includes(ready)) problems.push(`the PR is a draft, and the plan doesn't mark it ready (\`${ready}\`)`)
   if (facts.isDraft === false && calls.includes(ready)) problems.push(`the PR isn't a draft, so \`${ready}\` is extra`)
   if (calls.includes(ready) && merge.length === 1 && calls.at(-2) !== ready) problems.push(`\`${ready}\` isn't the step right before the merge`)
-  return { calls, problems }
+  return { calls, problems, dropped: droppedSteps(body, pr) }
+}
+
+/**
+ * The commands written in Before or After merge that fell off the arm list
+ * (not one code span, a label too long): not a mismatch, but each keeps
+ * asking a person at the deploy, so check-plan names them (database fix 13).
+ * Human steps are left off on purpose and aren't listed.
+ */
+export function droppedSteps(body, pr) {
+  return explainSteps(body, pr).left.filter((l) => !/human step/.test(l.why))
 }
 
 /** What `scripts/full-auto.sh check-plan` prints. */
-export function planCheckText({ calls, problems }, version, pr) {
-  if (problems.length) return `Plan check for V${version} (PR #${pr}): the plan doesn't match the PR. A hard stop; fix the plan and check again.\n${problems.map((p) => `  - ${p}`).join('\n')}\n`
+export function planCheckText({ calls, problems, dropped = [] }, version, pr) {
+  const off = dropped.length ? `Dropped from the arm list (each keeps asking a person; write it as one code span after a label under ${LABEL_MAX} characters):\n${dropped.map(({ text, why }) => `  - \`${text}\`: ${why}`).join('\n')}\n` : ''
+  if (problems.length) return `Plan check for V${version} (PR #${pr}): the plan doesn't match the PR. A hard stop; fix the plan and check again.\n${problems.map((p) => `  - ${p}`).join('\n')}\n${off}`
   const db = changesDatabase(calls) ? ', the backup first' : ''
-  return `Plan check for V${version} (PR #${pr}): the plan matches the PR: ${calls.length} production call${calls.length === 1 ? '' : 's'}${db}, the merge last.\n${calls.map((c, i) => `  ${i + 1}. ${c}`).join('\n')}\n`
+  return `Plan check for V${version} (PR #${pr}): the plan matches the PR: ${calls.length} production call${calls.length === 1 ? '' : 's'}${db}, the merge last.\n${calls.map((c, i) => `  ${i + 1}. ${c}`).join('\n')}\n${off}`
 }
 
 // ---------------------------------------------------------------- main
