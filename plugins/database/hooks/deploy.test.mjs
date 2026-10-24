@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { EXIT, ciState, deploy, migrationChanges, namesVersion, openHumanSteps, parseGo, pickPr, touchedFunctions, versionOf } from './deploy.mjs'
+import { EXIT, alreadyListed, ciState, deploy, holdsDeploy, leftStepsComment, migrationChanges, namesVersion, openHumanSteps, parseGo, pickPr, touchedFunctions, versionOf } from './deploy.mjs'
 
 const TMP = mkdtempSync(join(tmpdir(), 'deploy-test-'))
 afterAll(() => rmSync(TMP, { recursive: true, force: true }))
@@ -171,6 +171,39 @@ describe('every stop comes before what it protects', () => {
     expect(w.lines.at(-1)).toMatch(/Telegram/)
   })
 
+  it('a step tagged [secret], [password] or [payment] holds the deploy, before production', () => {
+    for (const tag of ['[secret]', '[password]', '[payment]']) {
+      const w = world({ pr: { body: BODY.replace('before the deploy can finish\nNone', `before the deploy can finish\n- [ ] ${tag} Add the new key in the dashboard`) } })
+      expect(deploy(['34'], w.io)).toBe(EXIT.WAITS)
+      expect(production(w.calls)).toEqual([])
+      expect(w.lines.at(-2)).toMatch(/STOP waits: .*Add the new key/)
+      expect(w.calls.some((c) => c.startsWith('gh pr comment'))).toBe(false)
+    }
+  })
+
+  it('any other unticked step never holds it: listed in one PR comment, and the deploy carries on', () => {
+    const steps = '- [ ] Check the start page signed in\n- [ ] Tell the group the new page is up'
+    const w = world({ pr: { body: BODY.replace('before the deploy can finish\nNone', `before the deploy can finish\n${steps}`) } })
+    expect(deploy(['34'], w.io)).toBe(EXIT.DONE)
+    const comment = w.calls.findIndex((c) => c.startsWith('gh pr comment 34 --body'))
+    expect(comment).toBeGreaterThan(-1)
+    expect(w.calls[comment]).toContain('Check the start page signed in')
+    expect(w.calls[comment]).toContain('Tell the group the new page is up')
+    expect(comment).toBeLessThan(w.calls.findIndex((c) => c.startsWith('prod-db.sh backup')))
+  })
+
+  it('a re-run does not write the same comment twice, and a held step still lists the rest', () => {
+    const steps = '- [ ] Check the start page signed in'
+    const body = BODY.replace('before the deploy can finish\nNone', `before the deploy can finish\n${steps}`)
+    const w = world({ pr: { body, comments: [{ body: leftStepsComment([steps]) }] } })
+    expect(deploy(['34'], w.io)).toBe(EXIT.DONE)
+    expect(w.calls.some((c) => c.startsWith('gh pr comment'))).toBe(false)
+    const both = world({ pr: { body: body.replace(steps, `${steps}\n- [ ] [secret] Set the mail key`) } })
+    expect(deploy(['34'], both.io)).toBe(EXIT.WAITS)
+    expect(both.calls.filter((c) => c.startsWith('gh pr comment'))).toHaveLength(1)
+    expect(both.lines.at(-2)).not.toMatch(/start page/)
+  })
+
   it('a dry run that is not the PR\'s migrations: after the backup, before the push', () => {
     const w = world({ dryRun: '0100 0101' })
     expect(deploy(['34'], w.io)).toBe(EXIT.MIGRATIONS)
@@ -291,5 +324,38 @@ describe('the helpers', () => {
     const body = '### Human steps before the deploy can finish\n- [x] Set A\n- [ ] Set B\n- [ ] None\n### Human steps afterwards\n- [ ] Look on the phone\n'
     expect(openHumanSteps(body)).toEqual(['- [ ] Set B'])
     expect(openHumanSteps('### Human steps before the deploy can finish\nNone\n')).toEqual([])
+  })
+
+  it('holdsDeploy: the three tags, or a step that names a secret, a password or a payment', () => {
+    expect(holdsDeploy('- [ ] [secret] Add MAIL_KEY')).toBe(true)
+    expect(holdsDeploy('- [ ] [Password] Store the database password')).toBe(true)
+    expect(holdsDeploy('- [ ] [payment] Upgrade the plan')).toBe(true)
+    expect(holdsDeploy('- [ ] Set RESEND_KEY in Supabase secrets')).toBe(true)
+    expect(holdsDeploy('- [ ] Check the start page')).toBe(false)
+    expect(holdsDeploy('- [ ] Confirm the dates with the group')).toBe(false)
+  })
+
+  // Kit 1.7 review: an untagged step that names a secret by its kind holds too.
+  it('holdsDeploy: an api key, a token, a credential, a service role or a secret key holds', () => {
+    for (const step of [
+      '- [ ] Set RESEND_API_KEY in Vercel',
+      '- [ ] Add the service role key to the host',
+      '- [ ] Paste the API key into the dashboard',
+      '- [ ] Rotate the GitHub token',
+      '- [ ] Store the new Credentials',
+      '- [ ] Set SUPABASE_SERVICE_ROLE_KEY',
+      '- [ ] Copy the Stripe secret key',
+      '- [ ] Add an api-key for the mailer',
+    ]) expect(holdsDeploy(step), step).toBe(true)
+    expect(holdsDeploy('- [ ] Look at the keyboard shortcuts page')).toBe(false)
+    expect(holdsDeploy('- [ ] Check the role picker on the start page')).toBe(false)
+  })
+
+  it('alreadyListed: a marked comment that names every step', () => {
+    const c = [{ body: leftStepsComment(['- [ ] A', '- [ ] B']) }]
+    expect(alreadyListed(c, ['- [ ] A'])).toBe(true)
+    expect(alreadyListed(c, ['- [ ] A', '- [ ] C'])).toBe(false)
+    expect(alreadyListed([{ body: '- [ ] A' }], ['- [ ] A'])).toBe(false)
+    expect(alreadyListed(undefined, ['- [ ] A'])).toBe(false)
   })
 })

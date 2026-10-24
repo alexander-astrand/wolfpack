@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // /the-tower: Claude Code's status line. Claude Code pipes the session JSON on
 // stdin and shows the one line we print, e.g.
-//   session 9.6M ≈0.4% wk (fable 0.3 opus 0.1) · link 2/2 · Hank: chris-de-kok 3.1/10M · week 86%
+//   session 9.6M ≈0.4% wk (fable 0.3 opus 0.1) · plan 0.31× · link 2/2 · Hank: chris-de-kok 3.1/15M · week 86%
 // It runs on every redraw, so it stays fast and quiet: no network, no git or
 // gh process, only small files, the tail of the logs, and the transcript's
 // new bytes since the last run (a cache in the temp folder keeps the count).
@@ -16,13 +16,15 @@
 // retired meter logger's files.
 //
 //   node <release plugin>/scripts/the-tower.mjs --install   # adds the statusLine key to ~/.claude/settings.json (asks first)
+//   node <release plugin>/scripts/the-tower.mjs --headline <version>   # the plan's `Expected: ≈ <N>M` in tokens, tab, its file; nothing when none
 
 import { closeSync, copyFileSync, existsSync, fstatSync, openSync, readFileSync, readSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
-import { parseEntries, readKit, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
+import { bareAgentType, DEFAULT_BUDGETS, kitBudgets, MODEL_DEFAULTS, OTHER_BUDGET, parseBudget } from '../hooks/budget-cap.mjs'
+import { agentName, parseEntries, readKit, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
 
 const MAX = 79 // under 80 columns, so it fits a narrow terminal
 const TOAST_MS = 30 * 60 * 1000 // a refusal older than 30 minutes is history, not news
@@ -119,11 +121,51 @@ function hankLine(input, projectDir) {
   const id = newest.f.replace(/\.json$/, '')
   const meta = input.transcript_path ? readJson(join(dirname(input.transcript_path), sid, 'subagents', `agent-${id}.meta.json`)) : null
   const name = meta?.agentType || (meta?.description || '').split(':')[0].trim() || 'agent'
-  // The same tag Hank reads, when the state file doesn't carry the budget yet.
-  const tag = /\[budget\s+(\d+(?:\.\d+)?)\s*([mk])\]/i.exec(meta?.description || '')
-  const budget = state.budget ?? (tag ? Number(tag[1]) * (tag[2].toLowerCase() === 'm' ? 1e6 : 1e3) : null)
+  const budget = hankBudget(meta, state, projectDir)
   const used = (state.tokens / 1e6).toFixed(1)
   return budget ? `Hank: ${name} ${used}/${+(budget / 1e6).toFixed(1)}M` : `Hank: ${name} ${used}M`
+}
+
+// The budget the way Hank reads it (budget-cap.mjs `decide`), so the line's
+// denominator is the one that stops the agent: the state file's, the
+// description's tag, kit.json `budgets` (the role, the model numbers, "*"),
+// then the defaults in `budgets.json`, then the 15M Hank gives a role it doesn't know.
+// Kit 1.7 (council L6): this read 25M defaults that Hank no longer used.
+export function hankBudget(meta, state = {}, projectDir = null) {
+  if (state.budget) return state.budget
+  const tagged = parseBudget(meta?.description)
+  if (tagged) return tagged
+  const role = agentName({ agentType: bareAgentType(meta?.agentType), description: meta?.description })
+  const byModel = MODEL_DEFAULTS[role]?.[/fable/i.test(state.model || '') ? 'fable' : 'opus']
+  const kit = projectDir ? kitBudgets(join(projectDir, '.claude', 'kit.json')) : null
+  const fromTable = kit ? kit[role] ?? byModel?.budget ?? kit['*'] ?? DEFAULT_BUDGETS[role] : byModel?.budget ?? DEFAULT_BUDGETS[role]
+  return fromTable ?? OTHER_BUDGET
+}
+
+// The plan's headline: the first `Expected: ≈ <N>M` line (inception's form)
+// in <plans>V<version>.md, or the kit's <plans>kit-<version>.md, with
+// <plans> from kit.json `plans`, else ~/.claude/plans/. Tokens, or null.
+// Kit 1.7 (council Feature 3): spent ÷ headline shows a plan's 0.31 or 1.4
+// at the first step instead of at the wrap.
+// Markdown after the colon counts too: `**Expected:** ≈ 90M` (kit 1.7 review).
+export const HEADLINE = /^\W*Expected:\W*?≈\s*(\d+(?:\.\d+)?)\s*M\b/m
+export function planHeadline(version, kitJson = null) {
+  if (!version) return null
+  const v = String(version).replace(/^(V|kit-)/, '')
+  const set = kitJson?.plans
+  const dir = typeof set === 'string' && set ? set.replace(/^~(?=$|\/)/, homedir()) : join(homedir(), '.claude', 'plans')
+  for (const name of [`V${v}.md`, `kit-${v}.md`]) {
+    const m = HEADLINE.exec(safe(() => readFileSync(join(dir, name), 'utf8'), ''))
+    if (m) return { tokens: Number(m[1]) * 1e6, file: join(dir, name) }
+  }
+  return null
+}
+
+// "plan 0.31×": the session's tokens so far over the plan's headline.
+export function planLine(models, headline) {
+  if (!models || !headline?.tokens) return null
+  const spent = Object.values(models).reduce((a, b) => a + b, 0)
+  return `plan ${(spent / headline.tokens).toFixed(2)}×`
 }
 
 // The session's real tokens so far per model family, its subagents included,
@@ -291,12 +333,12 @@ function toast(projectDir) {
 }
 
 // Fit under 80: shorten the toast's command first, then drop parts, least
-// telling first (the chain link, then Hank, then the toast). The session's
-// count and the week stay: they are what the line is for.
+// telling first (the chain link, then Hank, then the plan ratio, then the
+// toast). The session's count and the week stay: they are what the line is for.
 export function fit(parts) {
   const join3 = () => Object.values(parts).filter(Boolean).join(' · ')
   if (join3().length > MAX && parts.toast) parts.toast = parts.toast.replace(/\(([^)]{12})[^)]+\)/, '($1…)')
-  for (const key of ['link', 'hank', 'toast']) {
+  for (const key of ['link', 'hank', 'plan', 'toast']) {
     if (join3().length <= MAX) break
     parts[key] = null
   }
@@ -309,10 +351,12 @@ export function statusLine(input, opts = {}) {
   const root = safe(() => repoRoot(start))
   const projectDir = input?.workspace?.project_dir || root || start
   const branch = (root && safe(() => branchOf(root))) || basename(start)
-  const parts = { session: null, link: null, hank: null, toast: null, week: null }
+  const parts = { session: null, plan: null, link: null, hank: null, toast: null, week: null }
   try {
     const models = safe(() => sessionTokens(input ?? {}, opts.cacheDir))
-    parts.session = safe(() => sessionLine(models, readKit(projectDir)))
+    const kit = safe(() => readKit(projectDir))
+    parts.session = safe(() => sessionLine(models, kit))
+    parts.plan = safe(() => planLine(models, planHeadline(branch, opts.plansDir ? { plans: opts.plansDir } : kit)))
     parts.link = safe(() => chainLink(projectDir, branch))
     parts.hank = safe(() => hankLine(input ?? {}, projectDir))
     parts.toast = safe(() => toast(projectDir))
@@ -363,8 +407,13 @@ async function install() {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const at = process.argv.indexOf('--headline')
   if (process.argv.includes('--install')) {
     install().catch((err) => console.log(`Install failed: ${err?.message ?? err}. Nothing written.`))
+  } else if (at > 0) {
+    // For Skyler: the headline in tokens and its file, or nothing when the plan has none.
+    const h = planHeadline(process.argv[at + 1], readKit(process.cwd()))
+    if (h) console.log(`${h.tokens}\t${h.file}`)
   } else {
     let line = ''
     try {

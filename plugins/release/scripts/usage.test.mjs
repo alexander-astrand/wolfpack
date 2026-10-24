@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { countCalls, hhmm, projectFolderName, readEntries, resolveLocalId, sessionCommand, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
+import { budgetRows, budgetTableMarkdown, stepOf, stoppedInLog, stoppedInTranscript, countCalls, hhmm, projectFolderName, readEntries, resolveLocalId, sessionCommand, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
 const line = (id, block) => ({
@@ -110,5 +110,75 @@ describe('projectFolderName', () => {
     expect(projectFolderName('/Users/a/wolfpack/.claude/worktrees/kit-1-5-771956'))
       .toBe('-Users-a-wolfpack--claude-worktrees-kit-1-5-771956')
     expect(projectFolderName('/Users/a/Desktop/my_app')).toBe('-Users-a-Desktop-my-app')
+  })
+})
+
+// A release session with three spawns: one tagged and reused, one stopped by
+// Hank (his deny in a tool result), one with no tag (the role's default).
+describe('--budget-table (kit 1.7)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'usage-budget-'))
+  const sub = join(dir, 'cccc3333', 'subagents')
+  mkdirSync(sub, { recursive: true })
+  writeFileSync(join(dir, 'cccc3333.jsonl'), `${JSON.stringify(line('nav', { type: 'text', text: 'go' }))}\n`)
+  const spend = (id, tokens, ts) => ({ type: 'assistant', timestamp: ts, message: { id, model: 'claude-opus-x', usage: { input_tokens: 0, cache_read_input_tokens: tokens, output_tokens: 0 }, content: [] } })
+  const user = (content) => ({ type: 'user', message: { content } })
+  const run = (id, meta, entries) => {
+    writeFileSync(join(sub, `agent-${id}.meta.json`), JSON.stringify(meta))
+    writeFileSync(join(sub, `agent-${id}.jsonl`), `${entries.map((e) => JSON.stringify(e)).join('\n')}\n`)
+  }
+  run('a1', { agentType: 'release:jeff-winger', description: 'jeff-winger: step 3 hank table [budget 12M]' }, [
+    user('order, quoting c-3po [budget 4M] in the body'),
+    spend('m1', 5_000_000, '2026-10-24T10:00:00Z'),
+    user('step 4\n[budget 9M]'),
+    spend('m2', 2_000_000, '2026-10-24T10:20:00Z'),
+  ])
+  run('a2', { agentType: 'c-3po', description: 'c-3po: README [budget 1M]' }, [
+    user('order'),
+    spend('m3', 1_100_000, '2026-10-24T09:00:00Z'),
+    { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't', is_error: true, content: "Budget reached: report what you did. (Hank: 110% (1.1M of 1.0M) used.)" }] } },
+  ])
+  run('a3', { agentType: 'lorenzo-von-matterhorn', description: 'lorenzo-von-matterhorn: find the tower' }, [user('find'), spend('m4', 300_000, '2026-10-24T11:00:00Z')])
+  const budgets = { parseBudget: (d) => (/\[budget (\d+)M\]/.exec(d ?? '')?.[1] ?? 0) * 1e6 || null, followUpBudget: (t) => (/\n\[budget (\d+)M\]$/.exec(t)?.[1] ?? 0) * 1e6 || null, defaultFor: () => 2e6 }
+
+  it('gives one row per spawn in start order, with step, tag, follow-up total and stops', () => {
+    const rows = budgetRows(dir, ['cccc3333'], { budgets, hankLog: join(dir, 'none.log') })
+    expect(rows.map((r) => r.agent)).toEqual(['c-3po', 'jeff-winger', 'lorenzo-von-matterhorn'])
+    const [c3, jeff, lorenzo] = rows
+    expect(jeff).toMatchObject({ step: 'step 3 hank table', budget: 9e6, tagged: true, tokens: 7e6, stopped: false })
+    expect(c3.stopped).toBe(true)
+    expect(lorenzo).toMatchObject({ budget: 2e6, tagged: false })
+    const md = budgetTableMarkdown(rows)
+    expect(md).toContain('| jeff-winger | step 3 hank table | 9.0M | 7.0M (78%) | no |')
+    expect(md).toContain('| lorenzo-von-matterhorn | find the tower | 2.0M (default) | 0.3M (15%) | no |')
+  })
+
+  it("reads a stop from hank.log's line for the agent id", () => {
+    const log = join(dir, 'hank.log')
+    writeFileSync(log, '2026-10-24T11:01:00Z stopped lorenzo-von-matterhorn a3 at 101% (2.0M of 2.0M)\n')
+    expect(stoppedInLog(readFileSync(log, 'utf8'))).toEqual(new Set(['a3']))
+    expect(budgetRows(dir, ['cccc3333'], { budgets, hankLog: log }).find((r) => r.agentId === 'a3').stopped).toBe(true)
+  })
+
+  it("counts only Hank's short error result as a stop, never a read of his source (review M1)", () => {
+    const result = (content, is_error) => [{ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't', is_error, content }] } }]
+    const source = `const STOPPED = "Budget reached: report what you did"\nreason: \`\${STOPPED} (Hank: \${pct} used.)\`\n${'x'.repeat(30_000)}`
+    expect(stoppedInTranscript(result(source, false))).toBe(false)
+    expect(stoppedInTranscript(result('Budget reached: x (Hank: 102% (4.1M of 4.0M) used.)', false))).toBe(false)
+    expect(stoppedInTranscript(result(source, true))).toBe(false) // too long to be a deny
+    expect(stoppedInTranscript(result('PreToolUse:Write hook error: Budget reached: report what you did. (Hank: 102% (4.1M of 4.0M) used.)', true))).toBe(true)
+  })
+
+  it('takes the step from a description with or without the plugin prefix', () => {
+    expect(stepOf('release:saul-goodman: step 2 [budget 8M]', 'saul-goodman')).toBe('step 2')
+    expect(stepOf('fix the tower', 'saul-goodman')).toBe('fix the tower')
+  })
+
+  it('the script prints the table with Hank as the source of tags', () => {
+    const script = fileURLToPath(new URL('./usage.mjs', import.meta.url))
+    const out = execFileSync(process.execPath, [script, '--budget-table', '--dir', dir, '--hank-log', join(dir, 'none.log'), 'cccc3333'], { encoding: 'utf8', cwd: dir })
+    expect(out).toContain('| Agent | Step | Budget | Used | Stopped by Hank |')
+    expect(out).toContain('| c-3po | README | 1.0M | 1.1M (110%) | yes |')
+    // no tag: Hank's default for the scout (budgets.json, 2M)
+    expect(out).toContain('| lorenzo-von-matterhorn | find the tower | 2.0M (default) |')
   })
 })

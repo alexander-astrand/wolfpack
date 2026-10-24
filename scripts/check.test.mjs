@@ -1,11 +1,13 @@
 // node --test kit/scripts/check.test.mjs — the kit's checker on tiny fixture
 // kits in a temp dir, so the real kit/ never has to hold a broken plugin.
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, test } from 'node:test'
-import { checkKit, kitVersionNote, liveBehind, projectValues } from './check.mjs'
+import { checkKit, checkRanjit, kitVersionNote, liveBehind, projectValues } from './check.mjs'
 
 const roots = []
 after(() => roots.forEach((r) => rmSync(r, { recursive: true, force: true })))
@@ -144,6 +146,27 @@ test('a lessons line over 300 characters fails with its line and length; 300 pas
   assert.deepEqual(problems.filter((p) => p.includes('lesson')), [
     'plugins/core/lessons.md:4  lesson line over 300 characters (301)',
   ])
+})
+
+test("with --project, the project's .claude/lessons.md gets the same cap", () => {
+  const root = kit({ ...good, 'plugins/core/lessons.md': '# Lessons\n\n- **[fine]** short\n' })
+  const project = kit({ '.claude/lessons.md': `# Lessons\n${'x'.repeat(301)}\n` })
+  const { problems } = checkKit(root, { base: project, project })
+  assert.deepEqual(problems.filter((p) => p.includes('lesson')), ['.claude/lessons.md:2  lesson line over 300 characters (301)'])
+  assert.deepEqual(checkKit(root, { base: project }).problems.filter((p) => p.includes('lesson')), [])
+})
+
+test("with --project, a ranjit.md that differs from the template is a problem; a fresh one and none are fine", () => {
+  const realKit = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const kitJson = { project: { name: 'toy', noun: 'player' }, refs: { dev: 'devrefdevrefdevrefde', prod: 'prodrefprodrefprodre' }, deployer: 'ranjit' }
+  const none = kit({ '.claude/kit.json': kitJson })
+  assert.deepEqual(checkRanjit(none, realKit), [])
+  const stale = kit({ '.claude/kit.json': kitJson, '.claude/agents/ranjit.md': 'an old hand copy\n' })
+  const problems = checkRanjit(stale, realKit)
+  assert.equal(problems.length, 1)
+  assert.match(problems[0], /^\.claude\/agents\/ranjit\.md:1 {2}stale copy: sync-ranjit: .*differs from templates\/ranjit\.md/)
+  execFileSync('node', [join(realKit, 'plugins', 'database', 'scripts', 'sync-ranjit.mjs'), stale])
+  assert.deepEqual(checkRanjit(stale, realKit), [])
 })
 
 test('live-behind counts commits through an injected git, and is silent without the folder', () => {

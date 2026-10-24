@@ -10,9 +10,10 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
-  CI_JOBS, CI_WORKFLOW, CI_WORKFLOW_FILE, GH_FILES_MS, PLAN_TITLE, allowedCommands, armList, checksNotGreen, completeFiles, gitFacts, mergeOnlyWhyNot, migrationsWhyNot, parseGitFacts, parseProductionSteps,
+  CI_JOBS, CI_WORKFLOW, CI_WORKFLOW_FILE, GH_FILES_MS, GIT_FACTS_MS, HEAD_OF_MS, PLAN_TITLE, allowedCommands, armList, checksNotGreen, completeFiles, ghFetchFiles, gitFacts, mergeOnlyWhyNot, migrationsWhyNot, parseGitFacts, parseProductionSteps,
   loadKitConfig, planCalls, planCheck, planCheckText, planLines, prFacts, previewText, withCompleteFiles,
 } from './production-steps.mjs'
+import { READ_BUDGET_MS, readTimeout, startReads, stopReads } from './read-clock.mjs'
 
 const fixture = (name) => readFileSync(fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url)), 'utf8')
 const cli = fileURLToPath(new URL('./production-steps.mjs', import.meta.url))
@@ -331,6 +332,25 @@ describe('2.12.3: the plan check', () => {
     expect(planCheckText(check(''), '2.13', 50)).toMatch(/^Plan check for V2\.13 \(PR #50\): the plan doesn't match the PR\. A hard stop; fix the plan and check again\.\n {2}- /)
   })
 
+  it('names the steps that fell off the arm list, as a line of its own, not a mismatch', () => {
+    const long = `Set the reminder URL for the weekly digest that the new cron job calls: \`scripts/prod-db.sh setting notify_url https://x\``
+    const body = steps({
+      before: `1. \`scripts/prod-db.sh backup 2.13\`\n2. \`scripts/prod-db.sh push 2.13 0053\`\n3. ${long}\n4. Then run \`scripts/prod-db.sh setting digest_on true\` once it is up`,
+      after: '1. `supabase functions deploy notify --project-ref <prod-ref>`',
+    })
+    const out = planCheck(GOOD, body, '2.13', 50, facts)
+    expect(out.problems).toEqual([])
+    expect(out.dropped).toEqual([
+      { text: 'scripts/prod-db.sh setting notify_url https://x', why: 'its label is over 60 characters' },
+      { text: 'scripts/prod-db.sh setting digest_on true', why: 'inside a sentence, not a step of its own' },
+    ])
+    const text = planCheckText(out, '2.13', 50)
+    expect(text).toMatch(/the plan matches the PR/)
+    expect(text).toMatch(/\nDropped from the arm list \(each keeps asking a person; write it as one code span after a label under 60 characters\):\n {2}- `scripts\/prod-db\.sh setting notify_url https:\/\/x`: its label is over 60 characters\n/)
+    // Nothing dropped, no line.
+    expect(planCheckText(check(GOOD), '2.13', 50)).not.toMatch(/Dropped/)
+  })
+
   it('reads plan lines as list items, labels or code spans, and leaves reads and prose out', () => {
     expect(planCalls('- [ ] `gh pr ready 50`\n* Merge: gh pr merge 50 --squash\n# a note: gh pr merge 1\nThen `gh pr view 50`\n3) scripts/prod-db.sh dry-run')).toEqual([
       'gh pr ready 50', 'gh pr merge 50 --squash', 'scripts/prod-db.sh dry-run',
@@ -433,7 +453,7 @@ esac
     const text = previewText(steps(), 46, frontend, '2.14.6')
     expect(text.endsWith(`${PLAN_TITLE} (check-plan passes it; copy it as it is):\n1. \`gh pr ready 46\`\n2. \`gh pr merge 46 --squash --admin\`\n`)).toBe(true)
     const block = text.slice(text.indexOf(PLAN_TITLE))
-    expect(planCheck(block, steps(), '2.14.6', 46, frontend)).toEqual({ calls: ['gh pr ready 46', 'gh pr merge 46 --squash --admin'], problems: [] })
+    expect(planCheck(block, steps(), '2.14.6', 46, frontend)).toEqual({ calls: ['gh pr ready 46', 'gh pr merge 46 --squash --admin'], problems: [], dropped: [] })
     expect(planLines(steps(), 46, { ...frontend, isDraft: false })).toEqual(['1. `gh pr merge 46 --squash --admin`'])
     // A release with steps: the PR's order, then ready and one merge.
     const DB = steps({ before: '1. `scripts/prod-db.sh backup 2.13`\n2. `scripts/prod-db.sh push 2.13 0053`', after: '1. `supabase functions deploy notify --project-ref <prod-ref>`' })
@@ -501,5 +521,33 @@ describe('2.14.9.2: CI job names come from kit.json', () => {
       rmSync(dir, { recursive: true, force: true })
     }
     expect(CI_JOBS).toEqual(FIXTURE_JOBS)
+  })
+})
+
+// Kit 1.7 review: the deploy and the arm read gitFacts and headOf outside any
+// decision, so their old timeouts hold there; only decide's clock caps them.
+describe('read timeouts outside a decision', () => {
+  it('gitFacts keeps 10 s and headOf 15 s outside decide, and the clock caps them inside', () => {
+    expect(GIT_FACTS_MS).toBe(10_000)
+    expect(HEAD_OF_MS).toBe(15_000)
+    expect(readTimeout(GIT_FACTS_MS)).toBe(10_000)
+    expect(readTimeout(HEAD_OF_MS)).toBe(15_000)
+    const now = Date.now()
+    startReads(now)
+    try {
+      expect(readTimeout(HEAD_OF_MS, now)).toBe(READ_BUDGET_MS)
+      expect(readTimeout(GIT_FACTS_MS, now + 5000)).toBe(READ_BUDGET_MS - 5000)
+    } finally {
+      stopReads()
+    }
+  })
+
+  it('ghFetchFiles shares the read clock inside a decision: a spent clock fails before gh runs', () => {
+    startReads(Date.now() - READ_BUDGET_MS)
+    try {
+      expect(() => ghFetchFiles(1, tmpdir())).toThrow(/spent/)
+    } finally {
+      stopReads()
+    }
   })
 })

@@ -7,8 +7,9 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { READ_BUDGET_MS, readTimeout, startReads, stopReads } from './read-clock.mjs'
 import {
-  FROZEN, FROZEN_RE, chainArgs, chainWhyNot, doneLine, doneWhyNot, finishChain, frozenHash, localSettingsForHash, markDone, newChain, nextVersion,
+  ARM_READ_MS, FROZEN, FROZEN_RE, chainArgs, chainWhyNot, doneLine, doneWhyNot, finishChain, frozenHash, localSettingsForHash, markDone, newChain, nextVersion,
   oneTapText, oneTapVerdict, pluginLine, projectRoot, readFrozen,
 } from './chain-arm.mjs'
 import { decide } from './guard-production.mjs'
@@ -259,7 +260,7 @@ describe('C8: the chain arm module', () => {
         const put = (path, text, mode) => { mkdirSync(dirname(join(dir, path)), { recursive: true }); writeFileSync(join(dir, path), text, mode ? { mode } : undefined) }
         const read = (path) => { try { return readFileSync(join(dir, path), 'utf8') } catch { return null } }
         put('scripts/full-auto.sh', readFileSync(script, 'utf8'), 0o755)
-        for (const f of ['chain-arm.mjs', 'production-steps.mjs']) put(`.claude/hooks/${f}`, readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), 'utf8'))
+        for (const f of ['chain-arm.mjs', 'production-steps.mjs', 'read-clock.mjs']) put(`.claude/hooks/${f}`, readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), 'utf8'))
         put('scripts/prod-db.sh', `#!/bin/sh\ncat "$(dirname "$0")/migrations.txt"\n`, 0o755)
         put('scripts/migrations.txt', MIGRATIONS)
         put('bin/gh', `#!/bin/sh\necho '{"number":50,"state":"MERGED","mergeCommit":{"oid":"${'f'.repeat(40)}"}}'\n`, 0o755)
@@ -312,7 +313,7 @@ describe('C8: the chain arm module', () => {
         const put = (path, text, mode) => { mkdirSync(dirname(join(dir, path)), { recursive: true }); writeFileSync(join(dir, path), text, mode ? { mode } : undefined) }
         const read = (path) => { try { return readFileSync(join(dir, path), 'utf8') } catch { return null } }
         put('scripts/full-auto.sh', readFileSync(script, 'utf8'), 0o755)
-        for (const f of ['chain-arm.mjs', 'production-steps.mjs']) put(`.claude/hooks/${f}`, readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), 'utf8'))
+        for (const f of ['chain-arm.mjs', 'production-steps.mjs', 'read-clock.mjs']) put(`.claude/hooks/${f}`, readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), 'utf8'))
         put('scripts/prod-db.sh', `#!/bin/sh\ncat "$(dirname "$0")/migrations.txt"\n`, 0o755)
         put('scripts/migrations.txt', MIGRATIONS)
         put('bin/gh', '#!/bin/sh\necho \'{"number":50,"state":"MERGED"}\'\n', 0o755)
@@ -481,7 +482,7 @@ describe("2.14.6: the arm's ask on a frozen release survives the arm's log rotat
       const put = (path, text, mode) => { mkdirSync(dirname(join(dir, path)), { recursive: true }); writeFileSync(join(dir, path), text, mode ? { mode } : undefined) }
       const read = (path) => { try { return readFileSync(join(dir, path), 'utf8') } catch { return null } }
       put('scripts/full-auto.sh', readFileSync(script, 'utf8'), 0o755)
-      for (const f of ['chain-arm.mjs', 'production-steps.mjs']) put(`.claude/hooks/${f}`, readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), 'utf8'))
+      for (const f of ['chain-arm.mjs', 'production-steps.mjs', 'read-clock.mjs']) put(`.claude/hooks/${f}`, readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), 'utf8'))
       const chain = newChain(['2.13'], NOW, MAIN, HASH).chain
       put('.claude/full-auto-chain.json', JSON.stringify(chain))
       put('.claude/full-auto-chain.log', `2026-10-01T18:00:00Z\tchain-armed\tV2.13 main ${MAIN.slice(0, 7)}\n`)
@@ -597,6 +598,24 @@ describe('2.14.9.1: the project root and the plugin line', () => {
       expect(run({ CLAUDE_PROJECT_DIR: join(dir, 'nope') })).toMatch(/no {2}in the arm given at the start/)
     } finally {
       rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+// Kit 1.7 review: the arm's production reads run in main(), outside any
+// decision, so a slow network gets its old 120 s instead of disarming the chain.
+describe('the arm read timeout', () => {
+  it('is 120 s outside a decision', () => {
+    expect(ARM_READ_MS).toBe(120_000)
+    expect(readTimeout(ARM_READ_MS)).toBe(120_000)
+  })
+
+  it('readFrozen shares the read clock inside a decision: a spent clock fails before git runs', () => {
+    startReads(Date.now() - READ_BUDGET_MS)
+    try {
+      expect(() => readFrozen(tmpdir())).toThrow(/spent/)
+    } finally {
+      stopReads()
     }
   })
 })

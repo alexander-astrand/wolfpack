@@ -5,8 +5,15 @@
 // throws is caught here and the call is blocked (exit 2), never let through
 // unchecked. Keep it this small: this file is the one thing that must run.
 // A guard that hangs decides nothing, and a hook killed at its timeout (20s
-// in settings.json) doesn't block the call, so past 18s this blocks it.
+// in settings.json) doesn't block the call, so past 18s this blocks it. Kit
+// 1.7 (M10): a decision already written stands (a slow allow or ask was
+// turned into a block here when the timer came due as the guard finished).
+// An undecided call still blocks rather than asks: the guard might have
+// denied it, and an ask would let a person pass what the guard refuses. The
+// guard's reads share a 12 s clock (readTimeout), so a gh hang turns into a
+// "couldn't be read" ask well before this fires.
 setTimeout(() => {
+  if (globalThis.guardDecided) return
   process.stderr.write('The production guard took more than 18s, so this call is blocked. A person looks at why.\n')
   process.exit(2)
 }, 18000).unref()

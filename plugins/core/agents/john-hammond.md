@@ -31,7 +31,7 @@ The roadmap:
 - Later ideas become later releases, never extra steps in V0.1.
 
 Your report (not a file), for the navigator to put into V0.1.md:
-1. **V0.1's step table:** step · who builds (a builder role, or "human" only for sign-up, a key or billing) · files · check · `[budget NM]`.
+1. **V0.1's step table:** step · who builds (a builder role, or "human" only for sign-up, a key or billing) · files · check · `[budget NM]`. Size each step from the measured per-commit rate the order gives (or `[sizing]` in the kit's `lessons-numbers.md` for a project with no history: about 4M a commit), times its planned commits; the tag is a ceiling at about 1.3× that, and the plan's headline is the expected sum, never the sum of tags (kit 1.7, council L5: a V0.1 sized by guess came out 1.8 to 3.3× over).
 2. **Free until:** the first limit the project will hit, with its number and source.
 3. **When to park it:** 2–3 plain triggers ("nobody opened it for two weeks").
 4. **Where it runs:** each part tagged Code / Cowork / Chat.

@@ -22,7 +22,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 **Why Sonnet:** splitting the meter across projects and drafting one sensible next step per project needs a little judgment Haiku gets wrong; it runs once a week, so the cost is small.
 
-**Read-only on the repo.** No git writes, no checkout, no branch change: a chain may be running in this checkout. Skyler (`<kit>/plugins/release/scripts/usage.mjs`) only reads transcripts. The one file you write is the note.
+**Read-only on the repo.** No git writes, no checkout, no branch change: a chain may be running in this checkout. The receipt script (`<kit>/plugins/core/scripts/week-receipt.mjs`) only reads transcripts and keeps its one receipt a week in `~/.claude/week-receipt/`. The one file you write is the note.
 
 **Not in it:** AI or Claude Code news. That belongs to a separate Chat scheduled task.
 
@@ -31,15 +31,12 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 Times are Europe/Stockholm. `<date>` is today and `<monday>` is this week's Monday, both as `yyyy-mm-dd` and worked out from your context, never from a shell command. A scheduled run is unattended: one plain command per call (no pipes, chained commands, heredocs or redirections), the Read, Glob and Grep tools for reading and the Write tool for the note (the dojo's routine rules: `~/dojo/.claude/skills/mr-miyagi`).
 
 1. **Shipped this week:** `gh pr list --state merged --search "merged:>=<monday>" --json number,title,mergedAt`. One line per PR: `#<n> <title> (merged <weekday>)`. None: "Nothing merged this week."
-2. **The meter:** `mcp__ccd_session_mgmt__get_usage`'s week (all models) figure; if the tool isn't there, the newest row of the table under `## Baseline for I3` in `~/.claude/plans/legendary-2026-10-04.md`, saying so. Note when the meter's week resets: it doesn't line up with Monday.
-3. **Tokens per project (Skyler):** for each folder in `~/.claude/projects/` (list them with Glob), two plain commands, one per call, no pipe:
-   first list the transcripts touched this week:
-   `find <folder> -maxdepth 1 -name '*.jsonl' -newermt '<monday> 00:00'`
-   then give Skyler their ids (each file's name without `.jsonl`), written out in full in the one command, and keep `grandTotal` from its JSON (skip a folder with no transcripts):
-   `node <kit>/plugins/release/scripts/usage.mjs --json --dir <folder> <id> <id>`
-   `<kit>` is the kit the session loads, the plugin root's parent's parent (`${CLAUDE_PLUGIN_ROOT}/../..`), written out as an absolute path (`~/wolfpack-live` on Alexander's machines): the allow list matches the command as typed, and `scripts/usage.mjs` exists only in Hutzup (lens Must 6, kit 1.5). `<folder>` is absolute too (`~/.claude/projects/<name>`, `~` written out).
-   No `xargs`, loop or `$ids` variable: an unattended run can't save a pipe or a loop, zsh doesn't split an unquoted variable into words, and the guard refuses `bash -c` while a drive is armed. Name each project from its folder's name: the part after `-Desktop-` (`-Users-<you>-Desktop-hejtide` is hejtide; a worktree folder, `-Users-<you>-Desktop-Burrow--claude-worktrees-<x>`, counts to its project); a folder outside `~/Desktop` is named by its last part (`-Users-<you>-dojo` is dojo).
-4. **The week receipt:** each project's share = its tokens / all projects' tokens, and its slice of the meter = that share × the week figure from step 2. Round to whole percent. Say once, under the table, that a session is counted whole if it started before Monday and that tokens weigh models alike while the meter doesn't, so the slices are an estimate.
+2. **The meter:** `mcp__ccd_session_mgmt__get_usage`'s week (all models) figure, and when the meter's week resets (it doesn't line up with Monday). If the tool isn't there, the meter line reads `Meter: not available (no get_usage in this run)`: never an older figure shown as this week's (kit 1.6.1 L1).
+3. **The week receipt:** one plain command, for every project at once:
+   `node <kit>/plugins/core/scripts/week-receipt.mjs`
+   It prints the table (Project, Tokens, Share, Of the meter) and its estimate line, ready to paste. The first project's run of the week counts every folder in `~/.claude/projects/` and keeps the receipt; the other projects' runs within two hours read that one instead of counting again. Only messages inside the week count, worktrees and lanes count to their project, and each model is weighed by its own meter figure (the release plugin's `usage.mjs`, `[meter]`), so the table needs no sums from you.
+   `<kit>` is the kit the session loads, the plugin root's parent's parent (`${CLAUDE_PLUGIN_ROOT}/../..`), written out as an absolute path (`~/wolfpack-live` on Alexander's machines): the allow list matches the command as typed (lens Must 6, kit 1.5).
+4. **Check the receipt against the meter:** when step 2 has a figure and the table's All row is more than 10 points away from it, add one line under the table: `The estimate reads <x>%, get_usage <y>%.` Don't rescale the rows.
 5. **Next week's draft rows:** one row per active project (any tokens this week, plus the next one in `~/.claude/plans/projects-after-kit.md` if a slot looks free). This project's next step is the roadmap's next card, read as `groundhog-day` step 3 reads it (the record kit.json's `roadmap` names, never a `project_roadmap.md` memory). `planned_for` is a day next week (`yyyy-mm-dd`), spread so no day gets two big steps. These are drafts: `/war-room` is where the owner keeps or moves them.
 6. **Write** `~/dojo/inbox/<date>-<project>-week.md`, overwriting a note from earlier today. Shape (`~/dojo/routines/daily-note/TEMPLATE.md`), headings in this order:
 
@@ -55,7 +52,7 @@ Meter: week 37% (all models) · from get_usage at 18:30 · resets Sat 10 Oct 12:
 ## Next week (draft rows for /war-room)
 ````
 
-   Under Week receipt, after the meter line, a Markdown table with the columns Project, Tokens, Share and Of the meter (one row per project, for example MyProject, 410M, 88%, 33%), then the line `Estimate: sessions counted whole; tokens weigh models alike.` Under the last heading, a code block tagged `war-room`: a header line `name | next step | planned_for` (a pipe between the three fields), then one project per line in the same shape, for example `MyProject | next release | 2026-10-06`. That block is the contract with `/war-room`: no pipes inside a field. (The pipes belong to the note you write, not to a command you run.)
+   Under Week receipt, after the meter line, the table and estimate line exactly as `week-receipt.mjs` printed them (one row per project, for example `| MyProject | 410.0M | 88% | 33% |`). Under the last heading, a code block tagged `war-room`: a header line `name | next step | planned_for` (a pipe between the three fields), then one project per line in the same shape, for example `MyProject | next release | 2026-10-06`. That block is the contract with `/war-room`: no pipes inside a field. (The pipes belong to the note you write, not to a command you run.)
 
 7. **If a step fails** (`gh` not signed in, a transcript folder unreadable), write the note anyway with that section reading `Not available: <the error, one line>`.
 

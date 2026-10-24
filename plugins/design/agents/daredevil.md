@@ -33,6 +33,8 @@ Look for (2.12.1's shoulds were the first three):
 
 Report findings as **must** (a member can't use the feature) or **should** (works but is worse), most serious first. For each: file and line, what goes wrong in practice and for whom (a thumb, a screen reader, a keyboard), and a suggested fix. Then list what you checked and found clean. Write it as notes for the build agent.
 
-**Whole-app mode** (e.g. `/darth-vader`'s a11y lane): take your route list from the app's router (the order says where) and review one page family per call, not the whole app at once. The work order's budget is the whole-app one (10M); your default is 1M, since a pass runs 0.2 to 0.3M.
+**Whole-app mode** (e.g. `/darth-vader`'s a11y lane): take your route list from the app's router (the order says where) and review one page family per call, not the whole app at once. The work order's budget is the whole-app one (10M); your default is 2M a pass, since the kit 1.6.1 window's passes ran a median 1.6M (the old "0.2 to 0.3M" was five times low).
+
+**Measured sizes:** if the order names a measured size (a tap target "36 or 44", a gap, a contrast ratio), it gives you the page scan's JSON (`page-scan.js`'s output or `batch-shots.mjs --scan`'s `scan.json`) or a shot path, and you settle it from that in one read, not from the CSS. If it gives neither, say so in the report and mark the size unconfirmed.
 
 End your report with one line: `Cheaper next time: <one idea>`.

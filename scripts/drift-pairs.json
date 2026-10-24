@@ -5,6 +5,9 @@
     { "hutzup": ".claude/hooks/production-steps.mjs", "kit": "plugins/database/hooks/production-steps.mjs" },
     { "hutzup": ".claude/hooks/chain-arm.mjs", "kit": "plugins/database/hooks/chain-arm.mjs" },
     { "hutzup": ".claude/hooks/chain-exclusions.mjs", "kit": "plugins/database/hooks/chain-exclusions.mjs" },
+    { "hutzup": ".claude/hooks/read-clock.mjs", "kit": "plugins/database/hooks/read-clock.mjs" },
+    { "hutzup": ".claude/hooks/read-list.mjs", "kit": "plugins/database/hooks/read-list.mjs" },
+    { "hutzup": ".claude/hooks/one-ring-go.mjs", "kit": "plugins/database/hooks/one-ring-go.mjs" },
     { "hutzup": ".claude/hooks/denied-log.mjs", "kit": "plugins/database/hooks/denied-log.mjs" }
   ],
   "kitOnly": [

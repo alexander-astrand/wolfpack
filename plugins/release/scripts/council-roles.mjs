@@ -15,7 +15,7 @@ import { agentName, projectDir, readEntries, timelineRow } from './usage.mjs'
 import { byBirth, dropSeen } from './council-speed.mjs'
 
 const HELP = `Usage: node council-roles.mjs --since <YYYY-MM-DD> [--dir <transcripts>]…
-Prints a markdown table per role: runs, tokens, share, tool calls, active minutes, models.`
+Prints a markdown table per role: runs, tokens, share, tool calls, active minutes, runs per model.`
 
 export function parseArgs(argv) {
   const opts = { dirs: [], since: null, help: false }
@@ -51,12 +51,14 @@ export function roleTotals(dirs, from) {
   const seen = new Set()
   const add = (role, row) => {
     if (!row.tokens && !row.calls) return // a copy with nothing of its own
-    const r = roles.get(role) || { role, runs: 0, tokens: 0, calls: 0, minutes: 0, models: new Set() }
+    // models counts runs per model, so a lens reads which of a role's runs
+    // were Sonnet instead of guessing from a list (kit 1.6.1 council).
+    const r = roles.get(role) || { role, runs: 0, tokens: 0, calls: 0, minutes: 0, models: new Map() }
     r.runs += 1
     r.tokens += row.tokens
     r.calls += row.calls
     r.minutes += row.minutes
-    if (row.model !== '?') r.models.add(row.model)
+    if (row.model !== '?') r.models.set(row.model, (r.models.get(row.model) || 0) + 1)
     roles.set(role, r)
   }
   for (const dir of dirs) {
@@ -78,13 +80,19 @@ export function roleTotals(dirs, from) {
 }
 
 const fmtM = (n) => `${(n / 1e6).toFixed(1)}M`
+// "sonnet 20, opus 7": runs per model, most first; a role on one model shows its name alone.
+export const modelsOf = (models) => {
+  const xs = [...models].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  if (!xs.length) return '?'
+  return xs.length === 1 ? xs[0][0] : xs.map(([m, n]) => `${m} ${n}`).join(', ')
+}
 
 export function tableOf(rows) {
   const total = rows.reduce((s, r) => s + r.tokens, 0)
   const out = ['| Role | Runs | Tokens | Share | Calls | Active min | Models |', '|---|---|---|---|---|---|---|']
   for (const r of rows) {
     const share = total ? `${Math.round((r.tokens / total) * 100)}%` : '0%'
-    out.push(`| ${r.role} | ${r.runs} | ${fmtM(r.tokens)} | ${share} | ${r.calls} | ${r.minutes} | ${[...r.models].sort().join('/') || '?'} |`)
+    out.push(`| ${r.role} | ${r.runs} | ${fmtM(r.tokens)} | ${share} | ${r.calls} | ${r.minutes} | ${modelsOf(r.models)} |`)
   }
   out.push(`| **Total** | ${rows.reduce((s, r) => s + r.runs, 0)} | ${fmtM(total)} | 100% | ${rows.reduce((s, r) => s + r.calls, 0)} | ${rows.reduce((s, r) => s + r.minutes, 0)} | |`)
   return out.join('\n')

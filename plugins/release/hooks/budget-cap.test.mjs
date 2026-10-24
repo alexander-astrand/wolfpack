@@ -5,13 +5,18 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { tallyEntries, totalTokens } from '../scripts/usage.mjs'
 import {
+  ABOVE_CEILING,
   DEFAULT_BUDGETS,
+  MODEL_DEFAULTS,
+  OTHER_BUDGET,
+  loadBudgets,
   NAMELESS_REASON,
   STOPPED,
   WARNING,
   bareAgentType,
   decide,
   draftDoneReason,
+  followUpBudget,
   kitBudgets,
   parseBudget,
   plansDirFor,
@@ -73,9 +78,9 @@ describe('budgets', () => {
   it('finds the budget of a plugin agent named <plugin>:<agent>', () => {
     expect(bareAgentType('release:chris-de-kok')).toBe('chris-de-kok')
     expect(bareAgentType('chris-de-kok')).toBe('chris-de-kok')
-    // 16M is under chris-de-kok's 25M × 80%, but past the 15M default a missed lookup would use.
-    agent('p1', { type: 'release:chris-de-kok', description: 'step F', tokens: 16 * M })
-    expect(call('p1', 'release:chris-de-kok')).toBe('allow')
+    // 5M is past c-3po's 4M, but under the 15M default a missed lookup would use.
+    agent('p1', { type: 'release:c-3po', description: 'readme', tokens: 5 * M })
+    expect(call('p1', 'release:c-3po')).toBe('deny')
   })
 
   it('never counts the main session', () => {
@@ -114,11 +119,12 @@ describe('budgets', () => {
     expect(call('a4', 'chris-de-kok')).toBe('allow')
   })
 
-  it('gives every builder in the pool the same 25M default', () => {
-    for (const name of ['ahmed-och-ahmed', 'saul-goodman', 'jeff-winger', 'troy-and-abed']) {
-      agent(`p-${name}`, { type: name, description: `${name}: step`, tokens: 16 * M })
+  it('gives every builder in the pool the same 15M default', () => {
+    for (const name of ['chris-de-kok', 'ahmed-och-ahmed', 'saul-goodman', 'jeff-winger', 'troy-and-abed']) {
+      expect(DEFAULT_BUDGETS[name]).toBe(15 * M)
+      agent(`p-${name}`, { type: name, description: `${name}: step`, tokens: 10 * M })
       expect(call(`p-${name}`, name)).toBe('allow')
-      agent(`q-${name}`, { type: name, description: `${name}: step`, tokens: 26 * M })
+      agent(`q-${name}`, { type: name, description: `${name}: step`, tokens: 16 * M })
       expect(call(`q-${name}`, name)).toBe('deny')
     }
   })
@@ -151,6 +157,41 @@ describe('follow-ups', () => {
     const msg = { type: 'user', message: { role: 'user', content: [{ type: 'text', text: 'Step 2: Hank. [budget 30M]' }] } }
     appendFileSync(join(subDir, 'agent-s1.jsonl'), JSON.stringify(msg) + '\n')
     expect(call('s1', 'chris-de-kok')).toBe('allow')
+  })
+
+  const text = (t) => ({ type: 'user', message: { role: 'user', content: [{ type: 'text', text: t }] } })
+  const write = (id, entries) => appendFileSync(join(subDir, `agent-${id}.jsonl`), entries.map((e) => JSON.stringify(e)).join('\n') + '\n')
+
+  // Kit 1.7: an order that quoted "c-3po: skills-lens <plugin> [budget 4M]" set a 15M builder's cap to 4M.
+  it('never takes the tag from the prompt; the description wins', () => {
+    agent('s2', { type: 'saul-goodman', description: 'saul-goodman: lane B1 [budget 15M]', transcript: false })
+    writeFileSync(join(subDir, 'agent-s2.jsonl'), '')
+    write('s2', [text('Lane B1. The reader is `c-3po: skills-lens <plugin> [budget 4M]`.\nGo.')])
+    spend('s2', 10 * M)
+    expect(call('s2', 'saul-goodman')).toBe('allow') // 10M of 15M, not of 4M
+  })
+
+  it('takes a follow-up tag only when it ends the message', () => {
+    agent('s3', { type: 'saul-goodman', description: 'saul-goodman: step [budget 15M]', tokens: 16 * M })
+    expect(call('s3', 'saul-goodman')).toBe('deny')
+    write('s3', [text('Also look at budget-cap. The reader is [budget 4M] in its row.\nThanks.')])
+    expect(call('s3', 'saul-goodman')).toBe('deny') // a quoted tag changes nothing
+    write('s3', [text('One more item: the tag fix.\n[budget 20M]')])
+    expect(call('s3', 'saul-goodman')).toBe('note') // 16M of 20M: the 80% note, no longer the deny
+  })
+
+  it('reads a follow-up the app wrapped in a system reminder', () => {
+    expect(followUpBudget('<system-reminder>\nFrom captain-call. Add one item. [budget 20M]\n</system-reminder>\nAddress this first.')).toBe(20 * M)
+    expect(followUpBudget('The row says [budget 4M].\nGo.')).toBeNull()
+  })
+
+  // Kit 1.7 review M2: the app's real mid-turn wrapper, as a subagent received it.
+  it("reads a follow-up inside the app's mid-turn wrapper", () => {
+    const real =
+      'The coordinator sent a message while you were working:\nFrom captain-call. Your budget is 15M; Hank read the `[budget 4M]` quoted inside your order as your tag. This message resets it; carry on. [budget 15M]\n\nAddress this before completing your current task.'
+    expect(followUpBudget(real)).toBe(15 * M)
+    const quoted = 'The coordinator sent a message while you were working:\nFrom captain-call. The reader row is [budget 4M].\nGo on.\n\nAddress this before completing your current task.'
+    expect(followUpBudget(quoted)).toBeNull()
   })
 })
 
@@ -436,8 +477,8 @@ describe('kit.json budgets (2.14.6)', () => {
   })
 
   it('falls back to the built-in table when the kit is missing, logging it once', () => {
-    agent('k5', { type: 'chris-de-kok', description: 'chris-de-kok: step', tokens: 24 * M })
-    expect(call('k5', 'chris-de-kok')).toBe('note') // 24M of the built-in 25M
+    agent('k5', { type: 'chris-de-kok', description: 'chris-de-kok: step', tokens: 14 * M })
+    expect(call('k5', 'chris-de-kok')).toBe('note') // 14M of the built-in 15M
     spend('k5', 1.1 * M)
     expect(call('k5', 'chris-de-kok')).toBe('deny')
     expect(logs.filter((l) => /no kit/.test(l))).toHaveLength(1)
@@ -445,9 +486,16 @@ describe('kit.json budgets (2.14.6)', () => {
 
   it('falls back when the kit is malformed, with a log line', () => {
     kit('{ "budgets": ')
-    agent('k6', { type: 'chris-de-kok', description: 'chris-de-kok: step', tokens: 26 * M })
-    expect(call('k6', 'chris-de-kok')).toBe('deny') // the built-in 25M
+    agent('k6', { type: 'chris-de-kok', description: 'chris-de-kok: step', tokens: 16 * M })
+    expect(call('k6', 'chris-de-kok')).toBe('deny') // the built-in 15M
     expect(logs.join('\n')).toMatch(/no readable budgets/)
+  })
+
+  it('falls back quietly when the kit has no budgets key', () => {
+    kit('{ "project": { "name": "x" } }')
+    agent('k7', { type: 'chris-de-kok', description: 'chris-de-kok: step', tokens: 16 * M })
+    expect(call('k7', 'chris-de-kok')).toBe('deny') // the built-in 15M
+    expect(logs.join('\n')).not.toMatch(/no readable budgets/)
   })
 
   it('ignores a value above 100M, with a log line', () => {
@@ -540,6 +588,8 @@ describe('spawns (kit 1.5)', () => {
     for (const type of [undefined, 'general-purpose', 'Explore', 'Plan', 'claude']) {
       expect(spawn({ subagent_type: type, description: 'find the hooks' }), String(type)).toBe(NAMELESS_REASON)
     }
+    // Kit 1.7 (council M1): the council's lens readers were refused four times with no row named.
+    expect(NAMELESS_REASON).toMatch(/c-3po: skills-lens <plugin> \[budget 4M\]/)
   })
 
   it('lets a nameless type through when the description starts with a kit or project agent', () => {
@@ -556,5 +606,49 @@ describe('spawns (kit 1.5)', () => {
     expect(spawn({ subagent_type: 'release:c-3po', description: 'write the README' })).toBe('allow')
     expect(spawn({ subagent_type: 'claude-code-guide', description: 'hooks docs' })).toBe('allow')
     expect(spawn({ subagent_type: 'statusline-setup', description: 'line' })).toBe('allow')
+  })
+})
+
+// Kit 1.7 (council Feature 3): budgets.json is the one home; the oceans-eleven
+// table mirrors it, and this is the check that keeps the mirror honest.
+describe('one budgets file (kit 1.7)', () => {
+  const skill = readFileSync(fileURLToPath(new URL('../skills/oceans-eleven/SKILL.md', import.meta.url)), 'utf8')
+  const section = skill.slice(skill.indexOf('## Budgets'), skill.indexOf('\n## ', skill.indexOf('## Budgets') + 1))
+  const rows = section.split('\n').filter((l) => /^\|\s*(`|any other)/.test(l)).map((l) => l.split('|').map((c) => c.trim()))
+  const M_ = (s) => Math.round(Number(s) * M)
+
+  it('keeps the current numbers', () => {
+    expect(DEFAULT_BUDGETS['c-3po']).toBe(4 * M)
+    expect(DEFAULT_BUDGETS['jesse-pinkman']).toBe(8 * M)
+    expect(DEFAULT_BUDGETS['saul-goodman']).toBe(15 * M)
+    expect(OTHER_BUDGET).toBe(15 * M)
+    expect(MODEL_DEFAULTS['mosbius-designs'].fable).toEqual({ budget: 12 * M, shots: 10 })
+    expect(ABOVE_CEILING.has('mike-ehrmantraut')).toBe(true)
+  })
+
+  it('has the oceans-eleven table agree with budgets.json, row by row', () => {
+    const inTable = new Set()
+    for (const [, who, value] of rows) {
+      if (/^any other/.test(who)) {
+        expect(M_(/(\d+(?:\.\d+)?)M/.exec(value)[1]), 'any other role').toBe(OTHER_BUDGET)
+        continue
+      }
+      for (const role of [...who.matchAll(/`([a-z0-9-]+)`/g)].map((m) => m[1])) {
+        inTable.add(role)
+        if (MODEL_DEFAULTS[role]) {
+          for (const [fam, o] of Object.entries(MODEL_DEFAULTS[role])) {
+            const m = new RegExp(`${fam}\\s+(\\d+(?:\\.\\d+)?)M`, 'i').exec(value)
+            expect(m && M_(m[1]), `${role} ${fam}`).toBe(o.budget)
+          }
+        } else expect(M_(/(\d+(?:\.\d+)?)M/.exec(value)?.[1]), role).toBe(DEFAULT_BUDGETS[role])
+      }
+    }
+    for (const role of [...Object.keys(DEFAULT_BUDGETS), ...Object.keys(MODEL_DEFAULTS)]) expect(inTable.has(role), `${role} in the table`).toBe(true)
+  })
+
+  it('falls back to empty tables and the 15M when the file is unreadable', () => {
+    const b = loadBudgets(join(root, 'nope.json'))
+    expect(b.roles).toEqual({})
+    expect(b.other).toBe(15 * M)
   })
 })

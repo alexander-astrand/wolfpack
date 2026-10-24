@@ -22,7 +22,8 @@
 //   doesn't say what it ships.
 //
 // Usage: node scripts/check.mjs [kitDir] [--project <dir>] — prints `file:line  reason` per
-// problem and exits 1, or a one-line summary and exits 0.
+// problem and exits 1, or a one-line summary and exits 0. `--project` adds the
+// project's guard drift and its `.claude/lessons.md` line cap.
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
@@ -249,8 +250,15 @@ function checkSecrets(kitDir, values, problems, rel) {
 // for over and over (kit 1.5, H3: one line had grown to 930).
 const LESSON_MAX = 300
 
-export function checkLessons(kitDir, problems, rel) {
-  const file = join(kitDir, 'plugins', 'core', 'lessons.md')
+// A project's `.claude/lessons.md` (with `--project <dir>`) is read by its
+// navigator on every call too, so the same cap holds there (kit 1.7, council
+// M5: one project had 26 lines over it, five of them 9.5 KB together).
+export function checkLessons(kitDir, problems, rel, project = null) {
+  checkLessonsFile(join(kitDir, 'plugins', 'core', 'lessons.md'), problems, rel)
+  if (project) checkLessonsFile(join(project, '.claude', 'lessons.md'), problems, rel)
+}
+
+function checkLessonsFile(file, problems, rel) {
   if (!existsSync(file)) return
   readFileSync(file, 'utf8')
     .split('\n')
@@ -261,7 +269,7 @@ export function checkLessons(kitDir, problems, rel) {
     })
 }
 
-export function checkKit(kitDir, { values = [], base = process.cwd() } = {}) {
+export function checkKit(kitDir, { values = [], base = process.cwd(), project = null } = {}) {
   const problems = []
   const rel = (p) => relative(base, p) || '.'
   const pluginsDir = join(kitDir, 'plugins')
@@ -275,7 +283,7 @@ export function checkKit(kitDir, { values = [], base = process.cwd() } = {}) {
   for (const dir of plugins) versions.set(dir, checkPlugin(dir, problems, rel))
   checkMarketplace(kitDir, versions, problems, rel)
   checkSecrets(kitDir, values, problems, rel)
-  checkLessons(kitDir, problems, rel)
+  checkLessons(kitDir, problems, rel, project)
   return { problems, plugins: plugins.length }
 }
 
@@ -306,6 +314,22 @@ export function kitVersionNote(project, kitDir) {
   }
 }
 
+// A project's ranjit is generated from the kit's template (kit 1.7, council
+// Feature 9): with `--project`, a copy that differs is a problem line. Only when
+// the project has `.claude/agents/ranjit.md`; the sync script does the compare.
+export function checkRanjit(project, kitDir) {
+  if (!project || !existsSync(join(project, '.claude', 'agents', 'ranjit.md'))) return []
+  const script = join(kitDir, 'plugins', 'database', 'scripts', 'sync-ranjit.mjs')
+  if (!existsSync(script)) return []
+  try {
+    execFileSync('node', [script, project, '--check'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+    return []
+  } catch (err) {
+    const first = String(err.stdout || err.stderr || '').split('\n')[0] || 'ranjit.md differs from the kit template'
+    return [`.claude/agents/ranjit.md:1  stale copy: ${first} (node plugins/database/scripts/sync-ranjit.mjs <project>)`]
+  }
+}
+
 function defaultGit(dir, args) {
   return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
 }
@@ -317,7 +341,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const positional = args.find((a, i) => !a.startsWith('--') && (at < 0 || i !== at + 1))
   const kitDir = resolve(positional ?? join(dirname(fileURLToPath(import.meta.url)), '..'))
   const values = projectValues(join(process.cwd(), '.claude', 'kit.json'))
-  const { problems, plugins } = checkKit(kitDir, { values })
+  const { problems, plugins } = checkKit(kitDir, { values, project })
   // The project's frozen guard against the kit's copy (drift.mjs), only when
   // `--project <dir>` names one; the kit checked on its own skips with one line.
   const drift = checkDrift(project, { kitDir })
@@ -328,6 +352,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const what = p.missing ? `${p.missing} is missing` : `${p.lines} lines differ`
     problems.push(`${where}  drifted from ${p.hutzup}: ${what} (node scripts/drift.mjs <project>)`)
   }
+  problems.push(...checkRanjit(project, kitDir))
   for (const p of problems) console.log(p)
   if (problems.length) process.exit(1)
   console.log(plugins ? `kit ok: ${plugins} plugin${plugins === 1 ? '' : 's'}` : 'no plugins yet')

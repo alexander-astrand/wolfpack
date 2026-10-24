@@ -13,13 +13,15 @@
 // calls and screenshots): 2.8.2 showed wall-clock comes from call counts and
 // agents running one after another, which per-model totals can't show.
 // --chart writes that timeline as a self-contained swimlane page for wrap-ups.
+// --budget-table prints the PR's budget table instead (agent, step, budget,
+// used, stopped by Hank), one row per spawn; with --json, the rows.
 //
 // Nickname: Skyler (she keeps the books). Hank, the budget hook
 // (this plugin's hooks/budget-cap.mjs), imports the counting functions below, so an
 // agent is stopped on the same numbers the PR's Usage section shows.
 
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 
@@ -344,10 +346,126 @@ export function timelineRow(entries, label, type, sessionId) {
   }
 }
 
+// ---------------------------------------------------------------- budget table
+
+// The PR's budget table (kit 1.7, council Feature 6): one row per spawn with
+// its step, its tag, what it used and whether Hank stopped it. c-3po and
+// future-ted rebuilt it by hand from the descriptions and hank.log every wrap.
+const TAG = /\s*\[budget\s+[\d.]+\s*[mk]\]\s*/gi
+
+// The step an Agent description names: "jeff-winger: step 3 [budget 12M]" -> "step 3".
+export function stepOf(description, name) {
+  let s = String(description ?? '').replace(TAG, ' ').trim()
+  // "jeff-winger: step 3" or "release:jeff-winger: step 3"
+  const m = /^\s*(?:[a-z0-9-]+:)?([a-z0-9-]+)\s*:\s*/i.exec(s)
+  if (m && (m[1] === name || AGENTS.has(m[1]))) s = s.slice(m[0].length)
+  return s.trim()
+}
+
+const bareType = (t) => (typeof t === 'string' ? t.replace(/^[a-z0-9-]+:/i, '') : t)
+
+// Did Hank deny this run a call at 100%? His deny lands as a short error
+// result: "PreToolUse:Write hook error: Budget reached: … (Hank: 102% (…) used.)".
+// Only that shape counts: an agent that Read Hank's own source got both
+// phrases back in a 31 KB result that was no stop (kit 1.7 review M1).
+const HANK_DENY = /^(?:[^\n]*hook error:\s*)?Budget reached:[\s\S]*\(Hank: \d+%/
+const DENY_MAX = 400
+export function stoppedInTranscript(entries) {
+  for (const e of entries) {
+    if (e.type !== 'user' || !Array.isArray(e.message?.content)) continue
+    for (const c of e.message.content) {
+      if (c?.type !== 'tool_result' || c.is_error !== true) continue
+      const text = typeof c.content === 'string' ? c.content : Array.isArray(c.content) ? c.content.map((p) => p?.text ?? '').join('\n') : ''
+      if (text.length < DENY_MAX && HANK_DENY.test(text.trim())) return true
+    }
+  }
+  return false
+}
+
+// Agent ids hank.log says were stopped ("stopped <role> <agent id> at …").
+export function stoppedInLog(text) {
+  const ids = new Set()
+  for (const m of String(text ?? '').matchAll(/ stopped \S+ (\S+) at /g)) ids.add(m[1])
+  return ids
+}
+
+// Where Hank writes his log for a session: its scratchpad's .hank folder.
+// Only a guess, so --hank-log wins and a missing file is no stop.
+function guessHankLog(baseDir, id) {
+  const uid = typeof process.getuid === 'function' ? process.getuid() : ''
+  return join('/private/tmp', `claude-${uid}`, basename(baseDir), id, 'scratchpad', '.hank', 'hank.log')
+}
+
+/**
+ * One row per spawn across the sessions. `budgets` brings Hank's parsers
+ * (parseBudget, followUpBudget, a default per role) so the column reads the
+ * number Hank held the agent to.
+ */
+export function budgetRows(baseDir, sessionIds, { budgets, hankLog = null } = {}) {
+  const out = []
+  for (const prefix of sessionIds) {
+    const { id, subDir, subFiles } = resolveSession(baseDir, prefix)
+    let logText = ''
+    try {
+      logText = readFileSync(hankLog ?? guessHankLog(baseDir, id), 'utf8')
+    } catch {
+      // no log: the transcripts still show a deny
+    }
+    const logged = stoppedInLog(logText)
+    for (const subFile of subFiles) {
+      const meta = readMeta(subDir, subFile)
+      const name = agentName({ ...meta, agentType: bareType(meta.agentType) }) || subFile.replace(/\.jsonl$/, '')
+      const entries = readEntries(join(subDir, subFile))
+      let tokens = 0
+      for (const b of tallyEntries(entries).values()) tokens += totalTokens(b)
+      // A SendMessage follow-up's tag is the agent's new total (Hank's rule): the last one wins.
+      let tag = budgets?.parseBudget?.(meta.description) ?? null
+      let first = true
+      for (const e of entries) {
+        if (e.type !== 'user') continue
+        if (first) {
+          first = false
+          continue
+        }
+        const c = e.message?.content
+        const text = typeof c === 'string' ? c : Array.isArray(c) ? c.map((p) => (p?.type === 'text' ? p.text : '')).join('\n') : ''
+        tag = budgets?.followUpBudget?.(text) ?? tag
+      }
+      const fallback = budgets?.defaultFor?.(name) ?? null
+      const agentId = subFile.replace(/^agent-/, '').replace(/\.jsonl$/, '')
+      out.push({
+        session: id,
+        agentId,
+        agent: name,
+        step: stepOf(meta.description, name),
+        budget: tag ?? fallback,
+        tagged: tag != null,
+        tokens,
+        stopped: logged.has(agentId) || stoppedInTranscript(entries),
+        start: entries.map((e) => Date.parse(e.timestamp)).filter((t) => !Number.isNaN(t)).sort((a, b) => a - b)[0] ?? null,
+      })
+    }
+  }
+  return out.sort((a, b) => (a.start ?? Infinity) - (b.start ?? Infinity))
+}
+
+export function budgetTableMarkdown(rows) {
+  const lines = ['| Agent | Step | Budget | Used | Stopped by Hank |', '|---|---|---|---|---|']
+  for (const r of rows) {
+    const budget = r.budget ? `${fmtM(r.budget)}${r.tagged ? '' : ' (default)'}` : '–'
+    const used = r.budget ? `${fmtM(r.tokens)} (${fmtPct(r.tokens, r.budget)})` : fmtM(r.tokens)
+    const step = truncate(r.step || '–', 60).replace(/\|/g, '\\|')
+    lines.push(`| ${r.agent} | ${step} | ${budget} | ${used} | ${r.stopped ? 'yes' : 'no'} |`)
+  }
+  return lines.join('\n')
+}
+
 function parseArgs(argv) {
-  const opts = { commits: null, json: false, dir: null, timeline: false, chart: null, decisions: null, sessionIds: [] }
+  const opts = { commits: null, json: false, dir: null, timeline: false, chart: null, decisions: null, budgetTable: false, hankLog: null, sessionIds: [] }
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--commits') opts.commits = Number(argv[++i])
+    if (argv[i] === '--budget-table') opts.budgetTable = true
+    else if (argv[i] === '--hank-log') opts.hankLog = argv[++i]
+    else if (argv[i] === '--commits') opts.commits = Number(argv[++i])
     else if (argv[i] === '--json') opts.json = true
     else if (argv[i] === '--dir') opts.dir = argv[++i]
     else if (argv[i] === '--timeline') opts.timeline = true
@@ -449,16 +567,34 @@ ${bullets ? `<h2>Decisions on the way</h2><ul>${bullets}</ul>` : ''}
 `
 }
 
-function main() {
-  const { commits, json, dir, timeline: wantTimeline, chart, decisions, sessionIds } = parseArgs(process.argv.slice(2))
+// Hank's parsers and defaults, loaded only for --budget-table: Hank imports
+// this file, so a static import back would tie the hook's start to this one.
+export async function hankBudgets(projectRoot = process.cwd()) {
+  const hank = await import('../hooks/budget-cap.mjs')
+  const kit = hank.kitBudgets(join(projectRoot, '.claude', 'kit.json'))
+  return {
+    parseBudget: hank.parseBudget,
+    followUpBudget: hank.followUpBudget,
+    // Hank's order without a tag: the kit's role, the model numbers, the kit's "*", the file, 15M.
+    defaultFor: (role) => kit?.[role] ?? hank.MODEL_DEFAULTS[role]?.opus?.budget ?? kit?.['*'] ?? hank.DEFAULT_BUDGETS[role] ?? hank.OTHER_BUDGET,
+  }
+}
+
+async function main() {
+  const { commits, json, dir, timeline: wantTimeline, chart, decisions, budgetTable, hankLog, sessionIds } = parseArgs(process.argv.slice(2))
   if (sessionIds.length === 0) {
     console.error(
-      'Usage: node <release plugin>/scripts/usage.mjs [--commits N] [--json] [--timeline] [--chart out.html [--decisions file.md]] <session-id> [<session-id>…]',
+      'Usage: node <release plugin>/scripts/usage.mjs [--commits N] [--json] [--timeline] [--chart out.html [--decisions file.md]] [--budget-table [--hank-log file]] <session-id> [<session-id>…]',
     )
     process.exit(1)
   }
 
   const baseDir = projectDir(dir)
+  if (budgetTable) {
+    const rows = budgetRows(baseDir, sessionIds, { budgets: await hankBudgets(), hankLog })
+    console.log(json ? JSON.stringify(rows, null, 2) : budgetTableMarkdown(rows))
+    return
+  }
   const parts = [] // { label, model, calls, tokens }
   const timeline = []
   const sessions = [] // { id, command, first, last, agentMinutes }
@@ -562,10 +698,8 @@ function main() {
 
 // Run only as a script; Hank imports the functions above without running it.
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  try {
-    main()
-  } catch (err) {
+  main().catch((err) => {
     console.error(err.message)
     process.exit(1)
-  }
+  })
 }
