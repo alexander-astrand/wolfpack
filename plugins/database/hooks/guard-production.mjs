@@ -1063,6 +1063,10 @@ function gitRead(args, ctx) {
   if (!GIT_READS.has(args[i])) return false
   const after = args.slice(i + 1)
   if (after.some((w) => GIT_READ_NOT.test(w))) return false
+  // A committed secret prints as well as one on disk: `git show HEAD:.env`,
+  // `git log -p -- .env` (review should 4). Every segment of every word,
+  // `<rev>:<path>` and `--opt=<path>` included, is judged by name.
+  if (after.some((w) => w.split(/[/:=]/).some(SECRET_NAME))) return false
   if (args[i] !== 'diff') return true
   const at = { ...ctx, cwd: dir }
   return repoPath('.', at) && after.every((w) => (w.startsWith('-') && w !== '-') || !GIT_PATHISH.test(w) || repoPath(w, at))
@@ -1157,7 +1161,10 @@ function pipeFilter(args) {
 // in its .claude or .git folder and not an .env file. A glob is judged by the
 // folder it starts in and may not start a name with a dot (`.*` matches `..`
 // and every hidden file). ~ and a brace list expand to what can't be read here.
-const READ_NOT_IN = (s) => s === '.claude' || s === '.git' || /^\.env/i.test(s)
+// The secret files a listed read never names, in the tree or in git's objects
+// (kit 1.7 review should 4).
+const SECRET_NAME = (s) => /^\.env/i.test(s) || /^(?:\.npmrc|\.netrc|\.mcp\.json|\.dev\.vars|\.vercel)$/i.test(s)
+const READ_NOT_IN = (s) => s === '.claude' || s === '.git' || SECRET_NAME(s)
 function repoPath(word, ctx) {
   if (typeof word !== 'string' || !word || word.startsWith('~') || /[{}]/.test(word)) return false
   if (!isAbsolute(word) && !ctx.cwd) return false

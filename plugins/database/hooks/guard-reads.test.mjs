@@ -112,6 +112,27 @@ describe('H5: the shapes that stay off the list', () => {
     expect(call(cmd)?.decision).not.toBe('allow')
   })
 
+  // Review should 4: committed secrets, and the other secret files.
+  it.each([
+    'git show HEAD:.env',
+    'git show HEAD:.ENV.local',
+    'git cat-file -p HEAD:.env.local',
+    'git log -p -- .env',
+    'git diff HEAD~1 -- sub/.env.production',
+    'git show HEAD:.npmrc',
+    'git show HEAD:sub/.netrc',
+    'git show HEAD:.mcp.json',
+    'git log -p --follow=.dev.vars',
+    'git ls-tree HEAD .vercel/',
+    'grep x .npmrc',
+    'grep x .mcp.json',
+    'wc -l .dev.vars',
+    'rg x .vercel',
+    'grep x src/.netrc',
+  ])('%s is not a listed read (a secret file)', (cmd) => {
+    expect(call(cmd)?.decision).not.toBe('allow')
+  })
+
   it('a diff run from outside the checkout is not a listed read; ranges and repo paths still are', () => {
     expect(d('git diff a b', { cwd: '/tmp' })).not.toBe('allow')
     expect(d('git diff main..HEAD -- ./src')).toBe('allow')
