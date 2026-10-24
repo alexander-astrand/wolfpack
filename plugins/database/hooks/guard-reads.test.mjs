@@ -89,6 +89,29 @@ describe('H5: the shapes that stay off the list', () => {
     expect(call(cmd)?.decision).not.toBe('allow')
   })
 
+  // Review must 1: git diff goes no-index by itself when a path is outside
+  // the working tree, and then prints any file.
+  it.each([
+    'git diff /dev/null ~/.ssh/id_rsa',
+    'git diff /dev/null .env.local',
+    'git diff -- /dev/null ~/x',
+    'git -C /tmp diff /etc/hosts /dev/null',
+    'git -C .claude diff',
+    'git -C ~ diff',
+    'git diff ../other/a ../other/b',
+    'git diff src/../../x src/a.ts',
+    'git --no-pager diff --stat /etc/hosts /dev/null',
+  ])('%s is not a listed read (a no-index diff)', (cmd) => {
+    expect(call(cmd)?.decision).not.toBe('allow')
+  })
+
+  it('a diff run from outside the checkout is not a listed read; ranges and repo paths still are', () => {
+    expect(d('git diff a b', { cwd: '/tmp' })).not.toBe('allow')
+    expect(d('git diff main..HEAD -- ./src')).toBe('allow')
+    expect(d(`git -C ${root} diff ${root}/src/a.ts`)).toBe('allow')
+    expect(d('git -C src diff ../src/a.ts')).toBe('allow')
+  })
+
   it('rg with no path from a folder outside the repo, or in .claude, is not a listed read', () => {
     expect(d('rg -n x', { cwd: '/tmp' })).not.toBe('allow')
     expect(d('rg -n x', { cwd: join(root, '.claude') })).not.toBe('allow')

@@ -1013,7 +1013,7 @@ function listedRead(words, ctx) {
   if (!words.length || words.some((w) => /[$`]/.test(w))) return false
   const [cmd, a, b] = words
   const rest = words.slice(2)
-  if (cmd === 'git') return gitRead(words.slice(1))
+  if (cmd === 'git') return gitRead(words.slice(1), ctx)
   if (cmd === 'grep' || cmd === 'rg' || cmd === 'wc') return textRead(cmd, words.slice(1), ctx)
   if (cmd === 'head' || cmd === 'tail') return pipeFilter(words.slice(1))
   if (cmd === 'gh' && a === 'pr') return b === 'view' || b === 'checks'
@@ -1042,14 +1042,30 @@ function listedRead(words, ctx) {
 // about already.
 const GIT_READS = new Set(['status', 'log', 'show', 'diff', 'cat-file', 'ls-tree', 'rev-parse'])
 const GIT_READ_NOT = /^(?:--output\b|--ext-diff$|--textconv$|--filters$|--no-index$)/
-function gitRead(args) {
+// `git diff <path> <path>` goes no-index by itself when a path is outside the
+// working tree, or when git runs outside one, and then reads any file
+// (`git diff /dev/null ~/.ssh/id_rsa`; kit 1.7 review must 1). So the -C
+// folder must be in the checkout, a diff must run from it, and every diff
+// word that looks like a path (starts with /, ~ or ., or holds ..) must pass
+// repoPath. `main...HEAD` holds .. and passes: it resolves inside the root.
+const GIT_PATHISH = /^[/~.]|\.\./
+function gitRead(args, ctx) {
   let i = 0
+  let dir = ctx.cwd
   while (i < args.length && args[i] !== undefined) {
-    if (args[i] === '-C' && args[i + 1] !== undefined && !/[*?[{}~]/.test(args[i + 1])) i += 2
-    else if (args[i] === '--no-pager') i++
+    if (args[i] === '-C' && args[i + 1] !== undefined) {
+      if (/[*?[{}~]/.test(args[i + 1]) || !repoPath(args[i + 1], ctx)) return false
+      dir = isAbsolute(args[i + 1]) ? args[i + 1] : resolve(ctx.cwd, args[i + 1])
+      i += 2
+    } else if (args[i] === '--no-pager') i++
     else break
   }
-  return GIT_READS.has(args[i]) && !args.slice(i + 1).some((w) => GIT_READ_NOT.test(w))
+  if (!GIT_READS.has(args[i])) return false
+  const after = args.slice(i + 1)
+  if (after.some((w) => GIT_READ_NOT.test(w))) return false
+  if (args[i] !== 'diff') return true
+  const at = { ...ctx, cwd: dir }
+  return repoPath('.', at) && after.every((w) => (w.startsWith('-') && w !== '-') || !GIT_PATHISH.test(w) || repoPath(w, at))
 }
 
 // grep, rg and wc on the repo's own files (kit 1.7, H5): every path inside the
