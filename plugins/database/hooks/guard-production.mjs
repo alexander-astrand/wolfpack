@@ -451,15 +451,15 @@ function orderAllow(tool, args, input, ctx) {
   let version
   if (tool === 'SendMessage') {
     const hit = ARM_AND_GO_RE.exec(String(args.message ?? '').replace(/\s+/g, ' ').trim())
-    if (!hit || hit[1] !== hit[2]) return null
+    if (!hit || hit[1] !== hit[2] || !markerCovers(hit[1], ctx)) return null
     version = hit[1]
   } else {
     if (!isDeployer(args.subagent_type)) return null
     const named = new Set([...String(args.prompt ?? '').matchAll(NAMED_VERSION_RE)].map((h) => h[1]))
+    // One marker read per call: a spawn no marker covers goes to oneRingSpawn.
     if (named.size !== 1 || !markerCovers([...named][0], ctx)) return oneRingSpawn(ctx)
     version = [...named][0]
   }
-  if (!markerCovers(version, ctx)) return null
   const what = tool === 'SendMessage' ? `SendMessage ${args.message}` : `Agent ${DEPLOYER}: ${args.description ?? ''}`
   return allowBoth(ctx, what, `arm-and-go for V${version}`, `The drive's order to ${DEPLOYER} for V${version}, under its marker; logged.`)
 }

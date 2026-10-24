@@ -3,7 +3,7 @@ import './fixtures/kit-project.mjs'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { DEV_REF, READ_BUDGET_MS, decide, readTimeout } from './guard-production.mjs'
 
 // Kit 1.7 (the kit 1.6.1 council's H5, H1 and M10): the dev reads the guard
@@ -192,18 +192,41 @@ describe('M10: a hung gh read asks instead of stalling', () => {
     expect(readTimeout(5000)).toBe(5000)
   })
 
-  it('a read once the clock is spent fails, and the armed call asks', () => {
-    const cmd = 'scripts/prod-db.sh push 0.14.1 0052'
-    const marker = { version: '0.14.1', commands: [cmd], pr: 44, headSha: 'a'.repeat(40), expiresAt: new Date(Date.now() + 3600_000).toISOString() }
-    let threw = null
-    // As readPr: the read throws on a spent clock and the reader returns null.
-    const openPr = () => {
-      try { readTimeout(5000, Date.now() + READ_BUDGET_MS); return { headRefName: 'V0.14.1', headRefOid: 'a'.repeat(40), state: 'OPEN', body: '' } } catch (err) { threw = err; return null }
+  // Review should 6: the real reader (readPr, no openPr stub) against a gh
+  // that hangs. The clock is set 11.4 s into its 12 s, so readTimeout gives gh
+  // about 0.6 s; without it gh would get its own 5 s and the test fails.
+  it('the real gh pr read is cut at what is left of the clock, and the armed call asks', () => {
+    const bin = mkdtempSync(join(tmpdir(), 'guard-slow-gh-'))
+    writeFileSync(join(bin, 'gh'), '#!/bin/sh\nexec sleep 30\n', { mode: 0o755 })
+    const path = process.env.PATH
+    process.env.PATH = `${bin}:${path}`
+    const realNow = Date.now.bind(Date)
+    const t0 = realNow()
+    let first = true
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => {
+      if (first) { first = false; return t0 }
+      return realNow() + READ_BUDGET_MS - 600
+    })
+    try {
+      const cmd = 'scripts/prod-db.sh push 0.14.1 0052'
+      const marker = { version: '0.14.1', commands: [cmd], pr: 44, headSha: 'a'.repeat(40), expiresAt: new Date(t0 + 3600_000).toISOString() }
+      const r = decide({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: root, permission_mode: 'auto', agent_type: 'ranjit' }, { ...STUBS, marker: () => marker })
+      expect(r?.decision).toBe('ask')
+      expect(r.reason).toMatch(/couldn't be read/)
+      expect(realNow() - t0).toBeLessThan(3000)
+    } finally {
+      spy.mockRestore()
+      process.env.PATH = path
+      rmSync(bin, { recursive: true, force: true })
     }
-    const r = decide({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: root, permission_mode: 'auto', agent_type: 'ranjit' }, { ...STUBS, marker: () => marker, openPr })
-    expect(threw?.message).toMatch(/for reads is spent/)
-    expect(r?.decision).toBe('ask')
-    expect(r.reason).toMatch(/couldn't be read/)
+  }, 15_000)
+
+  it('decide stops the clock when it returns, so a later read keeps its own timeout', () => {
+    decide({ tool_name: 'Bash', tool_input: { command: 'ls' }, cwd: root, permission_mode: 'auto' }, STUBS)
+    expect(readTimeout(5000, Date.now() + 10 * READ_BUDGET_MS)).toBe(5000)
+    // ...and when a stub throws inside it.
+    expect(() => decide({ tool_name: 'Bash', tool_input: { command: 'git show HEAD:src/a.ts' }, cwd: root, permission_mode: 'auto' }, { ...STUBS, log: () => { throw new Error('boom') } })).not.toThrow(/spent/)
+    expect(readTimeout(5000, Date.now() + 10 * READ_BUDGET_MS)).toBe(5000)
   })
 })
 
