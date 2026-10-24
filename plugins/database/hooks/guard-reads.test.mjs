@@ -3,7 +3,7 @@ import './fixtures/kit-project.mjs'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { DEV_REF, READ_BUDGET_MS, decide, readTimeout } from './guard-production.mjs'
 
 // Kit 1.7 (the kit 1.6.1 council's H5, H1 and M10): the dev reads the guard
@@ -79,6 +79,13 @@ describe('H5: the shapes that stay off the list', () => {
     'rg --hidden KEY',
     'rg --no-ignore KEY',
     'rg -L x src',
+    // globs override rg's hidden and ignore skipping (review must 2)
+    "rg -g '*' x",
+    'rg -g .env KEY .',
+    "rg -g '*' -e .",
+    'rg --glob=.env x',
+    'rg --iglob=.env* x',
+    'rg --glob .env x',
     // a pattern the shell would expand into dot names
     'grep .* src/a.ts',
     // anything else in the pipe
@@ -87,6 +94,87 @@ describe('H5: the shapes that stay off the list', () => {
     'head -n 5 src/a.ts',
   ])('%s is not allowed', (cmd) => {
     expect(call(cmd)?.decision).not.toBe('allow')
+  })
+
+  // Review must 1: git diff goes no-index by itself when a path is outside
+  // the working tree, and then prints any file.
+  it.each([
+    'git diff /dev/null ~/.ssh/id_rsa',
+    'git diff /dev/null .env.local',
+    'git diff -- /dev/null ~/x',
+    'git -C /tmp diff /etc/hosts /dev/null',
+    'git -C .claude diff',
+    'git -C ~ diff',
+    'git diff ../other/a ../other/b',
+    'git diff src/../../x src/a.ts',
+    'git --no-pager diff --stat /etc/hosts /dev/null',
+  ])('%s is not a listed read (a no-index diff)', (cmd) => {
+    expect(call(cmd)?.decision).not.toBe('allow')
+  })
+
+  // Review should 4: committed secrets, and the other secret files.
+  it.each([
+    'git show HEAD:.env',
+    'git show HEAD:.ENV.local',
+    'git cat-file -p HEAD:.env.local',
+    'git log -p -- .env',
+    'git diff HEAD~1 -- sub/.env.production',
+    'git show HEAD:.npmrc',
+    'git show HEAD:sub/.netrc',
+    'git show HEAD:.mcp.json',
+    'git log -p --follow=.dev.vars',
+    'git ls-tree HEAD .vercel/',
+    'grep x .npmrc',
+    'grep x .mcp.json',
+    'wc -l .dev.vars',
+    'rg x .vercel',
+    'grep x src/.netrc',
+  ])('%s is not a listed read (a secret file)', (cmd) => {
+    expect(call(cmd)?.decision).not.toBe('allow')
+  })
+
+  // Review round 2: patches across history print a committed .env too.
+  it.each([
+    'git log -p',
+    'git log --patch',
+    'git log -u -5',
+    'git log -pn5',
+    'git log -p HEAD~3..HEAD',
+    "git log -p -- '*env*'",
+    'git log -p -- src/*.ts',
+    "git log -p -- ':!src'",
+    'git log -p -- .',
+    'git log --patch-with-stat -- .netrc',
+    'git log -p -- sub/.vercel/x',
+    'git show A B',
+    'git show HEAD~3..HEAD',
+    'git show --oneline A B',
+    'git show -p --stat A B',
+    "git show A B -- '*'",
+  ])('%s is not a listed read (patches across history)', (cmd) => {
+    expect(call(cmd)?.decision).not.toBe('allow')
+  })
+
+  it.each([
+    'git log --oneline -20',
+    'git log --stat -n 5',
+    'git log --format=%H%x09%s main..HEAD',
+    'git log -p -- src/a.ts',
+    'git log -p -3 -- supabase/migrations',
+    'git show HEAD',
+    'git show --stat A B',
+    'git show -s A B',
+    'git show HEAD:src/a.ts HEAD~1:src/a.ts',
+    'git show A B -- src/a.ts',
+  ])('%s stays a listed read', (cmd) => {
+    expect(d(cmd)).toBe('allow')
+  })
+
+  it('a diff run from outside the checkout is not a listed read; ranges and repo paths still are', () => {
+    expect(d('git diff a b', { cwd: '/tmp' })).not.toBe('allow')
+    expect(d('git diff main..HEAD -- ./src')).toBe('allow')
+    expect(d(`git -C ${root} diff ${root}/src/a.ts`)).toBe('allow')
+    expect(d('git -C src diff ../src/a.ts')).toBe('allow')
   })
 
   it('rg with no path from a folder outside the repo, or in .claude, is not a listed read', () => {
@@ -141,18 +229,41 @@ describe('M10: a hung gh read asks instead of stalling', () => {
     expect(readTimeout(5000)).toBe(5000)
   })
 
-  it('a read once the clock is spent fails, and the armed call asks', () => {
-    const cmd = 'scripts/prod-db.sh push 0.14.1 0052'
-    const marker = { version: '0.14.1', commands: [cmd], pr: 44, headSha: 'a'.repeat(40), expiresAt: new Date(Date.now() + 3600_000).toISOString() }
-    let threw = null
-    // As readPr: the read throws on a spent clock and the reader returns null.
-    const openPr = () => {
-      try { readTimeout(5000, Date.now() + READ_BUDGET_MS); return { headRefName: 'V0.14.1', headRefOid: 'a'.repeat(40), state: 'OPEN', body: '' } } catch (err) { threw = err; return null }
+  // Review should 6: the real reader (readPr, no openPr stub) against a gh
+  // that hangs. The clock is set 11.4 s into its 12 s, so readTimeout gives gh
+  // about 0.6 s; without it gh would get its own 5 s and the test fails.
+  it('the real gh pr read is cut at what is left of the clock, and the armed call asks', () => {
+    const bin = mkdtempSync(join(tmpdir(), 'guard-slow-gh-'))
+    writeFileSync(join(bin, 'gh'), '#!/bin/sh\nexec sleep 30\n', { mode: 0o755 })
+    const path = process.env.PATH
+    process.env.PATH = `${bin}:${path}`
+    const realNow = Date.now.bind(Date)
+    const t0 = realNow()
+    let first = true
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => {
+      if (first) { first = false; return t0 }
+      return realNow() + READ_BUDGET_MS - 600
+    })
+    try {
+      const cmd = 'scripts/prod-db.sh push 0.14.1 0052'
+      const marker = { version: '0.14.1', commands: [cmd], pr: 44, headSha: 'a'.repeat(40), expiresAt: new Date(t0 + 3600_000).toISOString() }
+      const r = decide({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: root, permission_mode: 'auto', agent_type: 'ranjit' }, { ...STUBS, marker: () => marker })
+      expect(r?.decision).toBe('ask')
+      expect(r.reason).toMatch(/couldn't be read/)
+      expect(realNow() - t0).toBeLessThan(3000)
+    } finally {
+      spy.mockRestore()
+      process.env.PATH = path
+      rmSync(bin, { recursive: true, force: true })
     }
-    const r = decide({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: root, permission_mode: 'auto', agent_type: 'ranjit' }, { ...STUBS, marker: () => marker, openPr })
-    expect(threw?.message).toMatch(/for reads is spent/)
-    expect(r?.decision).toBe('ask')
-    expect(r.reason).toMatch(/couldn't be read/)
+  }, 15_000)
+
+  it('decide stops the clock when it returns, so a later read keeps its own timeout', () => {
+    decide({ tool_name: 'Bash', tool_input: { command: 'ls' }, cwd: root, permission_mode: 'auto' }, STUBS)
+    expect(readTimeout(5000, Date.now() + 10 * READ_BUDGET_MS)).toBe(5000)
+    // ...and when a stub throws inside it.
+    expect(() => decide({ tool_name: 'Bash', tool_input: { command: 'git show HEAD:src/a.ts' }, cwd: root, permission_mode: 'auto' }, { ...STUBS, log: () => { throw new Error('boom') } })).not.toThrow(/spent/)
+    expect(readTimeout(5000, Date.now() + 10 * READ_BUDGET_MS)).toBe(5000)
   })
 })
 
@@ -165,7 +276,8 @@ describe("H1: a ranjit spawn after a typed /one-ring is denied with what to do",
   it('denies and names the script', () => {
     const r = spawn({ arg: '0.14.1', at: Date.now() })
     expect(r?.decision).toBe('deny')
-    expect(r.reason).toBe('Under /one-ring the deploy is `scripts/full-auto.sh deploy 0.14.1`, run in this session; do not spawn ranjit.')
+    expect(r.reason).toBe('Under /one-ring the deploy is `scripts/full-auto.sh deploy 0.14.1`, run in this session; do not spawn ranjit. '
+      + 'This also holds the /skinny-pete fallback for 12 hours after the go; Alexander types `/one-ring stop` to take the go back and free it.')
     expect(spawn({ arg: '0.14.1', at: Date.now() }, { prompt: 'deploy it' })?.decision).toBe('deny')
   })
 

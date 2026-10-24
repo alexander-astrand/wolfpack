@@ -451,15 +451,15 @@ function orderAllow(tool, args, input, ctx) {
   let version
   if (tool === 'SendMessage') {
     const hit = ARM_AND_GO_RE.exec(String(args.message ?? '').replace(/\s+/g, ' ').trim())
-    if (!hit || hit[1] !== hit[2]) return null
+    if (!hit || hit[1] !== hit[2] || !markerCovers(hit[1], ctx)) return null
     version = hit[1]
   } else {
     if (!isDeployer(args.subagent_type)) return null
     const named = new Set([...String(args.prompt ?? '').matchAll(NAMED_VERSION_RE)].map((h) => h[1]))
+    // One marker read per call: a spawn no marker covers goes to oneRingSpawn.
     if (named.size !== 1 || !markerCovers([...named][0], ctx)) return oneRingSpawn(ctx)
     version = [...named][0]
   }
-  if (!markerCovers(version, ctx)) return null
   const what = tool === 'SendMessage' ? `SendMessage ${args.message}` : `Agent ${DEPLOYER}: ${args.description ?? ''}`
   return allowBoth(ctx, what, `arm-and-go for V${version}`, `The drive's order to ${DEPLOYER} for V${version}, under its marker; logged.`)
 }
@@ -469,12 +469,15 @@ function orderAllow(tool, args, input, ctx) {
 // this session, and a stale ranjit text sent the session to spawn it, so the
 // classifier showed him a bare prompt seven minutes after his go (19 Oct
 // 2026). The deny says what to do instead. With no typed go the spawn gets
-// no decision, as before (/skinny-pete's path).
+// no decision, as before (/skinny-pete's path). The go counts for GO_HOURS,
+// so the deny also holds /skinny-pete's spawn that long; it names the way
+// out (review should 5).
 function oneRingSpawn(ctx) {
   let typed = null
   try { typed = ctx.humanGo() } catch { typed = null }
   if (!typed?.arg) return null
-  return deny(`Under /one-ring the deploy is \`scripts/full-auto.sh deploy ${typed.arg}\`, run in this session; do not spawn ${DEPLOYER}.`)
+  return deny(`Under /one-ring the deploy is \`scripts/full-auto.sh deploy ${typed.arg}\`, run in this session; do not spawn ${DEPLOYER}. `
+    + `This also holds the /skinny-pete fallback for ${GO_HOURS} hours after the go; Alexander types \`/one-ring stop\` to take the go back and free it.`)
 }
 
 // The chain's wrap-up files (answer 3): V<v>-wrap.md, V<first>-chain-log.md
@@ -1013,7 +1016,7 @@ function listedRead(words, ctx) {
   if (!words.length || words.some((w) => /[$`]/.test(w))) return false
   const [cmd, a, b] = words
   const rest = words.slice(2)
-  if (cmd === 'git') return gitRead(words.slice(1))
+  if (cmd === 'git') return gitRead(words.slice(1), ctx)
   if (cmd === 'grep' || cmd === 'rg' || cmd === 'wc') return textRead(cmd, words.slice(1), ctx)
   if (cmd === 'head' || cmd === 'tail') return pipeFilter(words.slice(1))
   if (cmd === 'gh' && a === 'pr') return b === 'view' || b === 'checks'
@@ -1042,14 +1045,60 @@ function listedRead(words, ctx) {
 // about already.
 const GIT_READS = new Set(['status', 'log', 'show', 'diff', 'cat-file', 'ls-tree', 'rev-parse'])
 const GIT_READ_NOT = /^(?:--output\b|--ext-diff$|--textconv$|--filters$|--no-index$)/
-function gitRead(args) {
+// `git diff <path> <path>` goes no-index by itself when a path is outside the
+// working tree, or when git runs outside one, and then reads any file
+// (`git diff /dev/null ~/.ssh/id_rsa`; kit 1.7 review must 1). So the -C
+// folder must be in the checkout, a diff must run from it, and every diff
+// word that looks like a path (starts with /, ~ or ., or holds ..) must pass
+// repoPath. `main...HEAD` holds .. and passes: it resolves inside the root.
+const GIT_PATHISH = /^[/~.]|\.\./
+function gitRead(args, ctx) {
   let i = 0
+  let dir = ctx.cwd
   while (i < args.length && args[i] !== undefined) {
-    if (args[i] === '-C' && args[i + 1] !== undefined && !/[*?[{}~]/.test(args[i + 1])) i += 2
-    else if (args[i] === '--no-pager') i++
+    if (args[i] === '-C' && args[i + 1] !== undefined) {
+      if (/[*?[{}~]/.test(args[i + 1]) || !repoPath(args[i + 1], ctx)) return false
+      dir = isAbsolute(args[i + 1]) ? args[i + 1] : resolve(ctx.cwd, args[i + 1])
+      i += 2
+    } else if (args[i] === '--no-pager') i++
     else break
   }
-  return GIT_READS.has(args[i]) && !args.slice(i + 1).some((w) => GIT_READ_NOT.test(w))
+  if (!GIT_READS.has(args[i])) return false
+  const after = args.slice(i + 1)
+  if (after.some((w) => GIT_READ_NOT.test(w))) return false
+  // A committed secret prints as well as one on disk: `git show HEAD:.env`,
+  // `git log -p -- .env` (review should 4). Every segment of every word,
+  // `<rev>:<path>` and `--opt=<path>` included, is judged by name.
+  if (after.some((w) => w.split(/[/:=]/).some(SECRET_NAME))) return false
+  if ((args[i] === 'log' || args[i] === 'show') && !historyPatchRead(args[i], after)) return false
+  if (args[i] !== 'diff') return true
+  const at = { ...ctx, cwd: dir }
+  return repoPath('.', at) && after.every((w) => (w.startsWith('-') && w !== '-') || !GIT_PATHISH.test(w) || repoPath(w, at))
+}
+
+// Patches across history print every committed change, a committed .env
+// included, whatever its name in the command (kit 1.7 review, round 2). So
+// `git log` with -p, --patch or -u, and `git show` of more than one commit
+// (it prints patches unless told not to), are listed reads only with a `--`
+// pathspec that is no glob, no pathspec magic and not the whole tree.
+// `git log --oneline`, --stat, -n and --format stay listed.
+const GIT_PATCH = /^(?:-[a-zA-Z]*[pu][a-zA-Z0-9]*|-U\d*|--patch(?:-with-\w+)?|--unified(?:=\d+)?|--cc)$/
+// The diff formats that replace show's patch (--oneline and --format don't).
+const GIT_NO_PATCH = /^(?:-s|--no-patch|--stat(?:=[\d,]+)?|--shortstat|--numstat|--name-only|--name-status)$/
+function historyPatchRead(sub, words) {
+  const dd = words.indexOf('--')
+  const opts = dd < 0 ? words : words.slice(0, dd)
+  const specs = dd < 0 ? [] : words.slice(dd + 1)
+  const explicit = opts.some((w) => GIT_PATCH.test(w))
+  let patch = explicit
+  if (sub === 'show') {
+    // Blobs (`<rev>:<path>`) aren't commits; a range walks many.
+    const revs = opts.filter((w) => !w.startsWith('-') && !w.includes(':'))
+    const many = revs.length > 1 || revs.some((w) => w.includes('..'))
+    patch = many && (explicit || !opts.some((w) => GIT_NO_PATCH.test(w)))
+  }
+  if (!patch) return true
+  return specs.length > 0 && !specs.some((s) => /[*?[]/.test(s) || s.startsWith(':') || /^\.\/?$/.test(s))
 }
 
 // grep, rg and wc on the repo's own files (kit 1.7, H5): every path inside the
@@ -1058,17 +1107,19 @@ function gitRead(args) {
 // has an allow-list of options, so a new flag stays with the classifier. grep
 // doesn't recurse here (`grep -r` over a folder reads its .env files too); rg
 // does, but skips hidden and ignored files unless told, so -u, --hidden and
-// --no-ignore stay off. `-o` is refused for all three, as the council wrote it.
+// --no-ignore stay off, and so do -g, --glob and --iglob, which override that
+// skipping (`rg -g .env KEY .` prints the secret; kit 1.7 review must 2).
+// `-o` is refused for all three, as the council wrote it.
 const TEXT_READ = {
   grep: { letters: 'nHhilLcvwxFEGPsqIZz', value: ['-e', '-f', '-A', '-B', '-C', '-m'], numbered: /^-[ABCm]\d+$/,
     long: ['line-number', 'ignore-case', 'files-with-matches', 'files-without-match', 'count', 'invert-match', 'word-regexp', 'line-regexp', 'fixed-strings',
       'extended-regexp', 'basic-regexp', 'perl-regexp', 'no-filename', 'with-filename', 'no-messages', 'quiet', 'silent', 'null', 'null-data', 'byte-offset'],
     longValue: ['regexp', 'file', 'max-count', 'context', 'after-context', 'before-context', 'color', 'colour', 'label'] },
-  rg: { letters: 'niIlcvwxFSsHNUqP', value: ['-e', '-f', '-g', '-t', '-T', '-A', '-B', '-C', '-m', '-M'], numbered: /^-[ABCmM]\d+$/,
+  rg: { letters: 'niIlcvwxFSsHNUqP', value: ['-e', '-f', '-t', '-T', '-A', '-B', '-C', '-m', '-M'], numbered: /^-[ABCmM]\d+$/,
     long: ['line-number', 'no-line-number', 'ignore-case', 'smart-case', 'case-sensitive', 'files-with-matches', 'files-without-match', 'count', 'count-matches',
       'invert-match', 'word-regexp', 'line-regexp', 'fixed-strings', 'no-heading', 'heading', 'with-filename', 'no-filename', 'files', 'multiline', 'json',
       'vimgrep', 'column', 'no-messages', 'quiet', 'trim', 'stats', 'pcre2'],
-    longValue: ['regexp', 'file', 'glob', 'iglob', 'type', 'type-not', 'max-count', 'context', 'after-context', 'before-context', 'color', 'colour', 'sort',
+    longValue: ['regexp', 'file', 'type', 'type-not', 'max-count', 'context', 'after-context', 'before-context', 'color', 'colour', 'sort',
       'sortr', 'max-columns', 'max-depth', 'max-filesize'] },
   wc: { letters: 'lwcmL', value: [], numbered: /^$/, long: ['lines', 'words', 'bytes', 'chars', 'max-line-length'], longValue: [] },
 }
@@ -1086,7 +1137,7 @@ function textRead(cmd, args, ctx) {
       if (v === undefined || !unexpanded(v, ctx)) return false
       if (w === '-e') patternGiven = true
       else if (w === '-f') { patternGiven = true; paths.push(v) }
-      else if (!['-g', '-t', '-T'].includes(w) && !/^\d+$/.test(v)) return false
+      else if (!['-t', '-T'].includes(w) && !/^\d+$/.test(v)) return false
       continue
     }
     if (spec.numbered.test(w)) continue
@@ -1139,7 +1190,10 @@ function pipeFilter(args) {
 // in its .claude or .git folder and not an .env file. A glob is judged by the
 // folder it starts in and may not start a name with a dot (`.*` matches `..`
 // and every hidden file). ~ and a brace list expand to what can't be read here.
-const READ_NOT_IN = (s) => s === '.claude' || s === '.git' || /^\.env/i.test(s)
+// The secret files a listed read never names, in the tree or in git's objects
+// (kit 1.7 review should 4).
+const SECRET_NAME = (s) => /^\.env/i.test(s) || /^(?:\.npmrc|\.netrc|\.mcp\.json|\.dev\.vars|\.vercel)$/i.test(s)
+const READ_NOT_IN = (s) => s === '.claude' || s === '.git' || SECRET_NAME(s)
 function repoPath(word, ctx) {
   if (typeof word !== 'string' || !word || word.startsWith('~') || /[{}]/.test(word)) return false
   if (!isAbsolute(word) && !ctx.cwd) return false

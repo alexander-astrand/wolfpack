@@ -120,7 +120,8 @@ describe('denied-log --summary', () => {
     const rows = summarize({ denied, guard, since: '2026-10-15' })
     const by = (shape, source) => rows.find((r) => r.shape === shape && r.source === source)
     expect(by('git show', 'classifier')).toMatchObject({ count: 2, allow: '"Bash(git show *)"' })
-    expect(by('Write /Users/a/.claude/plans', 'classifier')).toMatchObject({ count: 2, allow: '"Write(//Users/a/.claude/plans/**)"' })
+    // under ~/.claude: no line (kit 1.7 review, round 2)
+    expect(by('Write /Users/a/.claude/plans', 'classifier')).toMatchObject({ count: 2, allow: null })
     // production and pushes never get one; the guard's asks are on purpose
     expect(by('vercel', 'classifier')).toMatchObject({ count: 2, allow: null })
     expect(by('git push', 'guard')).toMatchObject({ count: 2, allow: null, why: 'Pushes to main' })
@@ -129,6 +130,51 @@ describe('denied-log --summary', () => {
     const text = summaryText(rows)
     expect(text.split('\n')[0]).toBe('count\tsource\ttool\tshape\tallow line or why')
     expect(text).toContain('2\tguard\tBash\tgit push\tguard asks on purpose: Pushes to main')
+  })
+
+  // Review must 3: an allow-list of dev reads, not a deny-list of risks.
+  it.each([
+    ['bash -c "ls"', 'bash'], ['sh run.sh', 'sh'], ['node -e "console.log(1)"', 'node'], ['python3 -c "print(1)"', 'python3'],
+    ['eval "ls"', 'eval'], ['env FOO=1 ls', 'env'], ['curl -s https://example.com/x', 'curl'], ['psql postgresql://u@h/db -c "select 1"', 'psql'],
+    ['supabase db push --linked', 'supabase db'], ['osascript -e x', 'osascript'], ['open -a Safari', 'open'], ['chmod +x f', 'chmod'],
+    ['npx tsx a.ts', 'npx tsx'], ['gh pr create', 'gh pr create'], ['npm install x', 'npm install'],
+  ])('%s repeated gets no allow line', (command, shape) => {
+    const twice = [row('2026-10-20T10:00:00Z', 'Bash', { command }), row('2026-10-20T10:01:00Z', 'Bash', { command })].join('\n')
+    expect(summarize({ denied: twice })).toEqual([expect.objectContaining({ shape, count: 2, allow: null })])
+  })
+
+  it.each([
+    ['git diff --stat', '"Bash(git diff *)"'], ['gh pr checks 3', '"Bash(gh pr checks *)"'], ['rg -n x src', '"Bash(rg *)"'],
+    ['tail -n 5 a.log', '"Bash(tail *)"'], ['npm run typecheck', '"Bash(npm run typecheck *)"'],
+  ])('%s repeated gets its dev-read line', (command, allow) => {
+    const twice = [row('2026-10-20T10:00:00Z', 'Bash', { command }), row('2026-10-20T10:01:00Z', 'Bash', { command })].join('\n')
+    expect(summarize({ denied: twice })[0].allow).toBe(allow)
+  })
+
+  // Round 2: MCP tools and file edits from an allow-list as well.
+  const twiceOf = (tool, input) => [row('2026-10-20T10:00:00Z', tool, input), row('2026-10-20T10:01:00Z', tool, input)].join('\n')
+  it.each([
+    'mcp__x__execute_sql', 'mcp__x__apply_migration', 'mcp__x__deploy_edge_function', 'mcp__x__delete_branch', 'mcp__x__create_project',
+    'mcp__x__merge_branch', 'mcp__x__reset_branch', 'mcp__x__pause_project', 'mcp__x__restore_project', 'mcp__x__frobnicate',
+    'mcp__x__list_and_delete', 'Agent', 'SendMessage', 'WebFetch',
+  ])('%s repeated gets no allow line', (tool) => {
+    expect(summarize({ denied: twiceOf(tool, {}) })[0]).toMatchObject({ count: 2, allow: null })
+  })
+
+  it.each(['mcp__x__list_tables', 'mcp__x__get_logs', 'mcp__x__search_docs', 'mcp__plugin_context7_context7__query-docs', 'mcp__c7__resolve-library-id'])(
+    '%s repeated gets its line', (tool) => {
+      expect(summarize({ denied: twiceOf(tool, {}) })[0].allow).toBe(`"${tool}"`)
+    })
+
+  it.each([
+    ['Edit', '.claude/settings.json'], ['Edit', '/Users/a/.claude/CLAUDE.md'], ['Write', '.git/hooks/pre-commit'], ['Edit', 'supabase/migrations/0081_x.sql'],
+    ['Edit', 'scripts/check.sh'], ['Edit', 'plugins/database/hooks/guard-production.mjs'], ['Write', 'config/.env.d/x'], ['Edit', 'README.md'],
+  ])('%s of %s repeated gets no allow line', (tool, file_path) => {
+    expect(summarize({ denied: twiceOf(tool, { file_path, old_string: 'a', new_string: 'b' }) })[0].allow).toBeNull()
+  })
+
+  it('an edit in an ordinary folder still gets its line', () => {
+    expect(summarize({ denied: twiceOf('Edit', { file_path: '/repo/src/app/page.tsx', old_string: 'a', new_string: 'b' }) })[0].allow).toBe('"Edit(//repo/src/app/**)"')
   })
 
   it('reads the shape past a cd or VAR= prefix, and from a head cut mid-JSON', () => {

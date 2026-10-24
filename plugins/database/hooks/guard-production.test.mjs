@@ -2193,6 +2193,18 @@ describe("2.12.4: the drive's orders", () => {
     }
   })
 
+  it('reads the marker once per order (the second markerCovers was the same check)', () => {
+    for (const [tool, input] of [['SendMessage', { to: 'ranjit-1', message: order() }], ['Agent', spawn('Deploy V2.13.')]]) {
+      let reads = 0
+      const out = decide({ tool_name: tool, tool_input: input, permission_mode: 'auto' }, {
+        linkedRef: () => DEV_REF, marker: () => { reads++; return SINGLE }, chainMarker: () => null, releasePr: () => null,
+        now: () => NOW, log: () => {}, chainLog: () => {}, frozen: () => 'd'.repeat(64),
+      })
+      expect(out?.decision, tool).toBe('allow')
+      expect(reads, tool).toBe(1)
+    }
+  })
+
   it('gives no decision to anything near it', () => {
     const cases = [
       ['no marker', 'SendMessage', { message: order() }, {}],
@@ -2219,6 +2231,10 @@ describe("2.12.4: the drive's orders", () => {
       ['no version', 'Agent', spawn('Deploy the release.'), { chain: CHAIN }],
       ['a spawn from a subagent', 'Agent', spawn('Deploy V2.13.'), { chain: CHAIN, agent: 'captain-call' }],
       ['a spawn in bypass', 'Agent', spawn('Deploy V2.13.'), { chain: CHAIN, mode: 'bypassPermissions' }],
+      // Kit 1.7 review should 6: each branch checks the marker itself.
+      ['a spawn with no marker', 'Agent', spawn('Deploy V2.13.'), {}],
+      ['a spawn under an expired chain', 'Agent', spawn('Deploy V2.13.'), { chain: EXPIRED }],
+      ['a spawn under another version', 'Agent', spawn('Deploy V2.13.'), { m: { ...SINGLE, version: '2.12' } }],
       // Review should 1: a subagent's id without its type.
       ['an agent_id without a type', 'SendMessage', { message: order() }, { chain: CHAIN, agentId: 'a1b2c3' }],
       // Review should 2: the guard's files changed since the tap.
