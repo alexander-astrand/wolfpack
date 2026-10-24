@@ -147,7 +147,8 @@ export function hankBudget(meta, state = {}, projectDir = null) {
 // <plans> from kit.json `plans`, else ~/.claude/plans/. Tokens, or null.
 // Kit 1.7 (council Feature 3): spent ÷ headline shows a plan's 0.31 or 1.4
 // at the first step instead of at the wrap.
-export const HEADLINE = /^\W*Expected:\s*≈\s*(\d+(?:\.\d+)?)\s*M\b/m
+// Markdown after the colon counts too: `**Expected:** ≈ 90M` (kit 1.7 review).
+export const HEADLINE = /^\W*Expected:\W*?≈\s*(\d+(?:\.\d+)?)\s*M\b/m
 export function planHeadline(version, kitJson = null) {
   if (!version) return null
   const v = String(version).replace(/^(V|kit-)/, '')
