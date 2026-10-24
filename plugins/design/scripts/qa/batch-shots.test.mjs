@@ -42,7 +42,7 @@ describe('parseArgs', () => {
   })
 })
 
-// Needs a cached Chromium (the Mac has Playwright's); CI has none and skips it.
+// Needs a cached Chromium (Pollux has Playwright's); CI has none and skips it.
 describe.skipIf(!findChrome())('a scaffolded mock, shot in one call', () => {
   it('saves every shot at its width, with a scan', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'shots-'))

@@ -4,7 +4,7 @@
 // found on 88-mph-large-upgrade, 20 behind main, after a session built in it).
 // Report only: it reads git and never fetches, switches, stashes or cleans.
 // origin/main is as fresh as the last fetch, which the live checkout's sync
-// (every 30 min on the Air) or wolfpack-pull (hourly on the Dell) makes.
+// (every 30 min on Pollux) or wolfpack-pull (hourly on delphi) makes.
 //
 //   node leon-kit.mjs [--kit <dir>]      (default ~/wolfpack)
 //
