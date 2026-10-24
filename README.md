@@ -71,7 +71,8 @@ A release end to end: `/captain-call <version>` (with `fable allowance=high plan
 Briefs, mock-ups and QA for anything the app shows: browser checks at phone and desktop widths in both themes, an accessibility review, and a full QA pass. It also carries `voice-card.md` (the shape of every agent's `## Voice` card) and `taste-template.md` (start your project's `.claude/taste.md` from it).
 
 - Agents: `bengt-johansson`, `daredevil`, `heisenberg`, `magnus-wislander`, `mosbius-designs`, `staffan-olsson`, `stefan-lovgren`, `tomas-svensson`
-- Skills: `darth-vader`, `heisenberg`, `spidey-sense`, `superlab`
+- Skills: `darth-vader`, `heisenberg`, `spidey-sense`, `superlab`, `web-shooters` (the core of `spidey-sense`: shot counts, the page scan, headless shots and flows; `mosbius-designs` preloads only this one)
+- Scripts: `mock-scaffold.mjs`, `gallery.mjs`, `bengan-boys.mjs` (writes the four Bengan Boys from their template; `--check` finds drift), and in `scripts/qa/` `batch-shots.mjs`, `page-scan.js`, `save-shot.mjs` and `qa-flow.mjs` (a click-through from a steps file, headless or as Browser pane calls)
 
 ### database
 For Supabase projects. The production guard (the Slap Bet Commissioner, `hooks/guard-production.mjs`) refuses any path to production except the deployer's, and asks a person before each change. `the-playbook` writes migrations, policies and functions; the project's own deployer deploys; `bro-code` writes SQL tests. `database-artifacts.md` lists what the pack expects a project to carry.
