@@ -32,6 +32,19 @@ const RENAMED = {
 // letter, digit or dash becomes a dash.
 export const transcriptKey = (repo) => repo.replace(/[^A-Za-z0-9-]/g, '-')
 
+// A repo's transcript folders: its own plus one per worktree under
+// `<repo>/.claude/worktrees/`, whose key is the repo's plus `--claude-worktrees-`.
+// Releases build in worktrees, so reading the repo's folder alone missed their
+// sessions; the cards and council-facts.mjs read the same list so their keys match.
+export function projectDirs(transcripts, repo) {
+  if (!existsSync(transcripts)) return []
+  const key = transcriptKey(repo)
+  return readdirSync(transcripts)
+    .filter((d) => d === key || d.startsWith(`${key}--claude-worktrees-`))
+    .sort()
+    .map((d) => join(transcripts, d))
+}
+
 export function parseArgs(argv) {
   const o = { since: null, out: null, json: null, kit: join(HERE, '..', '..'), transcripts: join(homedir(), '.claude', 'projects'), projects: {}, help: false }
   for (let i = 0; i < argv.length; i++) {
@@ -247,9 +260,8 @@ export function buildCards({ kit, projects, transcripts, since }) {
     }
   }
 
-  for (const [project, repo] of Object.entries(projects)) {
-    const dir = join(transcripts, transcriptKey(repo))
-    if (!existsSync(dir)) continue
+  const folders = Object.entries(projects).flatMap(([project, repo]) => projectDirs(transcripts, repo).map((dir) => ({ project, dir })))
+  for (const { project, dir } of folders) {
     const files = readdirSync(dir).filter((x) => x.endsWith('.jsonl') && statSync(join(dir, x)).mtimeMs >= FROM)
     for (const f of byBirth(dir, files)) {
       const id = f.slice(0, -6)
