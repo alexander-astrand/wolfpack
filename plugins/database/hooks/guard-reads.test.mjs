@@ -216,7 +216,8 @@ describe("H1: a ranjit spawn after a typed /one-ring is denied with what to do",
   it('denies and names the script', () => {
     const r = spawn({ arg: '0.14.1', at: Date.now() })
     expect(r?.decision).toBe('deny')
-    expect(r.reason).toBe('Under /one-ring the deploy is `scripts/full-auto.sh deploy 0.14.1`, run in this session; do not spawn ranjit.')
+    expect(r.reason).toBe('Under /one-ring the deploy is `scripts/full-auto.sh deploy 0.14.1`, run in this session; do not spawn ranjit. '
+      + 'This also holds the /skinny-pete fallback for 12 hours after the go; Alexander types `/one-ring stop` to take the go back and free it.')
     expect(spawn({ arg: '0.14.1', at: Date.now() }, { prompt: 'deploy it' })?.decision).toBe('deny')
   })
 

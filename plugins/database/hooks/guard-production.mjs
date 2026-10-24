@@ -469,12 +469,15 @@ function orderAllow(tool, args, input, ctx) {
 // this session, and a stale ranjit text sent the session to spawn it, so the
 // classifier showed him a bare prompt seven minutes after his go (19 Oct
 // 2026). The deny says what to do instead. With no typed go the spawn gets
-// no decision, as before (/skinny-pete's path).
+// no decision, as before (/skinny-pete's path). The go counts for GO_HOURS,
+// so the deny also holds /skinny-pete's spawn that long; it names the way
+// out (review should 5).
 function oneRingSpawn(ctx) {
   let typed = null
   try { typed = ctx.humanGo() } catch { typed = null }
   if (!typed?.arg) return null
-  return deny(`Under /one-ring the deploy is \`scripts/full-auto.sh deploy ${typed.arg}\`, run in this session; do not spawn ${DEPLOYER}.`)
+  return deny(`Under /one-ring the deploy is \`scripts/full-auto.sh deploy ${typed.arg}\`, run in this session; do not spawn ${DEPLOYER}. `
+    + `This also holds the /skinny-pete fallback for ${GO_HOURS} hours after the go; Alexander types \`/one-ring stop\` to take the go back and free it.`)
 }
 
 // The chain's wrap-up files (answer 3): V<v>-wrap.md, V<first>-chain-log.md
