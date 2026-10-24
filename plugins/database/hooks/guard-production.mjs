@@ -1070,9 +1070,35 @@ function gitRead(args, ctx) {
   // `git log -p -- .env` (review should 4). Every segment of every word,
   // `<rev>:<path>` and `--opt=<path>` included, is judged by name.
   if (after.some((w) => w.split(/[/:=]/).some(SECRET_NAME))) return false
+  if ((args[i] === 'log' || args[i] === 'show') && !historyPatchRead(args[i], after)) return false
   if (args[i] !== 'diff') return true
   const at = { ...ctx, cwd: dir }
   return repoPath('.', at) && after.every((w) => (w.startsWith('-') && w !== '-') || !GIT_PATHISH.test(w) || repoPath(w, at))
+}
+
+// Patches across history print every committed change, a committed .env
+// included, whatever its name in the command (kit 1.7 review, round 2). So
+// `git log` with -p, --patch or -u, and `git show` of more than one commit
+// (it prints patches unless told not to), are listed reads only with a `--`
+// pathspec that is no glob, no pathspec magic and not the whole tree.
+// `git log --oneline`, --stat, -n and --format stay listed.
+const GIT_PATCH = /^(?:-[a-zA-Z]*[pu][a-zA-Z0-9]*|-U\d*|--patch(?:-with-\w+)?|--unified(?:=\d+)?|--cc)$/
+// The diff formats that replace show's patch (--oneline and --format don't).
+const GIT_NO_PATCH = /^(?:-s|--no-patch|--stat(?:=[\d,]+)?|--shortstat|--numstat|--name-only|--name-status)$/
+function historyPatchRead(sub, words) {
+  const dd = words.indexOf('--')
+  const opts = dd < 0 ? words : words.slice(0, dd)
+  const specs = dd < 0 ? [] : words.slice(dd + 1)
+  const explicit = opts.some((w) => GIT_PATCH.test(w))
+  let patch = explicit
+  if (sub === 'show') {
+    // Blobs (`<rev>:<path>`) aren't commits; a range walks many.
+    const revs = opts.filter((w) => !w.startsWith('-') && !w.includes(':'))
+    const many = revs.length > 1 || revs.some((w) => w.includes('..'))
+    patch = many && (explicit || !opts.some((w) => GIT_NO_PATCH.test(w)))
+  }
+  if (!patch) return true
+  return specs.length > 0 && !specs.some((s) => /[*?[]/.test(s) || s.startsWith(':') || /^\.\/?$/.test(s))
 }
 
 // grep, rg and wc on the repo's own files (kit 1.7, H5): every path inside the

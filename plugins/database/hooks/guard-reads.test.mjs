@@ -133,6 +133,43 @@ describe('H5: the shapes that stay off the list', () => {
     expect(call(cmd)?.decision).not.toBe('allow')
   })
 
+  // Review round 2: patches across history print a committed .env too.
+  it.each([
+    'git log -p',
+    'git log --patch',
+    'git log -u -5',
+    'git log -pn5',
+    'git log -p HEAD~3..HEAD',
+    "git log -p -- '*env*'",
+    'git log -p -- src/*.ts',
+    "git log -p -- ':!src'",
+    'git log -p -- .',
+    'git log --patch-with-stat -- .netrc',
+    'git log -p -- sub/.vercel/x',
+    'git show A B',
+    'git show HEAD~3..HEAD',
+    'git show --oneline A B',
+    'git show -p --stat A B',
+    "git show A B -- '*'",
+  ])('%s is not a listed read (patches across history)', (cmd) => {
+    expect(call(cmd)?.decision).not.toBe('allow')
+  })
+
+  it.each([
+    'git log --oneline -20',
+    'git log --stat -n 5',
+    'git log --format=%H%x09%s main..HEAD',
+    'git log -p -- src/a.ts',
+    'git log -p -3 -- supabase/migrations',
+    'git show HEAD',
+    'git show --stat A B',
+    'git show -s A B',
+    'git show HEAD:src/a.ts HEAD~1:src/a.ts',
+    'git show A B -- src/a.ts',
+  ])('%s stays a listed read', (cmd) => {
+    expect(d(cmd)).toBe('allow')
+  })
+
   it('a diff run from outside the checkout is not a listed read; ranges and repo paths still are', () => {
     expect(d('git diff a b', { cwd: '/tmp' })).not.toBe('allow')
     expect(d('git diff main..HEAD -- ./src')).toBe('allow')
