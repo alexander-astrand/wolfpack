@@ -85,6 +85,9 @@ describe('what is never a go', () => {
     expect(go([typed(command('one-ring', '34; rm -rf /'))])).toBeNull()
     expect(go([typed(command('one-ring', ''))])).toBeNull()
     expect(go([typed(command('one-ring', 'kit'))])).toBeNull()
+    // /one-ring check (kit 1.7) is a read-only look, never a go.
+    expect(go([typed(command('one-ring', 'check 34'))])).toBeNull()
+    expect(go([typed(command('release:one-ring', 'check 0.14.3.1'))])).toBeNull()
   })
 
   it('an assistant line or a tool result quoting it', () => {
