@@ -102,7 +102,7 @@ The plugins carry placeholders; your values live in your project's `.claude/kit.
   "ci": { "workflow": ".github/workflows/ci.yml", "jobs": ["Checks"] },
   "reviewer": "<github handle to tag on release PRs>",
   "conventions": "scripts/conventions.sh",
-  "budgets": { "chris-de-kok": "25M" },
+  "budgets": { "chris-de-kok": "12M" },
   "plans": "~/.claude/plans/myapp/",
   "roadmap": "file",
   "kit": { "version": "1.1.0" }
