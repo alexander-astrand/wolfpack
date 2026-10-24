@@ -259,7 +259,7 @@ describe('C8: the chain arm module', () => {
         const put = (path, text, mode) => { mkdirSync(dirname(join(dir, path)), { recursive: true }); writeFileSync(join(dir, path), text, mode ? { mode } : undefined) }
         const read = (path) => { try { return readFileSync(join(dir, path), 'utf8') } catch { return null } }
         put('scripts/full-auto.sh', readFileSync(script, 'utf8'), 0o755)
-        for (const f of ['chain-arm.mjs', 'production-steps.mjs']) put(`.claude/hooks/${f}`, readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), 'utf8'))
+        for (const f of ['chain-arm.mjs', 'production-steps.mjs', 'read-clock.mjs']) put(`.claude/hooks/${f}`, readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), 'utf8'))
         put('scripts/prod-db.sh', `#!/bin/sh\ncat "$(dirname "$0")/migrations.txt"\n`, 0o755)
         put('scripts/migrations.txt', MIGRATIONS)
         put('bin/gh', `#!/bin/sh\necho '{"number":50,"state":"MERGED","mergeCommit":{"oid":"${'f'.repeat(40)}"}}'\n`, 0o755)
@@ -312,7 +312,7 @@ describe('C8: the chain arm module', () => {
         const put = (path, text, mode) => { mkdirSync(dirname(join(dir, path)), { recursive: true }); writeFileSync(join(dir, path), text, mode ? { mode } : undefined) }
         const read = (path) => { try { return readFileSync(join(dir, path), 'utf8') } catch { return null } }
         put('scripts/full-auto.sh', readFileSync(script, 'utf8'), 0o755)
-        for (const f of ['chain-arm.mjs', 'production-steps.mjs']) put(`.claude/hooks/${f}`, readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), 'utf8'))
+        for (const f of ['chain-arm.mjs', 'production-steps.mjs', 'read-clock.mjs']) put(`.claude/hooks/${f}`, readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), 'utf8'))
         put('scripts/prod-db.sh', `#!/bin/sh\ncat "$(dirname "$0")/migrations.txt"\n`, 0o755)
         put('scripts/migrations.txt', MIGRATIONS)
         put('bin/gh', '#!/bin/sh\necho \'{"number":50,"state":"MERGED"}\'\n', 0o755)
@@ -481,7 +481,7 @@ describe("2.14.6: the arm's ask on a frozen release survives the arm's log rotat
       const put = (path, text, mode) => { mkdirSync(dirname(join(dir, path)), { recursive: true }); writeFileSync(join(dir, path), text, mode ? { mode } : undefined) }
       const read = (path) => { try { return readFileSync(join(dir, path), 'utf8') } catch { return null } }
       put('scripts/full-auto.sh', readFileSync(script, 'utf8'), 0o755)
-      for (const f of ['chain-arm.mjs', 'production-steps.mjs']) put(`.claude/hooks/${f}`, readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), 'utf8'))
+      for (const f of ['chain-arm.mjs', 'production-steps.mjs', 'read-clock.mjs']) put(`.claude/hooks/${f}`, readFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), 'utf8'))
       const chain = newChain(['2.13'], NOW, MAIN, HASH).chain
       put('.claude/full-auto-chain.json', JSON.stringify(chain))
       put('.claude/full-auto-chain.log', `2026-10-01T18:00:00Z\tchain-armed\tV2.13 main ${MAIN.slice(0, 7)}\n`)

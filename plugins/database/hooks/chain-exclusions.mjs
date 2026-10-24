@@ -12,6 +12,11 @@ const NAME = String.raw`${IDENT}(?:\s*\.\s*${IDENT})?`
 
 // Every statement in a migration starts with one of these; anything else means
 // the splitter cut a statement in the wrong place (the 52 test checks it).
+// A verb here is only a shape the splitter knows, not a pass: whether a `drop`
+// may ship with the release is the-playbook's "Expand, then contract" rule
+// (agents/the-playbook.md): a removal or a rename ships a release after the
+// client stops using it. The shape rules below hold a chain to it: a drop
+// passes only when the same migration re-creates what it dropped.
 export const SQL_VERBS = ['alter', 'analyze', 'begin', 'comment', 'commit', 'create', 'delete', 'do', 'drop', 'grant', 'insert', 'lock', 'notify', 'refresh', 'reindex', 'reset', 'revoke', 'security', 'select', 'set', 'truncate', 'update', 'vacuum', 'with']
 
 // Cuts the text into code, strings, quoted identifiers and dollar bodies, with
