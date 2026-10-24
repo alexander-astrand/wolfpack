@@ -39,7 +39,7 @@ Malcolm speaks in three places only: the first message, the "Here's what I think
 | medium | `doc-brown` on the stack, a second on competitors | on (he can switch it off) | to V0.4 | `[budget 40M]` |
 | large | as medium, then a fresh `doc-brown` in check mode checks the claims the stack rests on | on (he can switch it off) | to V1.0 | `[budget 90M]` |
 
-Per spawn: `doc-brown` `[budget 6M]`, then `doc-brown` in check mode `[budget 4M]` (as `/88-mph`), `john-hammond` 4 / 8 / 12M and `dr-house` 2 / 4 / 6M by size.
+Per spawn: `doc-brown` `[budget 6M]`, then `doc-brown` in check mode `[budget 4M]` (as `/88-mph`), `john-hammond` 4 / 8 / 12M and `dr-house` 2 / 4 / 6M by size. These are ceilings for this run, not forecasts: the three agents ran at 0.1 to 0.7M each. The V0.1 plan is sized from the measured per-commit rate, which `john-hammond`'s order carries (`[sizing]` in `${CLAUDE_PLUGIN_ROOT}/lessons-numbers.md` for a project with no history), with its headline the expected spend, not the sum of its tags (kit 1.7, council L5).
 
 ## Packs
 
@@ -146,10 +146,10 @@ After step 7. Read `${CLAUDE_PLUGIN_ROOT}/skills/life-finds-a-way/reference/setu
 The last message: a receipt, not a summary.
 
 - **"N steps were yours, M ran by themselves. Written: K files."** (K counts the project's files and the plans files together; Adopt adds its Written / Skipped list above it.)
-- **Next:** open a new session in the project folder (its absolute path from the brief) and type `/captain-call 0.1 opus`. In adopt, when he skipped the kit.json keys row, add one line: "V0.1.md is at `<plans><project>/V0.1.md`; kit.json doesn't point there yet."
+- **Next, behind one go** (kit 1.7, council M3: never a start for him to type). The receipt asks go or not now on starting V0.1 (the `wrap_up` box, after all its text). On go, this session starts it (`start_session`, initiation "user_asked", `cwd` the project folder from the brief, the brief `/captain-call 0.1 opus`, title `<project> · release · 0.1`, its own worktree; norms.md "Starting sessions") and links it. The receipt's last line is `Next: V0.1 runs to its draft PR (<that title>)`, or without a go, or when the app refuses the start, `Next: say go and I start /captain-call 0.1 opus (Alexander)` (norms.md, "Last line, every final message"). In adopt, when he skipped the kit.json keys row, add one line: "V0.1.md is at `<plans><project>/V0.1.md`; kit.json doesn't point there yet."
 - **When to park it:** the 2–3 triggers from `V0.1.md`, in his words.
-- **The War Room row:** `/mr-miyagi rhythm <project>`, run in `~/dojo`, writes the row with `park_when`.
+- **The War Room row:** sent, not handed to him. This session messages a dojo session to run `/mr-miyagi rhythm <project>`, which writes the row with `park_when` (`send_message` when one fits, else a note in `~/dojo/inbox/`; norms.md, cross-project only through `~/dojo`). The receipt says which it did.
 - **Where it runs:** one line per part (`<part>: Code / Cowork / Chat`).
 - **Checks:** what `scripts/check.sh` runs for the stack; on Other, "Checks: you fill in scripts/check.sh".
 - **Kit:** `kit.version` from kit.json; the kit loads from `~/wolfpack-live` via `CLAUDE_CODE_PLUGIN_DIRS` and moves by `<kit>/scripts/live-sync.sh` (no marketplace refresh).
-- Malcolm, last, once: "Life, uh, found a way."
+- Malcolm, once, just above the `Next:` line: "Life, uh, found a way."
