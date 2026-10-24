@@ -12,6 +12,7 @@ import {
   bareAgentType,
   decide,
   draftDoneReason,
+  followUpBudget,
   kitBudgets,
   parseBudget,
   plansDirFor,
@@ -152,6 +153,32 @@ describe('follow-ups', () => {
     const msg = { type: 'user', message: { role: 'user', content: [{ type: 'text', text: 'Step 2: Hank. [budget 30M]' }] } }
     appendFileSync(join(subDir, 'agent-s1.jsonl'), JSON.stringify(msg) + '\n')
     expect(call('s1', 'chris-de-kok')).toBe('allow')
+  })
+
+  const text = (t) => ({ type: 'user', message: { role: 'user', content: [{ type: 'text', text: t }] } })
+  const write = (id, entries) => appendFileSync(join(subDir, `agent-${id}.jsonl`), entries.map((e) => JSON.stringify(e)).join('\n') + '\n')
+
+  // Kit 1.7: an order that quoted "c-3po: skills-lens <plugin> [budget 4M]" set a 15M builder's cap to 4M.
+  it('never takes the tag from the prompt; the description wins', () => {
+    agent('s2', { type: 'saul-goodman', description: 'saul-goodman: lane B1 [budget 15M]', transcript: false })
+    writeFileSync(join(subDir, 'agent-s2.jsonl'), '')
+    write('s2', [text('Lane B1. The reader is `c-3po: skills-lens <plugin> [budget 4M]`.\nGo.')])
+    spend('s2', 10 * M)
+    expect(call('s2', 'saul-goodman')).toBe('allow') // 10M of 15M, not of 4M
+  })
+
+  it('takes a follow-up tag only when it ends the message', () => {
+    agent('s3', { type: 'saul-goodman', description: 'saul-goodman: step [budget 15M]', tokens: 16 * M })
+    expect(call('s3', 'saul-goodman')).toBe('deny')
+    write('s3', [text('Also look at budget-cap. The reader is [budget 4M] in its row.\nThanks.')])
+    expect(call('s3', 'saul-goodman')).toBe('deny') // a quoted tag changes nothing
+    write('s3', [text('One more item: the tag fix.\n[budget 20M]')])
+    expect(call('s3', 'saul-goodman')).toBe('note') // 16M of 20M: the 80% note, no longer the deny
+  })
+
+  it('reads a follow-up the app wrapped in a system reminder', () => {
+    expect(followUpBudget('<system-reminder>\nFrom captain-call. Add one item. [budget 20M]\n</system-reminder>\nAddress this first.')).toBe(20 * M)
+    expect(followUpBudget('The row says [budget 4M].\nGo.')).toBeNull()
   })
 })
 
