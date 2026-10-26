@@ -1,7 +1,7 @@
 ---
 name: war-room
-description: Alexander's private Projects board and Plan view, a Claude data artifact - one card per project (name, next step, status, planned_for), day/week/month blocks to decide when to work on what, and the week's meter lane. Use to add or update a project row, paste /previously-on's draft rows, write a release's meter share from /inception, or republish the page.
-argument-hint: "[add <name> — <next step> | plan | show]"
+description: Retired 26 Oct 2026 - Alexander's old private Projects board (a Claude data artifact), replaced by Dev HQ in Burrow. Read-only now - show or plan from the old board; every card and meter write goes to the Dev HQ card (norms.md). Use only to read the old board or when Alexander asks about it.
+argument-hint: "[plan | show]"
 model: sonnet
 effort: low
 ---
@@ -21,6 +21,8 @@ war-room · the planning board (Dr. Strangelove: the President in the War Room, 
 - wrap: "Board updated. As you were."
 Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfpack `design` plugin, which ships the card).
 
+**Retired (26 Oct 2026).** Burrow V0.16's Dev HQ page replaces this board (its plan: "it replaces the war-room board"), and the skills now keep the cards there: `/inception`, `/future-ted`, `/previously-on` and `/life-finds-a-way` write the Dev HQ card as norms.md's "Dev HQ card" says. This skill writes nothing any more: `add`, the pasted draft rows and the meter share below are kept as a record only. `show` and `plan` still read the old board until Alexander decides whether to delete the skill and the artifact (asked in the kit PR that retired it; nothing is deleted without his word).
+
 Board: its URL lives in memory, never in the repo; in a session without it, ask Alexander (private: only Alexander reads or writes it).
 
 **Private.** The board lives only in the artifact's db. Never write project names, next steps or meter rows into the repo, a PR, the roadmap page or any file outside `~/.claude/plans/` and the scratchpad; the repo is public. `page.html` beside this file is the template and holds no rows.
@@ -33,17 +35,17 @@ Board: its URL lives in memory, never in the repo; in a session without it, ask 
 
 ## Arguments
 
-- **`add <name> — <next step>`:** with the ArtifactData tool, read `projects/<slug>` first. If it doesn't exist, `set` it with `status: "active"`, `planned_for: ""`, `order` = the highest existing order + 1, `updated_at` now. If it exists, `update` only `next_step` and `updated_at` (a new next step for a known project, not a second card).
+- **`add <name> — <next step>`** (retired: write the Dev HQ card instead, norms.md): was, with the ArtifactData tool, read `projects/<slug>` first. If it doesn't exist, `set` it with `status: "active"`, `planned_for: ""`, `order` = the highest existing order + 1, `updated_at` now. If it exists, `update` only `next_step` and `updated_at` (a new next step for a known project, not a second card).
 - **`plan`:** read the `projects` collection and this week's `meter` doc and say in at most five lines what's placed this week, what's in "This month", what isn't placed, and the meter (used · planned · free). Moving cards is Alexander's, on the page.
 - **`show`** (or nothing): the board URL and one line per active project: name, next step.
 
-## Pasting /previously-on's draft rows
+## Pasting /previously-on's draft rows (retired)
 
-`/previously-on` writes a fenced `war-room` block in `~/pylos/inbox/<date>-<project>-week.md`: a header line, then `name | next step | planned_for` per line. Paste them as **one `batch`** call: per line, `update` on `projects/<slug>` (`next_step`, `planned_for`, `updated_at`) when the doc exists, `set` (with `status: "next"`, `order` after the last) when it doesn't. Read the collection once before building the batch. They're drafts: never overwrite a `status` Alexander set, and skip a line whose project is `done`.
+Since 26 Oct 2026 `/previously-on` writes its own project's Dev HQ card. Before that it wrote a fenced `war-room` block in `~/pylos/inbox/<date>-<project>-week.md`: a header line, then `name | next step | planned_for` per line. Paste them as **one `batch`** call: per line, `update` on `projects/<slug>` (`next_step`, `planned_for`, `updated_at`) when the doc exists, `set` (with `status: "next"`, `order` after the last) when it doesn't. Read the collection once before building the batch. They're drafts: never overwrite a `status` Alexander set, and skip a line whose project is `done`.
 
-## A release's meter share (from /inception)
+## A release's meter share (retired)
 
-After `/inception` stamps a release, it writes the share from the plan's size line (the plan's budget as a percent of the week): read `meter/<yyyy-Www>` for the week the release runs; if it exists, `update` with `planned` = the old list plus `{release: "<version>", share_pct: <n>}` (arrays replace wholesale, so send the whole list; drop an older entry for the same release first); if not, `set` `{used_pct: <meter now>, planned: [{release, share_pct}]}`.
+Since 26 Oct 2026 `/inception` writes the share to Dev HQ's `dev_meter` row. Before that, after `/inception` stamped a release, it wrote the share from the plan's size line (the plan's budget as a percent of the week): read `meter/<yyyy-Www>` for the week the release runs; if it exists, `update` with `planned` = the old list plus `{release: "<version>", share_pct: <n>}` (arrays replace wholesale, so send the whole list; drop an older entry for the same release first); if not, `set` `{used_pct: <meter now>, planned: [{release, share_pct}]}`.
 
 ## Republishing the page
 
