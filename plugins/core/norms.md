@@ -47,6 +47,21 @@ Alexander's notes live in `~/pylos/notes/<project>.md` (`<project>` is `project.
 A skill that uses a note appends ` → <where> (<who>, <YYYY-MM-DD>)` to its line, e.g. `- 2026-10-06 14:15 · Fire is out with smoke above it in light mode. → V3.5.3 card (future-ted, 2026-10-07)`. The pane recognises a used note by exactly that pattern (regex ` → ([^→]+ \([^()]*, [^()]*\))$`), so the comma between who and date is required and `<where>` holds no `→` and no parentheses.
 A line without the mark is an open note. Notes are never deleted, reordered or reworded: appending the mark is the only edit. A note a skill reads but doesn't place stays open for the next one. No file, or no open notes: say so in one line and carry on.
 
+## Dev HQ card
+Every project has a card on Dev HQ, Alexander's private page in Burrow (since Burrow V0.16, 25 Oct 2026; it replaced the `/war-room` board). The hourly sync from Pollux fills each card's `plans`; the hand-set fields are written by the skills at the moment they change (his pick, 26 Oct 2026: "Releases write it"), never by a scheduled task:
+| When | Who | Writes |
+|---|---|---|
+| a plan gets its "Ready to build" stamp | `/inception` | `next_step`, `planned_for`, `status` `active`; the week's `dev_meter` row |
+| the wrap | `/future-ted` | `next_step`, `planned_for` |
+| Sunday's recap | `/previously-on` | `next_step`, `planned_for` (drafts) |
+| a new project's hand-off | `/life-finds-a-way` | the new card, with `park_when` |
+
+- **How:** the Burrow connector (its `find_rows`, `change_row` and `add_row` tools; ToolSearch `select:` loads them by their full names), writing as Alexander. `find_rows` with `kind` `dev_projects` lists every card (about a dozen: read them once); the project's card is the row whose `source` is `project.name` in `.claude/kit.json`, else the one whose `slug` is that name lower-cased with non-letters as `-`. Then `change_row` `kind` `dev_projects`, its `id`, and only the fields named for that skill. The server takes `dev_projects` and `dev_meter` even where a tool's kind list doesn't show them.
+- **Fields:** `next_step` 1-300 characters, plain, no pipes (e.g. `V0.17 · <theme>`, or `/inception 0.17` when the next release isn't planned yet). `planned_for` is a day `yyyy-mm-dd`, an ISO week `yyyy-Www` (e.g. `2026-W44`) or a month `yyyy-mm`, or `null` for not placed. `status` is `active`, `next` or `parked`; only `/inception` sets it (to `active`), and only on a card that isn't `parked`. A skill never writes `name`, `park_when` (outside `/life-finds-a-way`), `plans` or `sort`.
+- **The meter:** `dev_meter` holds one row per ISO week: `week` (`yyyy-Www`), `used_pct` (the weekly all-models meter from `get_usage`), `planned` (a list of `{release, share_pct}`). `find_rows` `kind` `dev_meter` finds the week's row; `change_row` sends the whole `planned` list (it replaces, so drop an older entry for the same release first); with no row yet, `add_row` `{week, used_pct, planned}`. If a write of `planned` is refused, write `used_pct` alone and say so in one line.
+- **Never in the way:** with no connector in the session (the cloud, another machine, a scheduled run without it) or a refused call, say so in one line (`Dev HQ: not written (<why>); next_step would be "<text>"`) and go on. A card write never fails or holds up a release, a wrap or a recap.
+- **Private:** card values live only in Burrow. Never write them into the repo, a PR or the roadmap page; the kit is public.
+
 ## Which Claude for what
 | Mode | When | Type |
 |---|---|---|

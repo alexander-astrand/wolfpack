@@ -1,6 +1,6 @@
 ---
 name: previously-on
-description: The Sunday project recap for Pylos - what shipped this week, the week receipt (share of the weekly meter per project) and next week's draft plan rows for /war-room - written as plain facts to ~/pylos/inbox/<date>-<project>-week.md. Run by a scheduled task on Sundays at 18:30 with this repo as cwd, or by hand.
+description: The Sunday project recap for Pylos - what shipped this week, the week receipt (share of the weekly meter per project) and next week's draft plan rows, written as plain facts to ~/pylos/inbox/<date>-<project>-week.md and as next steps onto the Dev HQ cards in Burrow. Run by a scheduled task on Sundays at 18:30 with this repo as cwd, or by hand.
 model: sonnet
 effort: low
 ---
@@ -22,7 +22,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 **Why Sonnet:** splitting the meter across projects and drafting one sensible next step per project needs a little judgment Haiku gets wrong; it runs once a week, so the cost is small.
 
-**Read-only on the repo.** No git writes, no checkout, no branch change: a chain may be running in this checkout. The receipt script (`<kit>/plugins/core/scripts/week-receipt.mjs`) only reads transcripts and keeps its one receipt a week in `~/.claude/week-receipt/`. The one file you write is the note.
+**Read-only on the repo.** No git writes, no checkout, no branch change: a chain may be running in this checkout. The receipt script (`<kit>/plugins/core/scripts/week-receipt.mjs`) only reads transcripts and keeps its one receipt a week in `~/.claude/week-receipt/`. The one file you write is the note; the one other write is this project's Dev HQ card (step 6).
 
 **Not in it:** AI or Claude Code news. That belongs to a separate Chat scheduled task.
 
@@ -37,8 +37,9 @@ Times are Europe/Stockholm. `<date>` is today and `<monday>` is this week's Mond
    It prints the table (Project, Tokens, Share, Of the meter) and its estimate line, ready to paste. The first project's run of the week counts every folder in `~/.claude/projects/` and keeps the receipt; the other projects' runs within two hours read that one instead of counting again. Only messages inside the week count, worktrees and lanes count to their project, and each model is weighed by its own meter figure (the release plugin's `usage.mjs`, `[meter]`), so the table needs no sums from you.
    `<kit>` is the kit the session loads, the plugin root's parent's parent (`${CLAUDE_PLUGIN_ROOT}/../..`), written out as an absolute path (`~/wolfpack-live` on Alexander's machines): the allow list matches the command as typed (lens Must 6, kit 1.5).
 4. **Check the receipt against the meter:** when step 2 has a figure and the table's All row is more than 10 points away from it, add one line under the table: `The estimate reads <x>%, get_usage <y>%.` Don't rescale the rows.
-5. **Next week's draft rows:** one row per active project (any tokens this week, plus the next one in `~/.claude/plans/projects-after-kit.md` if a slot looks free). This project's next step is the roadmap's next card, read as `groundhog-day` step 3 reads it (the record kit.json's `roadmap` names, never a `project_roadmap.md` memory). `planned_for` is a day next week (`yyyy-mm-dd`), spread so no day gets two big steps. These are drafts: `/war-room` is where the owner keeps or moves them.
-6. **Write** `~/pylos/inbox/<date>-<project>-week.md`, overwriting a note from earlier today. Shape (`~/pylos/routines/daily-note/TEMPLATE.md`), headings in this order:
+5. **Next week's draft rows:** one row per active project (any tokens this week, plus the next one in `~/.claude/plans/projects-after-kit.md` if a slot looks free). This project's next step is the roadmap's next card, read as `groundhog-day` step 3 reads it (the record kit.json's `roadmap` names, never a `project_roadmap.md` memory). `planned_for` is a day next week (`yyyy-mm-dd`), spread so no day gets two big steps. These are drafts: the Dev HQ page in Burrow is where the owner keeps or moves them. Read the cards first (`find_rows` `kind` `dev_projects`, norms.md "Dev HQ card") and leave out a project whose card is `parked`.
+6. **Write this project's row to Dev HQ** (norms.md, "Dev HQ card"): with the cards step 5 read, one `change_row` on **this project's** card with its row's `next_step` and `planned_for` only (when the card's `next_step` already names the same release, as `/inception`'s stamp writes it, keep it and send `planned_for` alone). Every project's own Sunday run writes its own card, so the other rows stay drafts in the note (two runs writing each other's cards would overwrite one another). Never `status`, never a `parked` card, never a new card: no card for this project means the row stays in the note and the line says so. Without the connector, the same.
+7. **Write** `~/pylos/inbox/<date>-<project>-week.md`, overwriting a note from earlier today. Shape (`~/pylos/routines/daily-note/TEMPLATE.md`), headings in this order:
 
 ````
 # <Project> week, <d> – <d> <Month>
@@ -49,11 +50,10 @@ Times are Europe/Stockholm. `<date>` is today and `<monday>` is this week's Mond
 ## Week receipt
 Meter: week 37% (all models) · from get_usage at 18:30 · resets Sat 10 Oct 12:00
 
-## Next week (draft rows for /war-room)
+## Next week (draft rows for Dev HQ)
 ````
 
-   Under Week receipt, after the meter line, the table and estimate line exactly as `week-receipt.mjs` printed them (one row per project, for example `| MyProject | 410.0M | 88% | 33% |`). Under the last heading, a code block tagged `war-room`: a header line `name | next step | planned_for` (a pipe between the three fields), then one project per line in the same shape, for example `MyProject | next release | 2026-10-06`. That block is the contract with `/war-room`: no pipes inside a field. (The pipes belong to the note you write, not to a command you run.)
+   Under Week receipt, after the meter line, the table and estimate line exactly as `week-receipt.mjs` printed them (one row per project, for example `| MyProject | 410.0M | 88% | 33% |`). Under the last heading, a code block tagged `dev-hq`: a header line `name | next step | planned_for` (a pipe between the three fields), then one project per line in the same shape, for example `MyProject | next release | 2026-10-06`. No pipes inside a field. (The pipes belong to the note you write, not to a command you run.) After the block, step 6's result in one line: `Dev HQ: card written` or the norm's not-written line.
+8. **If a step fails** (`gh` not signed in, a transcript folder unreadable), write the note anyway with that section reading `Not available: <the error, one line>`.
 
-7. **If a step fails** (`gh` not signed in, a transcript folder unreadable), write the note anyway with that section reading `Not available: <the error, one line>`.
-
-Report one line: the path written and any section that was unavailable.
+Report one line: the path written, the Dev HQ line, and any section that was unavailable.
