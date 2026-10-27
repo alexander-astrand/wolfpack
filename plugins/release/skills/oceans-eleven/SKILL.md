@@ -116,7 +116,8 @@ Screenshot counts: `web-shooters`' "Shot counts" (one rule for builders, QA, the
 
 **A role that overruns in two releases gets its route changed** (a cheaper model, smaller steps, or a fresh agent per piece), written into this skill by `future-ted` from the PR's budget rows.
 - `jeff-winger` (Burrow V0.12.1 E4, V0.12.2 S3a, V0.14 E1 and R0, each stopped by Hank at its tag): one step per spawn, never a reused agent, and a step that removes a component (its knip chain) sends the removal as its own order first; ticking the PR's boxes stays the navigator's (`gh pr edit` stopped E1).
-- `jesse-pinkman` (Burrow V0.14.3 Q0a 7.1M of 7M; V0.14.4 three taps in one order, 6.9M of 4M): one tap or one component a spawn; three taps in one step are three orders (Routing table, Build).
+- `jesse-pinkman` (Burrow V0.14.3 Q0a 7.1M of 7M; V0.14.4 three taps in one order, 6.9M of 4M): one tap or one component a spawn; three taps in one step are three orders (Routing table, Build). Since Burrow V1.1 (60 turns on two small steps with shots): one step an order when the step takes shots.
+- `troy-and-abed` (Burrow V0.16 shell 12.3M of 12M; V1.1 N8b 11.6M of 10M and C8 15.3M of 15M): one step per spawn, never a reused agent, and a scroll or gesture step (a long list that scrolls, a pinch) is cut in two at `/inception`: the render, then the gesture with its frame proof.
 
 **Sizing `the-playbook`** (Burrow V0.14.4): its new-Claude-function steps ran 1.3 to 2× their tags (11a 13.6M of 8M, 18 16.1M of 8M, three functions in one order 10.4M of 5M) while its migration-only steps landed under. A new function with its prompt, fixtures, tests and a live run sizes ≈ 12M, one function an order.
 
