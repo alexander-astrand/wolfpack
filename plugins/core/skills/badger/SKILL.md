@@ -26,14 +26,16 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 Don't build it, and don't touch the open release's branch. **Never write the checkout and run no git:** only memory, `<plans>` (kit.json `plans`, default `~/.claude/plans/`), your scratchpad and the roadmap, so a drive running beside you finds its checkout untouched.
 
 1. Find the record by `the-trail`'s "Which roadmap is the record" (kit.json `roadmap`: `page`, `file` or `none`; with `none`, ask which project's roadmap it goes on and stop). Read it (the page's cards, or `<plans>roadmap.md`) to find where it fits: a planned release (by theme), a clean-up release, later (V3, V4), open questions, or parked. If it's a bug in the current release's own features, say so instead: those go in the open PR.
-2. **Write one row** on the roadmap page (ArtifactData, the rows and fields are in the `the-trail` skill), never a republish:
+2. **Write the record, then the page, in this turn.** The page follows the record unasked (`the-trail`, "The page follows the record"; `[roadmap-page-same-turn]`): a reply that says "parked" while the page still lacks the idea is not done.
+
+   **With kit.json `roadmap: file`:** first add the idea to `<plans>roadmap.md` in place, one line under its release, "Later" or "Parked" heading (ending "(Alexander, 4 Oct)" or whoever asked), in the shape of its neighbours. Then, when kit.json `pages.roadmap` is set, the same idea goes on that page now: a data page as the rows below, a static page (`pages.roadmapSource` set) by editing its source and republishing to the same URL (`the-trail`, "A static page"). No `pages.roadmap`: the file alone.
+
+   **On a data page** (the record with `roadmap: page`, or the page beside the file), **write one row** (ArtifactData, the rows and fields are in the `the-trail` skill), never a republish:
    - **onto a release:** `get` `cards/<anchor>`, add one `<li>` to its "What's in it" list in `body_html` (ending "(Alexander, 4 Oct)" or whoever asked), `update` `body_html` and `updated_at`;
    - **a new release card:** one `set` `cards/<new-anchor>` with `order` between its neighbours;
    - **parked or an open question:** `get` `sections/parked` (or `sections/open-questions`), add one `.parked-item` (or `.question`) block in the same shape as its neighbours, `update` `body_html` and `updated_at`.
    Then put one dated line in front of `meta/page`'s `revised_html` ("4 Oct 2026 (after `/badger`: …); earlier …") with `str_replace` on the field's first words, never by resending the field (`the-trail` step 5, `[roadmap-page]`). Keep the-trail's style.
 
    **The check** (`the-trail`, "The check: which writes need it"): one idea onto an existing release card is one `body_html` line plus the dated line, so read it back with `get` and stop. A new release card, a parked or open-question section change, or a batch of ideas gets the full card list and `roadmap-check.mjs`, once, after the last write. For a batch, one dated line covers all the ideas ("4 Oct 2026 (after `/badger`: a, b, c)").
-
-   **With kit.json `roadmap: file`** the file is the record, even when `pages.roadmap` is set: add the idea to `<plans>roadmap.md` in place instead, one line under its release, "Later" or "Parked" heading (ending "(Alexander, 4 Oct)" or whoever asked), in the shape of its neighbours.
 3. If the project keeps a `project_roadmap.md` memory (Hutzup does), add it there too with today's date and who asked.
-4. Reply in two lines, as `badger`: where it went and why there. If it's big or changes the release order, don't place it: say so in the reply and end with the question as a numbered pick. Last line, as `plugins/core/norms.md` "Last line" says: `Next: <the step> (<who>)`, or `Next: nothing, done.` Set no timer.
+4. Reply in two lines, as `badger`: where it went (the file, and the page when there is one) and why there. If it's big or changes the release order, don't place it: say so in the reply and end with the question as a numbered pick. Last line, as `plugins/core/norms.md` "Last line" says: `Next: <the step> (<who>)`, or `Next: nothing, done.` Set no timer.
