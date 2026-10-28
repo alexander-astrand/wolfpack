@@ -56,6 +56,21 @@ describe('week-receipt', () => {
     expect(projectOfFolder('-Users-a-pylos')).toBe('pylos')
   })
 
+  it('names a sub-folder by the nearest kit.json above it, never above home', () => {
+    const home = mkdtempSync(join(tmpdir(), 'week-receipt-home-'))
+    const pylos = join(home, 'pylos')
+    mkdirSync(join(pylos, 'bot', '.claude'), { recursive: true })
+    mkdirSync(join(pylos, '.claude'), { recursive: true })
+    writeFileSync(join(pylos, '.claude', 'kit.json'), JSON.stringify({ project: { name: 'dojo' } }))
+    expect(projectOfCwd(join(pylos, 'bot'), home)).toBe('dojo')
+    expect(projectOfCwd(join(pylos, 'bot', '.claude', 'worktrees', 'x'), home)).toBe('dojo')
+    // a home-level kit.json names nothing: the folder's own name stands
+    mkdirSync(join(home, '.claude'), { recursive: true })
+    writeFileSync(join(home, '.claude', 'kit.json'), JSON.stringify({ project: { name: 'home' } }))
+    mkdirSync(join(home, 'loose'))
+    expect(projectOfCwd(join(home, 'loose'), home)).toBe('loose')
+  })
+
   it('tallies every folder once, by project, inside the week', () => {
     const { projects } = fixture()
     const r = receipt({ week: '2026-W43', projectsDir: projects, kit: null })

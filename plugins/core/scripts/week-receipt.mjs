@@ -54,12 +54,18 @@ export function isoWeek(date = new Date()) {
 
 // The project a session's cwd belongs to: a worktree under .claude/worktrees
 // or a lane in <Project>-lanes/ counts to its main checkout, named by that
-// checkout's kit.json project.name when it has one, else its folder's name.
-export function projectOfCwd(cwd) {
+// checkout's kit.json project.name when it has one, else the nearest folder
+// above it with one (Nestor runs in ~/pylos/bot, which is Pylos's), else its
+// folder's name. The walk stops below the home folder.
+export function projectOfCwd(cwd, home = homedir()) {
   let root = cwd.replace(/\/\.claude\/worktrees\/.*$/, '')
   const lane = /^(.*)-lanes\/[^/]+/.exec(root)
   if (lane) root = lane[1]
-  return readKit(root)?.project?.name || basename(root)
+  for (let dir = root; dir !== home && dir !== dirname(dir); dir = dirname(dir)) {
+    const name = readKit(dir)?.project?.name
+    if (name) return name
+  }
+  return basename(root)
 }
 
 // A folder with no cwd in any transcript is named from its own name, as
