@@ -7,7 +7,8 @@
 //          [--releases N] [--dir <transcripts>] [--json] [--write]
 //
 // A release is a session whose command is a release one (captain-call,
-// cattle-drive, night-watch), read from the project's transcript folder with
+// cattle-drive, night-watch), read from the project's transcript folders (its
+// main checkout's and every worktree's) with
 // Skyler's readers (usage.mjs); the last N by start time count (default 5).
 // Per role: the runs, the median, the 90th percentile and the proposal,
 // p90 × 1.3 rounded up to a whole M, at least 2M (the smallest default
@@ -25,7 +26,7 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { ABOVE_CEILING, BUDGET_CEILING, MODEL_DEFAULTS } from '../hooks/budget-cap.mjs'
-import { agentName, projectFolderName, readEntries, sessionCommand, tallyEntries, totalTokens } from './usage.mjs'
+import { agentName, projectFolderName, readEntries, sessionCommand, tallyEntries, totalTokens, transcriptDirs } from './usage.mjs'
 
 const M = 1_000_000
 const RELEASE = /captain-call|cattle-drive|night-watch/
@@ -40,16 +41,22 @@ const firstTime = (entries) => {
   return null
 }
 
-/** The last `n` release sessions in a transcript folder: [{ id, command, start, runs: [{ role, tokens }] }]. */
+/**
+ * The last `n` release sessions in a project's transcript folders (the given
+ * one and its main checkout's and worktrees', usage.mjs transcriptDirs): a
+ * release run from a worktree counts too. [{ id, command, start, runs: [{ role, tokens }] }]
+ */
 export function releaseRuns(dir, n = 5) {
-  let files = []
-  try {
-    files = readdirSync(dir).filter((f) => f.endsWith('.jsonl'))
-  } catch {
-    return []
+  const files = []
+  for (const d of transcriptDirs(dir)) {
+    try {
+      for (const f of readdirSync(d)) if (f.endsWith('.jsonl')) files.push({ dir: d, f })
+    } catch {
+      // a folder gone or unreadable: the others still count
+    }
   }
   const releases = []
-  for (const f of files) {
+  for (const { dir, f } of files) {
     const entries = readEntries(join(dir, f))
     const command = sessionCommand(entries)
     if (!RELEASE.test(command)) continue

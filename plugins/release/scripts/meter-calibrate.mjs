@@ -12,8 +12,16 @@
 // The transcripts are streamed line by line, so gigabytes of them fit in
 // node's default heap.
 //
-//   node meter-calibrate.mjs [--log <file>] [--projects <dir>]
-import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+// A release's own reading is a floor, not a stretch: Skyler's tokens for its
+// sessions over the meter's delta while it ran, with other sessions beside
+// it, so the real figure is at least that. `--floor <label> <tokens> <points>`
+// appends one to ~/.claude/meter-floors.log (Burrow V1.2: 608.5M over 8
+// points), and every run prints them beside the stretches, so a release's
+// reading lands here instead of in a figure edited by hand.
+//
+//   node meter-calibrate.mjs [--log <file>] [--projects <dir>] [--floors <file>]
+//          [--floor <label> <tokens, e.g. 608.5M> <points>]
+import { appendFileSync, createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
@@ -22,6 +30,33 @@ import { parseEntries, tallyEntries, totalTokens } from './usage.mjs'
 
 const DEFAULT_LOG = join(homedir(), '.claude', 'meter-ticks.log')
 const DEFAULT_PROJECTS = join(homedir(), '.claude', 'projects')
+const DEFAULT_FLOORS = join(homedir(), '.claude', 'meter-floors.log')
+
+// "608.5M", "608500000" or "1.2B" as tokens; NaN for anything else.
+export function parseTokens(text) {
+  const m = /^(\d+(?:\.\d+)?)([MB]?)$/i.exec(String(text ?? '').trim())
+  if (!m) return NaN
+  return Number(m[1]) * ({ m: 1e6, b: 1e9 }[m[2].toLowerCase()] ?? 1)
+}
+
+/** One floor row: `<iso time>\t<label>\t<tokens>\t<points>`; throws on a bad reading. */
+export function floorRow(label, tokens, points, at = new Date()) {
+  const t = parseTokens(tokens)
+  const p = Number(points)
+  if (!String(label ?? '').trim() || /[\t\n]/.test(label)) throw new Error('--floor needs a label without tabs, e.g. "Burrow V1.2"')
+  if (!(t > 0)) throw new Error(`--floor needs tokens like 608.5M, got "${tokens}"`)
+  if (!(p > 0)) throw new Error(`--floor needs the meter's delta in points, got "${points}"`)
+  return `${at.toISOString()}\t${label.trim()}\t${t}\t${p}`
+}
+
+/** The floors log's rows, each with its tokens a point; unreadable rows are skipped. */
+export function readFloors(text) {
+  return String(text ?? '')
+    .split('\n')
+    .map((line) => line.split('\t'))
+    .filter((c) => c.length === 4 && !Number.isNaN(Date.parse(c[0])) && Number(c[2]) > 0 && Number(c[3]) > 0)
+    .map(([at, label, tokens, points]) => ({ at, label, tokens: Number(tokens), points: Number(points), perPoint: Number(tokens) / Number(points) }))
+}
 
 // Rows -> weekly stretches: per plan and reset time, the first and last reading.
 export function weeklyStretches(logText) {
@@ -101,6 +136,20 @@ async function main() {
   const opt = (flag, dflt) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : dflt)
   const log = opt('--log', DEFAULT_LOG)
   const projects = opt('--projects', DEFAULT_PROJECTS)
+  const floorsFile = opt('--floors', DEFAULT_FLOORS)
+
+  if (argv.includes('--floor')) {
+    const i = argv.indexOf('--floor')
+    appendFileSync(floorsFile, `${floorRow(argv[i + 1], argv[i + 2], argv[i + 3])}\n`)
+    console.log(`Floor recorded in ${floorsFile}.`)
+  }
+  const floors = existsSync(floorsFile) ? readFloors(readFileSync(floorsFile, 'utf8')) : []
+  const highest = floors.reduce((top, f) => (f.perPoint > (top?.perPoint ?? 0) ? f : top), null)
+  if (floors.length) {
+    console.log('Release floors (Skyler over the meter delta, other sessions beside it: the real figure is at least this):')
+    for (const f of floors) console.log(`  ${f.label}: ${fmtM(f.perPoint)} a point (${fmtM(f.tokens)} over ${f.points} points, ${f.at.slice(0, 10)})`)
+    console.log('')
+  }
 
   if (!existsSync(log)) {
     console.log(`No meter log at ${log}.`)
@@ -136,8 +185,12 @@ async function main() {
     console.log(`20x/5x ratio: ${(perPoint.get('20x') / perPoint.get('5x')).toFixed(2)}`)
   }
   const first = [...perPoint.values()][0]
+  // A stretch under a release's floor missed transcripts (another machine's
+  // sessions, a cloud one): the floor is the better figure then.
+  const pick = highest && highest.perPoint > first ? highest.perPoint : first
+  if (pick !== first) console.log(`\nThe stretches give less than ${highest.label}'s floor (${fmtM(highest.perPoint)}): transcripts are missing from them (another machine, a cloud session), so the floor stands.`)
   console.log(`\nFor kit.json (paste it yourself; this script never writes it):`)
-  console.log(`  "meter": { "tokensPerPoint": { "opus": ${Math.round(first)} } }`)
+  console.log(`  "meter": { "tokensPerPoint": { "opus": ${Math.round(pick)} } }`)
   console.log('All models count together here: a mixed week gives one blended figure.')
 }
 

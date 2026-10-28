@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { budgetRows, budgetTableMarkdown, stepOf, stoppedInLog, stoppedInTranscript, countCalls, hhmm, projectFolderName, readEntries, resolveLocalId, sessionCommand, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
+import { budgetRows, budgetTableMarkdown, stepOf, stoppedInLog, stoppedInTranscript, countCalls, hhmm, projectFolderName, readEntries, resolveLocalId, resolveSession, sessionCommand, tallyEntries, tokensPerPoint, totalTokens, transcriptDirs } from './usage.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
 const line = (id, block) => ({
@@ -48,6 +48,38 @@ describe('resolveLocalId', () => {
 
   it('says so when no file matches', () => {
     expect(() => resolveLocalId('local_nope', base)).toThrow(/No session file for "local_nope"/)
+  })
+})
+
+// Burrow 1.2: the release ran from a worktree, so its transcript sat in
+// `<project>--claude-worktrees-<name>/` and the main folder alone missed it.
+describe('worktree transcript folders', () => {
+  const root = mkdtempSync(join(tmpdir(), 'usage-projects-'))
+  const main = join(root, '-Users-a-Desktop-Burrow')
+  const tree = join(root, '-Users-a-Desktop-Burrow--claude-worktrees-name-map-000f45')
+  const other = join(root, '-Users-a-Desktop-Burrowed')
+  for (const d of [main, tree, other]) mkdirSync(d, { recursive: true })
+  writeFileSync(join(main, 'aaaa1111.jsonl'), '\n')
+  writeFileSync(join(tree, '57fbab9d-a2ef.jsonl'), '\n')
+  mkdirSync(join(tree, '57fbab9d-a2ef', 'subagents'), { recursive: true })
+  writeFileSync(join(tree, '57fbab9d-a2ef', 'subagents', 'agent-x.jsonl'), '\n')
+  writeFileSync(join(other, 'bbbb2222.jsonl'), '\n')
+
+  it("lists the project's folders from any of them, the given one first", () => {
+    expect(transcriptDirs(main)).toEqual([main, tree])
+    expect(transcriptDirs(tree)).toEqual([tree, main])
+  })
+
+  it("finds a session in a worktree's folder from the main one, and the main one's from a worktree", () => {
+    const s = resolveSession(main, '57fbab9d')
+    expect(s).toMatchObject({ id: '57fbab9d-a2ef', dir: tree, subFiles: ['agent-x.jsonl'] })
+    expect(resolveSession(tree, 'aaaa1111').dir).toBe(main)
+    expect(() => resolveSession(main, 'bbbb2222')).toThrow(/or its worktrees' folders/) // another project
+  })
+
+  it('runs Skyler on a worktree session with --dir set to the main folder', () => {
+    const out = JSON.parse(execFileSync(process.execPath, [fileURLToPath(new URL('./usage.mjs', import.meta.url)), '--json', '--dir', main, '57fbab9d'], { encoding: 'utf8' }))
+    expect(out.grandTotal).toBe(0)
   })
 })
 

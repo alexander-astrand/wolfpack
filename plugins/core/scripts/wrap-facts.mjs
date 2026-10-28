@@ -86,9 +86,11 @@ export const sessionIds = (...texts) => [...new Set(texts.join('\n').match(UUID)
 /**
  * The transcript folder that holds a session: the project's own folder or one
  * of its worktrees' (Claude Code names them after the path, so they share its prefix).
+ * Run from a worktree, the prefix is the main checkout's, so its sibling
+ * worktrees count too (Burrow 1.2: 57fbab9d sat in one and needed --dir).
  */
 export function locate(ids, project, projectsDir = join(homedir(), '.claude', 'projects')) {
-  const prefix = project.replace(/[^A-Za-z0-9]/g, '-')
+  const prefix = project.replace(/[^A-Za-z0-9]/g, '-').replace(/--claude-worktrees-.*$/, '')
   let dirs = []
   try {
     dirs = readdirSync(projectsDir).filter((d) => d === prefix || d.startsWith(`${prefix}-`)).map((d) => join(projectsDir, d))
@@ -134,10 +136,14 @@ export async function wrapFacts(version, env = {}) {
   const missing = []
 
   // PRs, read-only
+  // GitHub's search splits "V1.2:" so that "1.2 in:title" misses it (Burrow 1.2,
+  // PR 53): with no hit, the last 100 PRs are read and filtered by titleHas.
   let prs = []
+  const fields = 'number,title,state,isDraft,mergeCommit,createdAt,url'
   try {
-    const list = JSON.parse(gh(['pr', 'list', '--state', 'all', '--search', `${version.replace(/^v/i, '')} in:title`, '--limit', '30', '--json', 'number,title,state,isDraft,mergeCommit,createdAt,url']))
+    const list = JSON.parse(gh(['pr', 'list', '--state', 'all', '--search', `${version.replace(/^v/i, '')} in:title`, '--limit', '30', '--json', fields]))
     prs = list.filter((p) => titleHas(p.title, version))
+    if (!prs.length) prs = JSON.parse(gh(['pr', 'list', '--state', 'all', '--limit', '100', '--json', fields])).filter((p) => titleHas(p.title, version))
   } catch (err) {
     missing.push(`PR list (gh pr list failed: ${String(err.message ?? err).split('\n')[0]})`)
   }
