@@ -54,12 +54,28 @@ export function isoWeek(date = new Date()) {
 
 // The project a session's cwd belongs to: a worktree under .claude/worktrees
 // or a lane in <Project>-lanes/ counts to its main checkout, named by that
-// checkout's kit.json project.name when it has one, else its folder's name.
-export function projectOfCwd(cwd) {
+// checkout's kit.json project.name when it has one, else the nearest folder
+// above it with one (Nestor runs in ~/pylos/bot, which is Pylos's), else its
+// folder's name. The walk stops below the home folder.
+export function projectOfCwd(cwd, home = homedir()) {
   let root = cwd.replace(/\/\.claude\/worktrees\/.*$/, '')
   const lane = /^(.*)-lanes\/[^/]+/.exec(root)
   if (lane) root = lane[1]
-  return readKit(root)?.project?.name || basename(root)
+  for (let dir = root; dir !== home && dir !== dirname(dir); dir = dirname(dir)) {
+    const name = readKit(dir)?.project?.name
+    if (name) return name
+  }
+  return basename(root)
+}
+
+// Folders renamed since their transcripts were written (the name map,
+// ~/pylos/notes/name-map.md), so a project's old and new folders count as one.
+export const RENAMES = { dojo: 'pylos', homelab: 'kastalia', 'fantasy-hq': 'pelion', 'game-night-planning-app': 'hutzup' }
+
+// The one key a project counts under: lower case, old names renamed.
+export function projectKey(name) {
+  const key = String(name).toLowerCase()
+  return RENAMES[key] || key
 }
 
 // A folder with no cwd in any transcript is named from its own name, as
@@ -105,8 +121,11 @@ function weekFiles(dir, start) {
   return files
 }
 
-export function receipt({ week = isoWeek(), projectsDir = join(homedir(), '.claude', 'projects'), kit = readKit() } = {}) {
-  const { start, end } = weekRange(week)
+// `range` ({ start, end } in ms) counts another window than the ISO week,
+// such as the meter's own week from its Saturday reset (Dev HQ's shares);
+// `week` then only names it and its cache file.
+export function receipt({ week = isoWeek(), range = null, projectsDir = join(homedir(), '.claude', 'projects'), kit = readKit() } = {}) {
+  const { start, end } = range || weekRange(week)
   const seen = new Set()
   const by = new Map() // project -> { tokens, points, folders: Set }
   let folders = []
@@ -125,7 +144,7 @@ export function receipt({ week = isoWeek(), projectsDir = join(homedir(), '.clau
       })
       const tally = tallyEntries(inWeek)
       if (!tally.size) continue
-      const name = cwd ? projectOfCwd(cwd) : projectOfFolder(folder)
+      const name = projectKey(cwd ? projectOfCwd(cwd) : projectOfFolder(folder))
       const p = by.get(name) || { tokens: 0, points: 0, folders: new Set() }
       for (const [model, b] of tally) {
         const t = totalTokens(b)
