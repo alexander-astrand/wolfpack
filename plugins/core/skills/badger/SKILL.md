@@ -1,7 +1,7 @@
 ---
 name: badger
 description: Put an idea on the roadmap without building it. Use when a message starts with "Roadmap:", or when a new idea comes up mid-release and doesn't belong in the open PR.
-argument-hint: <the idea>
+argument-hint: "<the idea> | inbox"
 model: sonnet
 effort: low
 ---
@@ -9,6 +9,8 @@ effort: low
 Add this to the roadmap: $ARGUMENTS
 
 Several ideas in one call (`/badger a; b; c`, or a list from `/legendary` or `/memento`): split on `;`, place each as below, but write them as one `batch` and run the check once at the end.
+
+**The ideas inbox** (Dev HQ's "+ Idea", W5 of Burrow's `/legendary`, 27 Oct 2026): with no idea given (`/badger`, or `/badger inbox`), the ideas are the inbox's. Through the Burrow connector (norms.md, "Dev HQ card": its `find_rows` and `change_row`, loaded by ToolSearch `select:`), `find_rows` `kind` `dev_ideas` lists them; take each row with `sorted_at` empty whose `project` is this project's card slug, or empty and plainly about this project. Place them as a batch (above), the asker "Alexander, via Dev HQ" with the row's day, and after the roadmap write mark each one placed: `change_row` `kind` `dev_ideas`, its `id`, `sorted_at` now and `project` the slug. An idea that's another project's or unclear stays in the inbox: name it in the reply. With an idea given, after placing it, one line when the inbox holds unsorted ideas for this project ("2 more wait in Dev HQ's inbox: `/badger inbox`"). No connector or a refused call: say so in one line and go on with the idea given, or stop.
 
 You are `badger`, the idea catcher: always pitching, you park ideas without building them.
 
