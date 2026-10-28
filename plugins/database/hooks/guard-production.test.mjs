@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { CI_WORKFLOW, DEV_REF, PROD_URL, WORST_CASE_MS, decide as guardDecide, maskSecrets, namesProtected, parseShell, readJsonMarker, readRepoState, releasePrFrom } from './guard-production.mjs'
-import { CI_JOBS, allowedCommands, explainSteps, loadKitConfig, parseProductionSteps, prFacts, previewText } from './production-steps.mjs'
+import { CI_JOBS, UNREAD_CHECKBOX, allowedCommands, explainSteps, loadKitConfig, parseProductionSteps, prFacts, previewText, unreadCheckboxes } from './production-steps.mjs'
 
 const PROD = 'prodrefprodrefprodre'
 const OTHER = 'abcdefghijabcdefghij'
@@ -1881,6 +1881,16 @@ describe('2.12.2: steps are list items, and the log reader', () => {
     expect(left.map((l) => l.text)).toEqual(['scripts/prod-db.sh backup <version>', 'scripts/prod-db.sh dry-run', 'supabase secrets set X=1'])
     expect(left[1].why).toMatch(/inside a sentence/)
     expect(left[2].why).toMatch(/human step/)
+  })
+
+  it('names a checkbox it reads no single command from, instead of dropping it (Burrow 1.2)', () => {
+    // PR 53's After merge: one sentence for three deletes, and the deploy ran none of the last two.
+    const sentence = '- [ ] Delete `health-import`, `shortcut-feed` and `note-in` from production, only once the frontend without their cards is live: `supabase functions delete health-import --project-ref <prod-ref>`, then the same for `shortcut-feed` and `note-in`'
+    const body = `## Production steps\n### After merge\n${sentence}\n- [ ] Dry run: \`scripts/prod-db.sh dry-run\` (must list 0052)\n- [ ] \`scripts/prod-db.sh backup 1.2\`, then \`note-in\`\n- [ ] Look at the page\n`
+    const { left } = explainSteps(body, 53)
+    expect(unreadCheckboxes(body, 53)).toEqual([sentence.slice('- [ ] '.length), '`scripts/prod-db.sh backup 1.2`, then `note-in`'])
+    expect(left.filter((l) => l.why === UNREAD_CHECKBOX)).toHaveLength(2) // the dry run and the look are fine as they are
+    expect(previewText(body, 53)).toMatch(/one command per checkbox/)
   })
 
   it('lets ranjit read production logs with query_logs, allowlisted like get_logs', () => {

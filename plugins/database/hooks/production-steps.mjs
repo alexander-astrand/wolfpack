@@ -184,18 +184,34 @@ export function explainSteps(body, pr) {
     // ("Backup: `…`"). A span inside a sentence ("Don't run `…` yet") isn't.
     const step = STEP_RE.exec(line)
     const lead = step && !NEGATED_RE.test(step[1] ?? '') ? step.index + step[0].length : -1
+    let silent = 0
     for (const m of line.matchAll(/`([^`]+)`/g)) {
       const { cmd, why } = classify(normalise(m[1]), pr)
       if (m.index + m[0].length !== lead) {
         // Only worth a line when it reads like a command someone meant as a step.
         if (cmd) left.push({ text: m[1], why: longLabel(line, m.index) ? `its label is over ${LABEL_MAX} characters` : 'inside a sentence, not a step of its own' })
+        else silent++
         continue
       }
       if (cmd && !commands.includes(cmd)) commands.push(cmd)
       else if (why) left.push({ text: m[1], why })
+      else if (!cmd) silent++
     }
+    // A checkbox with a span the reader took nothing from ("…, then the same
+    // for `shortcut-feed` and `note-in`", Burrow 1.2) is named, never dropped
+    // without a word: the deploy skipped those two functions.
+    if (silent && CHECKBOX_RE.test(line)) left.push({ text: line.replace(CHECKBOX_RE, '').trim(), why: UNREAD_CHECKBOX })
   }
   return { commands, left }
+}
+
+// A checkbox list item, the shape the PR template gives each production step.
+const CHECKBOX_RE = /^\s*(?:[-*+]|\d+[.)])\s+\[[ xX]\]\s+/
+export const UNREAD_CHECKBOX = 'a checkbox not read as one command: write one command per checkbox (a short label, a colon, the command as one code span); split it, or move a look to Human steps afterwards'
+
+/** The checkboxes in Before or After merge the reader couldn't read as one command. */
+export function unreadCheckboxes(body, pr) {
+  return explainSteps(body, pr).left.filter((l) => l.why === UNREAD_CHECKBOX).map((l) => l.text)
 }
 
 // A list item (-, *, + or 1.), maybe a checkbox, then an optional short
@@ -684,6 +700,9 @@ function main() {
       process.stderr.write(`${arm.refuse}\n`)
       process.exit(1)
     }
+    // Armed anyway (the guard still asks for what isn't listed), but said out loud.
+    const unread = unreadCheckboxes(facts.body, n)
+    if (unread.length) process.stderr.write(`Not read as a step, so not on the arm list (one command per checkbox):\n${unread.map((t) => `  - ${t}`).join('\n')}\n`)
     const now = Date.now()
     process.stdout.write(JSON.stringify({
       version,

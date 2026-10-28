@@ -6,7 +6,8 @@
 // Usage: node scripts/usage.mjs [--commits N] [--json] [--timeline]
 //          [--chart out.html [--decisions decided.md]] <session-id> [<session-id>…]
 // Session IDs may be given as a prefix, resolved against the transcript
-// directory (derived from process.cwd(), or --dir <path>). A `local_<uuid>` id
+// directory (derived from process.cwd(), or --dir <path>), then the project's
+// main and worktree folders beside it. A `local_<uuid>` id
 // (what get_session self returns) is resolved to its transcript id first.
 //
 // --timeline adds one row per agent (who ran when, on which model, how many
@@ -21,7 +22,7 @@
 // agent is stopped on the same numbers the PR's Usage section shows.
 
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 
@@ -108,11 +109,44 @@ export function resolveLocalId(localId, base = process.env.USAGE_SESSIONS_DIR ||
   throw new Error(`No session file for "${localId}" under ${base}`)
 }
 
-// A session-id prefix's transcript file, and its subagents' files if any.
+// A project's transcript folders, from any one of them: the given folder first,
+// then the main checkout's, then every worktree's and lane's (they share its
+// name as a prefix). A release run from a worktree writes to
+// `<project>--claude-worktrees-<name>/`, which the main folder alone misses
+// (Burrow 1.2: 57fbab9d needed --dir by hand).
+export function transcriptDirs(dir) {
+  const root = dirname(dir)
+  const own = basename(dir).replace(/--claude-worktrees-.*$/, '')
+  let names = []
+  try {
+    names = readdirSync(root, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && (e.name === own || e.name.startsWith(`${own}-`)))
+      .map((e) => e.name)
+      .sort((a, b) => (a === own ? -1 : b === own ? 1 : a.localeCompare(b)))
+  } catch {
+    // no projects folder: only the given one
+  }
+  return [...new Set([dir, ...names.map((n) => join(root, n))])]
+}
+
+const jsonlIn = (dir, idPrefix) => {
+  try {
+    return readdirSync(dir).find((e) => e.startsWith(idPrefix) && e.endsWith('.jsonl'))
+  } catch {
+    return undefined
+  }
+}
+
+// A session-id prefix's transcript file, and its subagents' files if any. The
+// given folder is read first, then the project's other folders (transcriptDirs).
 export function resolveSession(dir, idPrefix) {
   if (/^local_/.test(idPrefix)) idPrefix = resolveLocalId(idPrefix)
-  const match = readdirSync(dir).find((e) => e.startsWith(idPrefix) && e.endsWith('.jsonl'))
-  if (!match) throw new Error(`No session transcript matching "${idPrefix}" in ${dir}`)
+  let match = jsonlIn(dir, idPrefix)
+  if (!match) {
+    const other = transcriptDirs(dir).slice(1).find((d) => jsonlIn(d, idPrefix))
+    if (other) [dir, match] = [other, jsonlIn(other, idPrefix)]
+  }
+  if (!match) throw new Error(`No session transcript matching "${idPrefix}" in ${dir} or its worktrees' folders`)
   const id = match.slice(0, -'.jsonl'.length)
   const subDir = join(dir, id, 'subagents')
   let subFiles = []
@@ -121,7 +155,7 @@ export function resolveSession(dir, idPrefix) {
   } catch {
     // no subagents directory: a session can run with none
   }
-  return { id, mainFile: join(dir, match), subDir, subFiles }
+  return { id, dir, mainFile: join(dir, match), subDir, subFiles }
 }
 
 // A subagent's sibling .meta.json ({agentType, description, …}), or {}.
@@ -404,10 +438,10 @@ function guessHankLog(baseDir, id) {
 export function budgetRows(baseDir, sessionIds, { budgets, hankLog = null } = {}) {
   const out = []
   for (const prefix of sessionIds) {
-    const { id, subDir, subFiles } = resolveSession(baseDir, prefix)
+    const { id, dir, subDir, subFiles } = resolveSession(baseDir, prefix)
     let logText = ''
     try {
-      logText = readFileSync(hankLog ?? guessHankLog(baseDir, id), 'utf8')
+      logText = readFileSync(hankLog ?? guessHankLog(dir, id), 'utf8')
     } catch {
       // no log: the transcripts still show a deny
     }

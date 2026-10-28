@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { tokensInStretches, weeklyStretches } from './meter-calibrate.mjs'
+import { floorRow, parseTokens, readFloors, tokensInStretches, weeklyStretches } from './meter-calibrate.mjs'
 
 describe('tokensInStretches', () => {
   it('streams the transcripts and counts a message once per stretch', async () => {
@@ -40,5 +40,29 @@ describe('weeklyStretches', () => {
       `2026-10-02T12:00:00Z\tseven_day\t4\t6\t2026-10-17T10:00:00.000Z`,
     ].join('\n')
     expect(weeklyStretches(log).map((s) => s.plan)).toEqual(['5x', '20x'])
+  })
+})
+
+// Burrow V1.2: Skyler 608.5M for the release's sessions while the meter moved 8 points.
+describe('release floors', () => {
+  it('reads tokens as M, B or a plain number', () => {
+    expect(parseTokens('608.5M')).toBe(608_500_000)
+    expect(parseTokens('1.2b')).toBe(1_200_000_000)
+    expect(parseTokens('46000000')).toBe(46_000_000)
+    expect(parseTokens('lots')).toBeNaN()
+  })
+
+  it('writes a row the reader gives back with its tokens a point', () => {
+    const row = floorRow('Burrow V1.2', '608.5M', '8', new Date('2026-10-28T12:00:00Z'))
+    expect(row).toBe('2026-10-28T12:00:00.000Z\tBurrow V1.2\t608500000\t8')
+    const [f] = readFloors(`${row}\nnot a row\n`)
+    expect(f).toMatchObject({ label: 'Burrow V1.2', points: 8 })
+    expect(f.perPoint).toBeCloseTo(76_062_500)
+  })
+
+  it('refuses a reading it could not use', () => {
+    expect(() => floorRow('Burrow V1.2', 'lots', 8)).toThrow(/tokens like 608.5M/)
+    expect(() => floorRow('Burrow V1.2', '608.5M', 0)).toThrow(/delta in points/)
+    expect(() => floorRow('', '608.5M', 8)).toThrow(/label/)
   })
 })

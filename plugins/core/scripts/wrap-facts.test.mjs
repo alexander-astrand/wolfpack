@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { findUsage, reworkCandidates, sessionIds, titleHas, wrapFacts } from './wrap-facts.mjs'
+import { findUsage, locate, reworkCandidates, sessionIds, titleHas, wrapFacts } from './wrap-facts.mjs'
 
 const SID = '0f1e2d3c-1111-4222-8333-944455556666'
 const DEPLOY = 'aaaabbbb-1111-4222-8333-944455556666'
@@ -85,6 +85,32 @@ describe('wrap-facts', () => {
     expect(out.timeline).toHaveLength(1)
     expect(out.timeline[0]).toMatch(/^Wall-clock 0f1e2d3c/)
     expect(out.missing.join('\n')).toContain(`transcripts for ${DEPLOY}`)
+  })
+
+  it("falls back to the last 100 PRs when GitHub's search misses a title like V1.2: Dev HQ (Burrow 1.2)", async () => {
+    const { project, projects } = fixture()
+    const calls = []
+    const pr = { number: 53, title: 'V1.2: Dev HQ, grown up, and Food, revisited', state: 'OPEN', isDraft: true, mergeCommit: null, createdAt: '2026-10-27T07:00:00Z', url: 'u53' }
+    const fake = (args) => {
+      calls.push(args.join(' '))
+      if (args[1] === 'list') return JSON.stringify(args.includes('--search') ? [] : [pr, { ...pr, number: 52, title: 'V1.2.1: a patch' }])
+      return JSON.stringify({ body: '', comments: [], commits: [] })
+    }
+    const out = await wrapFacts('1.2', { project, gh: fake, projectsDir: projects, resolveLocal: (id) => id })
+    expect(out.prs.map((p) => p.number)).toEqual([53])
+    expect(calls.filter((c) => c.startsWith('pr list'))).toHaveLength(2)
+    expect(calls[1]).toMatch(/--limit 100/)
+    expect(out.missing.join('\n')).not.toMatch(/a PR whose title/)
+  })
+
+  it("finds a session in a sibling worktree's transcript folder when run from a worktree (Burrow 1.2)", () => {
+    const root = mkdtempSync(join(tmpdir(), 'wrap-facts-projects-'))
+    const tree = join(root, '-Users-a-Desktop-Burrow--claude-worktrees-name-map-000f45')
+    mkdirSync(tree)
+    writeFileSync(join(tree, `${SID}.jsonl`), '\n')
+    const fromWrap = locate([SID], '/Users/a/Desktop/Burrow/.claude/worktrees/wrap-1-2-xyz', root)
+    expect(fromWrap.found).toEqual([{ id: SID, dir: tree }])
+    expect(locate([SID], '/Users/a/Desktop/Burrow', root).found).toHaveLength(1)
   })
 
   it('says what is missing when gh fails, instead of failing', async () => {

@@ -58,6 +58,15 @@ describe('budgets-derive', () => {
     expect(rows.find((r) => r.role === 'c-3po').runs).toBe(3) // the wilson session's 9M isn't a release
   })
 
+  it("counts a release run from a worktree, whose transcript sits in the worktree's folder", () => {
+    const main = folder(sessions.slice(0, 2))
+    const tree = `${main}--claude-worktrees-v1-2-abc123`
+    mkdirSync(tree)
+    writeFileSync(join(tree, 'r9.jsonl'), `${JSON.stringify({ type: 'user', timestamp: '2026-10-27T08:00:00Z', message: { content: '<command-name>/release:captain-call</command-name>' } })}\n`)
+    expect(releaseRuns(main, 5).map((r) => r.id)).toEqual(['r1', 'r2', 'r9'])
+    expect(releaseRuns(tree, 5).map((r) => r.id)).toEqual(['r1', 'r2', 'r9'])
+  })
+
   it('proposes nothing under three runs, and can go below the default down to 2M', () => {
     const rows = derive(releaseRuns(folder(sessions), 5))
     expect(rows.find((r) => r.role === 'saul-goodman')).toMatchObject({ runs: 1, proposed: null })
