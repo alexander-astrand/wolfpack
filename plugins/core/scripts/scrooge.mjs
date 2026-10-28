@@ -106,6 +106,8 @@ export function readFreeTiers(text, today, file, project) {
     rows: 0,
     usageRows: 0,
     flags: [],
+    // every row as { service (its ## heading), limit, value, pct (0-100 or null) }: Dev HQ's tiers part
+    limits: [],
   }
   for (const t of tables(text)) {
     const value = col(t.header, /^(value|limit value|free limit)$/)
@@ -126,6 +128,7 @@ export function readFreeTiers(text, today, file, project) {
       }
       const said = line.match(/(\d+(?:[.,]\d+)?)\s*%\s*of the (?:free )?limit/i)
       if (pct == null && said) pct = Number(said[1].replace(',', '.')) / 100
+      summary.limits.push({ service: t.section, limit: r[0], value: value >= 0 ? (r[value] ?? '') : '', pct: pct == null ? null : Math.round(pct * 1000) / 10 })
       if (pct != null) {
         summary.usageRows++
         if (pct >= USAGE_FLAG) summary.flags.push({ kind: 'usage', what, pct: Math.round(pct * 1000) / 10 })

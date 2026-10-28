@@ -105,8 +105,11 @@ function weekFiles(dir, start) {
   return files
 }
 
-export function receipt({ week = isoWeek(), projectsDir = join(homedir(), '.claude', 'projects'), kit = readKit() } = {}) {
-  const { start, end } = weekRange(week)
+// `range` ({ start, end } in ms) counts another window than the ISO week,
+// such as the meter's own week from its Saturday reset (Dev HQ's shares);
+// `week` then only names it and its cache file.
+export function receipt({ week = isoWeek(), range = null, projectsDir = join(homedir(), '.claude', 'projects'), kit = readKit() } = {}) {
+  const { start, end } = range || weekRange(week)
   const seen = new Set()
   const by = new Map() // project -> { tokens, points, folders: Set }
   let folders = []

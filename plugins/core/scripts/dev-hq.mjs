@@ -2,8 +2,8 @@
 // The kit's Dev HQ feed: the parts of Burrow's `dev-in` body only the kit can
 // read, sent with the machine's own report (Burrow's /legendary of 27 Oct,
 // the kit card: W2 sessions, C8 links, W9 team; W4's shares and readings ride
-// along). Burrow's `scripts/dev-hq/README.md` ("The kit's parts (V1.2)") is
-// the contract.
+// along; the tiers part followed on 28 Oct). Burrow's `scripts/dev-hq/README.md`
+// ("The kit's parts (V1.2)") is the contract.
 //
 //   node dev-hq.mjs hook             a Claude Code hook (stdin): notes the
 //                                    session's state or a publish's link in the
@@ -33,6 +33,7 @@ import { homedir, hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { agentName, dropCounted, parseEntries, sessionCommand, tallyEntries, totalTokens } from '../../release/scripts/usage.mjs'
+import { firstNumber, scan as scrooge } from './scrooge.mjs'
 import { cachedReceipt, projectOfCwd } from './week-receipt.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -53,6 +54,8 @@ export function paths(env = process.env, home = homedir()) {
     projects: env.DEV_HQ_PROJECTS || join(home, '.claude', 'projects'),
     meterNow: join(home, '.claude', 'meter-now.json'),
     meterTicks: join(home, '.claude', 'meter-ticks.log'),
+    // the Pylos roll call's word on each app session (keyed by its local_ id)
+    rollCall: env.DEV_HQ_ROLL_CALL || join(home, '.claude', 'stalled', 'state.json'),
   }
 }
 
@@ -155,12 +158,29 @@ const projectOf = (cwd) => {
   return p || null
 }
 
+// Waiting on him: the turn's wrap-up asked him something (needsUser), the app
+// stopped a turn for him, or the roll call says waiting or stalled about this
+// same activity. A wrap-up is the latest turn's only when no prompt came after
+// that turn's edge (the hooks see each prompt). Idle with nothing asked is not
+// waiting (Alexander, 28 Oct: "Heaps of these are stale, needs fixing.").
+export function waitsOnHim(s, hook, roll) {
+  if (s.interruptedAwaitingPerson) return true
+  const edge = Number(s.lastTurnEdgeAt)
+  const promptedSince = hook?.state === 'running' && Date.parse(hook.at) > edge + MIN
+  if (s.turnWrapUp?.needsUser && Number.isFinite(edge) && !promptedSince) return true
+  return (roll?.status === 'waiting' || roll?.status === 'stalled') && Math.abs(Date.parse(roll.lastActivityAt) - Number(s.lastActivityAt)) < 1000
+}
+
 // This machine's sessions: the desktop app's own list (titles, archived) with
-// the hooks' word on running or waiting. Open and seen in the last day:
-// running while a turn runs, else waiting on him; archived in the last day:
-// done. With the app's list read, the list is full, so dev-in ends the rest.
-export function sessionsPart({ app, spool, now = Date.now() }) {
+// the hooks' word on a running turn. Running while a turn runs; waiting when
+// it asked him something (waitsOnHim, kept a week); any other open session
+// seen in the last day is done as of its last activity (it runs again when he
+// types in it); archived in the last day: done. With the app's list read, the
+// list is full, so dev-in ends the rest. A session only the hooks know (the
+// terminal, delphi) is done once its hooks are six hours quiet.
+export function sessionsPart({ app, spool, rollCall = null, now = Date.now() }) {
   const hooks = readJson(join(spool, 'sessions.json'), {})
+  const roll = rollCall ? readJson(rollCall, {}) : {}
   const fromApp = appSessions(app)
   const list = []
   const seen = new Set()
@@ -173,9 +193,11 @@ export function sessionsPart({ app, spool, now = Date.now() }) {
       if (now - last > DAY) continue
       state = 'done'
     } else {
-      if (now - last > DAY) continue
       const busy = hook?.state === 'running' && now - Math.max(last, Date.parse(hook.at)) < 30 * MIN
-      state = busy || now - last < 2 * MIN ? 'running' : hook?.state === 'done' ? 'done' : 'waiting'
+      if (busy || now - last < 2 * MIN) state = 'running'
+      else if (waitsOnHim(s, hook, roll[s.sessionId])) state = 'waiting'
+      else state = 'done'
+      if (now - last > (state === 'waiting' ? 7 * DAY : DAY)) continue
     }
     const started = Number(s.createdAt) || last
     list.push({
@@ -192,13 +214,14 @@ export function sessionsPart({ app, spool, now = Date.now() }) {
   for (const [ref, h] of Object.entries(hooks)) {
     if (seen.has(ref) || !/^[^\s]{1,80}$/.test(ref)) continue
     const project = projectOf(h.cwd)
+    const state = now - Date.parse(h.at) > 6 * HOUR ? 'done' : h.state
     list.push({
       ref,
       project,
       title: `${project || 'session'} · ${basename(h.cwd || '') || 'terminal'}`.slice(0, 120),
-      state: h.state,
+      state,
       started_at: null,
-      ended_at: h.state === 'done' ? h.at : null,
+      ended_at: state === 'done' ? h.at : null,
       _last: Date.parse(h.at),
     })
   }
@@ -426,22 +449,39 @@ function markSent(spool, urls) {
 
 // --- the week (W4): shares and readings --------------------------------------------------
 
-// This week's share of the meter per project, from the week receipt (cached two hours).
-export function sharesPart(receipt) {
+// The account's seven-day reset as of 28 Oct 2026 (Saturdays 10:00 UTC): the
+// week a machine without the tower's files (delphi) counts its shares in.
+const RESET_ANCHOR = Date.parse('2026-10-31T10:00:00.000Z')
+
+// The meter's own week, { start, end } in ms: from meter-now.json's
+// seven_day reset when this machine has one, else the anchor's weekday, so
+// Pollux and delphi count the same seven days.
+export function meterWeek(meterNow, now = Date.now()) {
+  const saved = readJson(meterNow, null)
+  let end = Date.parse((saved?.rate_limits || []).find((r) => r.kind === 'seven_day')?.resetsAt)
+  if (!Number.isFinite(end)) end = RESET_ANCHOR
+  // on the same weekly beat, the first reset after now
+  end -= Math.floor((end - now - 1) / (7 * DAY)) * 7 * DAY
+  return { start: end - 7 * DAY, end }
+}
+
+// Each project's slice of the meter over the meter's own week (Saturday's
+// reset on, not Monday's), from the week receipt run over that week. Burrow
+// scales the slices to the meter's used % across machines, so only their
+// proportions count (Alexander, 28 Oct: "The usage numbers don't add up either").
+export function sharesPart(receipt, resetsAt) {
   const rows = (receipt?.projects || [])
     .map((p) => ({ project: String(p.name).toLowerCase().slice(0, 60), pct: Math.round(Math.min(100, p.meterPct) * 10) / 10 }))
     .filter((s) => s.project && s.pct >= 0.1)
-  return rows.length ? rows.slice(0, 50) : null
+  return rows.length ? { resets_at: iso(resetsAt), list: rows.slice(0, 50) } : null
 }
 
-// The weekly meter since its last reset: the tick log's seven_day lines and
-// meter-now.json, newest 1000.
+// Every seven_day reading the tick log holds (it starts 8 Oct 2026) and
+// meter-now.json's, each with the reset it counts toward, so dev-in files it
+// under the meter's week, not the calendar's. At most 1000: each change of
+// the pct and the last reading before each reset, newest kept.
 export function readingsPart({ meterNow, meterTicks, now = Date.now() }) {
-  const out = new Map()
-  const saved = readJson(meterNow, null)
-  const week = (saved?.rate_limits || []).find((r) => r.kind === 'seven_day')
-  const reset = Date.parse(week?.resetsAt)
-  const since = Number.isFinite(reset) ? reset - 7 * DAY : now - 7 * DAY
+  const all = []
   let lines = []
   try {
     lines = readFileSync(meterTicks, 'utf8').split('\n')
@@ -449,14 +489,108 @@ export function readingsPart({ meterNow, meterTicks, now = Date.now() }) {
     // no tick log on this machine
   }
   for (const l of lines) {
-    const [at, kind, , pct] = l.split('\t')
-    const t = Date.parse(at)
-    const n = Number(pct)
-    if (kind === 'seven_day' && t >= since && t <= now && Number.isFinite(n) && n >= 0 && n <= 100) out.set(iso(t), n)
+    const [at, kind, , pct, resets] = l.split('\t')
+    all.push({ t: Date.parse(at), kind, pct: Number(pct), r: Date.parse(resets) })
   }
-  if (week && Date.parse(saved.at) >= since && Number.isFinite(Number(week.percentUsed))) out.set(iso(Date.parse(saved.at)), Number(week.percentUsed))
-  const list = [...out.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([at, pct]) => ({ at, pct }))
+  const saved = readJson(meterNow, null)
+  const week = (saved?.rate_limits || []).find((r) => r.kind === 'seven_day')
+  if (week) all.push({ t: Date.parse(saved.at), kind: 'seven_day', pct: Number(week.percentUsed), r: Date.parse(week.resetsAt) })
+  const ok = all
+    .filter((x) => x.kind === 'seven_day' && x.t <= now && x.t <= x.r && x.t > x.r - 7 * DAY && Number.isFinite(x.pct) && x.pct >= 0 && x.pct <= 100)
+    .sort((a, b) => a.t - b.t)
+  const keep = []
+  ok.forEach((x, i) => {
+    const prev = ok[i - 1]
+    const next = ok[i + 1]
+    const changed = !prev || prev.r !== x.r || prev.pct !== x.pct
+    const lastOfWeek = !next || next.r !== x.r
+    if ((changed || lastOfWeek) && keep.at(-1)?.t !== x.t) keep.push(x)
+  })
+  const list = keep.map((x) => ({ at: iso(x.t), pct: x.pct, resets_at: iso(x.r) }))
   return list.length ? list.slice(-1000) : null
+}
+
+// --- free tiers and trials ---------------------------------------------------------------
+
+const RATE = /\/\s*(month|day)\b|\b(?:per|a) (?:month|day)\b|\b(?:monthly|daily)\b/i
+const firstClause = (v) => String(v ?? '').split(/ \(|\. |, |; /)[0].trim()
+
+// One service's binding limit: the first row whose value is a monthly or daily
+// number ("Private repos, minutes: 2,000 / month"), else one whose name says
+// so ("Emails per day: 100"), else the first with a number. A row that only
+// says our usage ("Burrow's use: … ≈ 2.4 % of the limit") is no limit.
+function bindingLimit(rows) {
+  const numbered = rows.filter((r) => !/%\s*of the/i.test(r.value) && /\d/.test(firstClause(r.value)))
+  const r = numbered.find((x) => RATE.test(firstClause(x.value))) || numbered.find((x) => RATE.test(x.limit)) || numbered[0]
+  return r ? { ...r, text: `${r.limit.replace(/\s*\([^)]*\)/g, '')}: ${firstClause(r.value)}` } : null
+}
+
+// Dev HQ's free tiers and trials, from scrooge's scan: each open trial with
+// its end, and one row per service across every project's free-tiers.md (by
+// its heading, the same service once), never one per limit. A row's pct is the
+// highest usage any project recorded for it, else null (Burrow shows "not
+// reported"); GitHub Actions takes this month's minutes from gh when it can
+// (Alexander, 28 Oct: "In usage free tiers and trials are not seeded, we have
+// several of those and I want them in there.").
+export function tiersPart(scan, { actionsMinutes = null } = {}) {
+  if (!scan) return null
+  const list = []
+  for (const t of scan.trials || []) {
+    if (!t.ends || t.status === 'ended') continue
+    const card = /^yes/i.test(t.card) ? 'Card on file' : /^no/i.test(t.card) ? 'No card on file' : 'Card unknown'
+    list.push({ kind: 'trial', name: String(t.service).slice(0, 80), pct: null, detail: `${card}. ${t.atEnd ? `At the end: ${t.atEnd}` : ''}`.trim().slice(0, 200), ends_on: t.ends })
+  }
+  const services = new Map()
+  for (const f of scan.freeTiers || []) {
+    for (const l of f.limits || []) {
+      if (!l.service) continue
+      const key = l.service.replace(/\s*\(.*$/, '').trim().toLowerCase()
+      // "CoinGecko (Demo API, free; added at the V0.7 wrap)" is "CoinGecko (Demo API, free)"
+      const s = services.get(key) || { name: l.service.replace(/;[^)]*\)/, ')').slice(0, 80), rows: [] }
+      s.rows.push(l)
+      services.set(key, s)
+    }
+  }
+  for (const [key, s] of services) {
+    const limit = bindingLimit(s.rows)
+    const used = s.rows.map((r) => r.pct).filter((p) => p != null)
+    let pct = used.length ? Math.min(100, Math.max(...used)) : null
+    let detail = limit?.text ?? null
+    const cap = limit ? firstNumber(limit.value) : null
+    if (key === 'github actions' && actionsMinutes != null && cap) {
+      pct = Math.min(100, Math.round((actionsMinutes / cap) * 1000) / 10)
+      detail = `${Math.round(actionsMinutes).toLocaleString('en-US')} of ${cap.toLocaleString('en-US')} minutes this month`
+    }
+    list.push({ kind: 'usage', name: s.name, pct, detail: detail ? detail.slice(0, 200) : null, ends_on: null })
+  }
+  return { full: true, list: list.slice(0, 100) }
+}
+
+// This month's Actions minutes from GitHub's billing report, at most hourly.
+// The report needs gh's `user` scope; without it there's nothing (null), quietly.
+function actionsMinutes(spool, now) {
+  const file = join(spool, 'actions.json')
+  const cached = readJson(file, null)
+  if (cached && now - Date.parse(cached.at) < HOUR) return cached.minutes
+  const gh = (args) => spawnSync('gh', args, { encoding: 'utf8', timeout: 15_000 })
+  let minutes = null
+  const login = gh(['api', 'user', '--jq', '.login'])
+  const user = login.status === 0 ? login.stdout.trim() : ''
+  if (/^[\w-]{1,39}$/.test(user)) {
+    const r = gh(['api', `/users/${user}/settings/billing/usage`])
+    try {
+      const month = iso(now).slice(0, 7)
+      if (r.status === 0) {
+        minutes = (JSON.parse(r.stdout).usageItems || [])
+          .filter((i) => i.product === 'actions' && /minute/i.test(i.unitType) && String(i.date).startsWith(month))
+          .reduce((n, i) => n + (Number(i.quantity) || 0), 0)
+      }
+    } catch {
+      // an answer of another shape: nothing
+    }
+  }
+  writeJson(file, { at: iso(now), minutes })
+  return minutes
 }
 
 // --- the POST ----------------------------------------------------------------------------
@@ -474,21 +608,34 @@ export function senderFoldsSpool(sender) {
   }
 }
 
-export function parts(p, { now = Date.now(), backfill = false } = {}) {
+// Every part this machine can send, as one plain object: the hooks' push and
+// Burrow's pollux-send.sh (which runs `dev-hq.mjs parts`) both take it whole.
+export function parts(p, { now = Date.now(), backfill = false, host = hostname() } = {}) {
   if (backfill) for (const l of publishesIn(p.projects, now)) addLink(p.spool, l)
+  const range = meterWeek(p.meterNow, now)
   let receipt = null
   try {
-    // its own cache: the Sunday recap's receipt stays the recap's (week-receipt's cliReceipt)
-    receipt = cachedReceipt({ projectsDir: p.projects, cacheDir: join(p.spool, 'receipt') })
+    // its own cache, one file per meter week: the Sunday recap's receipt stays the recap's (week-receipt's cliReceipt)
+    receipt = cachedReceipt({ week: `meter-${iso(range.end).slice(0, 13)}`, range, projectsDir: p.projects, cacheDir: join(p.spool, 'receipt') })
   } catch {
     // no transcripts here: no shares
   }
+  let tiers = null
+  // the ledgers live on Pollux; delphi sends none, so its push never empties his list
+  if (!/delphi/i.test(host)) {
+    try {
+      tiers = tiersPart(scrooge({ home: p.home, desktop: join(p.home, 'Desktop'), today: iso(now).slice(0, 10) }), { actionsMinutes: actionsMinutes(p.spool, now) })
+    } catch {
+      // no ledgers here: no tiers
+    }
+  }
   const out = {
-    sessions: sessionsPart({ app: p.app, spool: p.spool, now }),
+    sessions: sessionsPart({ app: p.app, spool: p.spool, rollCall: p.rollCall, now }),
     team: cachedTeam(p, now),
     links: linksPart(p.spool),
-    shares: sharesPart(receipt),
+    shares: sharesPart(receipt, range.end),
     readings: readingsPart({ meterNow: p.meterNow, meterTicks: p.meterTicks, now }),
+    tiers,
   }
   for (const k of Object.keys(out)) if (out[k] == null) delete out[k]
   return out
@@ -582,7 +729,7 @@ async function main(argv) {
       if (flag('--dry-run')) console.log(JSON.stringify(body, null, 2))
       else {
         const n = (k) => (Array.isArray(body[k]) ? body[k].length : Array.isArray(body[k]?.list) ? body[k].list.length : 0)
-        console.log(`dev-in took it: sessions ${n('sessions')}, team ${n('team')}, links ${n('links')}, shares ${n('shares')}, readings ${n('readings')}${answer?.notes?.length ? `; notes: ${answer.notes.join('; ')}` : ''}`)
+        console.log(`dev-in took it: sessions ${n('sessions')}, team ${n('team')}, links ${n('links')}, shares ${n('shares')}, readings ${n('readings')}, tiers ${n('tiers')}${answer?.notes?.length ? `; notes: ${answer.notes.join('; ')}` : ''}`)
       }
     } finally {
       if (i >= 0) writeJson(join(p.spool, 'pending.json'), { at: new Date(0).toISOString() })
