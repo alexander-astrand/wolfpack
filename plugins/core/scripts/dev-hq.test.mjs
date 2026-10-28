@@ -222,6 +222,24 @@ describe('the week', () => {
     expect(sharesPart(null, Date.parse(RESET))).toBe(null)
   })
 
+  it('shares sum a project\'s old and new folders under one key (the name map)', () => {
+    const projects = [
+      { name: 'pylos', meterPct: 10 },
+      { name: 'dojo', meterPct: 5 },
+      { name: 'pelion', meterPct: 3 },
+      { name: 'fantasy-hq', meterPct: 2 },
+      { name: 'HutzUp', meterPct: 4 },
+      { name: 'game-night-planning-app', meterPct: 1 },
+      { name: 'homelab', meterPct: 2.5 },
+    ]
+    expect(sharesPart({ projects }, Date.parse(RESET)).list).toEqual([
+      { project: 'pylos', pct: 15 },
+      { project: 'pelion', pct: 5 },
+      { project: 'hutzup', pct: 5 },
+      { project: 'kastalia', pct: 2.5 },
+    ])
+  })
+
   it('the meter\'s week runs from Saturday\'s reset, also where meter-now.json is missing (delphi) or old', () => {
     const root = tmp()
     const meterNow = join(root, 'meter-now.json')

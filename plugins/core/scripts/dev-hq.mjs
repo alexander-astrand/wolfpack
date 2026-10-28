@@ -34,7 +34,7 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { agentName, dropCounted, parseEntries, sessionCommand, tallyEntries, totalTokens } from '../../release/scripts/usage.mjs'
 import { firstNumber, scan as scrooge } from './scrooge.mjs'
-import { cachedReceipt, projectOfCwd } from './week-receipt.mjs'
+import { cachedReceipt, projectKey, projectOfCwd } from './week-receipt.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const KIT = join(HERE, '..', '..', '..')
@@ -154,7 +154,7 @@ function appSessions(dir) {
 const iso = (ms) => (Number.isFinite(ms) ? new Date(ms).toISOString() : null)
 const projectOf = (cwd) => {
   if (!cwd) return null
-  const p = String(projectOfCwd(cwd)).toLowerCase().slice(0, 60)
+  const p = projectKey(projectOfCwd(cwd)).slice(0, 60)
   return p || null
 }
 
@@ -469,10 +469,17 @@ export function meterWeek(meterNow, now = Date.now()) {
 // reset on, not Monday's), from the week receipt run over that week. Burrow
 // scales the slices to the meter's used % across machines, so only their
 // proportions count (Alexander, 28 Oct: "The usage numbers don't add up either").
+// One row per project key, so a receipt cached before a rename sums too.
 export function sharesPart(receipt, resetsAt) {
-  const rows = (receipt?.projects || [])
-    .map((p) => ({ project: String(p.name).toLowerCase().slice(0, 60), pct: Math.round(Math.min(100, p.meterPct) * 10) / 10 }))
-    .filter((s) => s.project && s.pct >= 0.1)
+  const by = new Map()
+  for (const p of receipt?.projects || []) {
+    const key = projectKey(p.name).slice(0, 60)
+    if (key) by.set(key, (by.get(key) || 0) + p.meterPct)
+  }
+  const rows = [...by]
+    .map(([project, pct]) => ({ project, pct: Math.round(Math.min(100, pct) * 10) / 10 }))
+    .filter((s) => s.pct >= 0.1)
+    .sort((a, b) => b.pct - a.pct)
   return rows.length ? { resets_at: iso(resetsAt), list: rows.slice(0, 50) } : null
 }
 

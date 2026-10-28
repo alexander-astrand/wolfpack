@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { cachedReceipt, cliReceipt, isoWeek, markdown, projectOfCwd, projectOfFolder, receipt, weekRange } from './week-receipt.mjs'
+import { cachedReceipt, cliReceipt, isoWeek, markdown, projectKey, projectOfCwd, projectOfFolder, receipt, weekRange } from './week-receipt.mjs'
 
 const line = (id, model, ts, cwd, tokens) =>
   JSON.stringify({ type: 'assistant', cwd, timestamp: ts, message: { id, model, usage: { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: tokens, output_tokens: 0 } } })
@@ -71,10 +71,32 @@ describe('week-receipt', () => {
     expect(projectOfCwd(join(home, 'loose'), home)).toBe('loose')
   })
 
+  it('counts old folders and Nestor\'s bot folder to the project they are now', () => {
+    const root = mkdtempSync(join(tmpdir(), 'week-receipt-renames-'))
+    const projects = join(root, 'projects')
+    const pylos = join(root, 'pylos')
+    mkdirSync(join(pylos, 'bot'), { recursive: true })
+    mkdirSync(join(pylos, '.claude'), { recursive: true })
+    writeFileSync(join(pylos, '.claude', 'kit.json'), JSON.stringify({ project: { name: 'pylos' } }))
+    const cwds = [join(root, 'dojo'), join(pylos, 'bot'), join(root, 'fantasy-hq'), join(root, 'Desktop', 'game-night-planning-app'), join(root, 'homelab')]
+    cwds.forEach((cwd, i) => {
+      mkdirSync(join(projects, 'f' + i), { recursive: true })
+      writeFileSync(join(projects, 'f' + i, 'a.jsonl'), line('r' + i, 'claude-opus-5-5', '2026-10-20T10:00:00', cwd, 46e6) + '\n')
+    })
+    const r = receipt({ week: '2026-W43', projectsDir: projects, kit: null })
+    expect(r.projects.map((p) => [p.name, p.tokens]).sort()).toEqual([
+      ['hutzup', 46e6],
+      ['kastalia', 46e6],
+      ['pelion', 46e6],
+      ['pylos', 92e6],
+    ])
+    expect(projectKey('HutzUp')).toBe('hutzup')
+  })
+
   it('tallies every folder once, by project, inside the week', () => {
     const { projects } = fixture()
     const r = receipt({ week: '2026-W43', projectsDir: projects, kit: null })
-    const app = r.projects.find((p) => p.name === 'MyApp')
+    const app = r.projects.find((p) => p.name === 'myapp')
     expect(app.tokens).toBe(46e6 + 10e6 + 23e6)
     expect(app.folders).toHaveLength(2)
     expect(r.projects.find((p) => p.name === 'pylos').tokens).toBe(23e6)
@@ -82,7 +104,7 @@ describe('week-receipt', () => {
     // Opus at 46M a point, plus the Sonnet slice at its own figure.
     expect(app.meterPct).toBeGreaterThan(1.5)
     expect(r.projects.reduce((s, p) => s + p.share, 0)).toBeCloseTo(1)
-    expect(markdown(r)).toMatch(/\| MyApp \| 79\.0M \| \d+% \| 2% \|/)
+    expect(markdown(r)).toMatch(/\| myapp \| 79\.0M \| \d+% \| 2% \|/)
   })
 
   it('writes the receipt once and reads it after', () => {

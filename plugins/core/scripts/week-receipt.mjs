@@ -68,6 +68,16 @@ export function projectOfCwd(cwd, home = homedir()) {
   return basename(root)
 }
 
+// Folders renamed since their transcripts were written (the name map,
+// ~/pylos/notes/name-map.md), so a project's old and new folders count as one.
+export const RENAMES = { dojo: 'pylos', homelab: 'kastalia', 'fantasy-hq': 'pelion', 'game-night-planning-app': 'hutzup' }
+
+// The one key a project counts under: lower case, old names renamed.
+export function projectKey(name) {
+  const key = String(name).toLowerCase()
+  return RENAMES[key] || key
+}
+
 // A folder with no cwd in any transcript is named from its own name, as
 // `/previously-on` did by hand: the part after -Desktop-, else the last part.
 export function projectOfFolder(folder) {
@@ -134,7 +144,7 @@ export function receipt({ week = isoWeek(), range = null, projectsDir = join(hom
       })
       const tally = tallyEntries(inWeek)
       if (!tally.size) continue
-      const name = cwd ? projectOfCwd(cwd) : projectOfFolder(folder)
+      const name = projectKey(cwd ? projectOfCwd(cwd) : projectOfFolder(folder))
       const p = by.get(name) || { tokens: 0, points: 0, folders: new Set() }
       for (const [model, b] of tally) {
         const t = totalTokens(b)
