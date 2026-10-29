@@ -593,7 +593,9 @@ function netlifyRow(r) {
 function actionsRow(r, rows) {
   const cap = capOf(rows, /minutes/i)
   if (!cap || r.minutes == null) return null
-  return { pct: share(r.minutes, cap), detail: `${num(Math.round(r.minutes))} of ${num(cap)} minutes this month` }
+  const top = r.top ? ` (${r.top.repo} ${num(Math.round(r.top.minutes))})` : ''
+  const billed = r.billed != null ? `. Billed so far: $${r.billed.toFixed(2)}` : ''
+  return { pct: share(r.minutes, cap), detail: `${num(Math.round(r.minutes))} of ${num(cap)} private-repo minutes this month${top}${billed}` }
 }
 
 const READERS = { vercel: vercelRow, supabase: supabaseRow, netlify: netlifyRow, 'github actions': actionsRow }

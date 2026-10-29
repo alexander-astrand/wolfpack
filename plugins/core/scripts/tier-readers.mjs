@@ -89,19 +89,63 @@ function readVercel() {
 
 // --- GitHub Actions ----------------------------------------------------------------------
 
-// This month's minutes from the billing report, or what gh needs to read it.
-function readActions(now) {
+// This month's minutes in private repos, the only ones Free caps (public
+// repos run free). The month's report is one line for every repo together,
+// so the minutes come day by day, each with its repo; a day before yesterday
+// is kept in the spool and never asked again. A repo gh can't find (gone or
+// renamed) counts as private. `billed` is what the month's summary says is
+// owed so far.
+export function actionsMonth(days, visibility) {
+  const byRepo = {}
+  for (const items of Object.values(days)) for (const [repo, n] of Object.entries(items)) byRepo[repo] = (byRepo[repo] || 0) + n
+  let minutes = 0
+  let open = 0
+  for (const [repo, n] of Object.entries(byRepo)) {
+    if (visibility[repo] === 'public') open += n
+    else minutes += n
+  }
+  const top = Object.entries(byRepo)
+    .filter(([repo]) => visibility[repo] !== 'public')
+    .sort((a, b) => b[1] - a[1])[0]
+  return { minutes, public: open, top: top ? { repo: top[0], minutes: top[1] } : null }
+}
+
+function readActions(spool, now) {
   const gh = (args) => spawnSync('gh', args, { encoding: 'utf8', timeout: 15_000 })
+  const json = (args) => {
+    const r = gh(args)
+    return r.status === 0 ? JSON.parse(r.stdout) : Object.assign(new Error(r.stderr), { failed: true })
+  }
   const login = gh(['api', 'user', '--jq', '.login'])
   const user = login.status === 0 ? login.stdout.trim() : ''
   if (!/^[\w-]{1,39}$/.test(user)) return { need: 'gh auth login' }
-  const r = gh(['api', `/users/${user}/settings/billing/usage`])
-  if (r.status !== 0) return /"user" scope|user scope/i.test(r.stderr) || / 404/.test(r.stderr) ? { need: "gh's user scope" } : null
+  const summary = json(['api', `/users/${user}/settings/billing/usage/summary`])
+  if (summary.failed) return /"user" scope|user scope/i.test(summary.message) || / 404/.test(summary.message) ? { need: "gh's user scope" } : null
+  const file = join(spool, 'tier-actions-days.json')
   const month = iso(now).slice(0, 7)
-  const minutes = (JSON.parse(r.stdout).usageItems || [])
-    .filter((i) => i.product === 'actions' && /minute/i.test(i.unitType) && String(i.date).startsWith(month))
-    .reduce((n, i) => n + (Number(i.quantity) || 0), 0)
-  return { minutes }
+  const kept = readJson(file, {})
+  const store = kept.month === month ? kept : { month, days: {}, visibility: {} }
+  const [y, m, today] = iso(now).slice(0, 10).split('-').map(Number)
+  for (let d = 1; d <= today; d++) {
+    const day = `${month}-${String(d).padStart(2, '0')}`
+    if (store.days[day] && d < today - 1) continue
+    const r = json(['api', `/users/${user}/settings/billing/usage?year=${y}&month=${m}&day=${d}`])
+    if (r.failed) continue
+    const items = {}
+    for (const i of r.usageItems || []) {
+      if (i.product !== 'actions' || !/minute/i.test(i.unitType)) continue
+      items[i.repositoryName] = (items[i.repositoryName] || 0) + (Number(i.quantity) || 0)
+    }
+    store.days[day] = items
+  }
+  for (const repo of new Set(Object.values(store.days).flatMap((i) => Object.keys(i)))) {
+    if (store.visibility[repo]) continue
+    const r = gh(['api', `repos/${user}/${repo}`, '--jq', '.visibility'])
+    store.visibility[repo] = r.status === 0 ? r.stdout.trim() : 'unknown'
+  }
+  writeJson(file, store)
+  const billed = (summary.usageItems || []).filter((i) => /^actions$/i.test(i.product)).reduce((n, i) => n + (Number(i.netAmount) || 0), 0)
+  return { ...actionsMonth(store.days, store.visibility), billed: Math.round(billed * 100) / 100 }
 }
 
 // --- Netlify -----------------------------------------------------------------------------
@@ -224,7 +268,7 @@ export function readings(spool, now = Date.now()) {
     vercel: cached(spool, 'vercel', now, readVercel),
     supabase: cached(spool, 'supabase', now, () => readSupabaseChild(spool)),
     netlify: cached(spool, 'netlify', now, readNetlify),
-    'github actions': cached(spool, 'actions', now, () => readActions(now)),
+    'github actions': cached(spool, 'actions', now, () => readActions(spool, now)),
   }
 }
 

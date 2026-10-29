@@ -21,7 +21,7 @@ import {
   withParts,
 } from './dev-hq.mjs'
 import { readFreeTiers } from './scrooge.mjs'
-import { edgeMonth, netlifyReading, vercelReading } from './tier-readers.mjs'
+import { actionsMonth, edgeMonth, netlifyReading, vercelReading } from './tier-readers.mjs'
 import { receipt } from './week-receipt.mjs'
 
 const NOW = Date.parse('2026-10-28T14:00:00Z')
@@ -339,7 +339,7 @@ describe('free tiers and trials', () => {
 
   it('takes GitHub Actions minutes from gh when it has them', () => {
     const gh = tiersPart(scan, { actionsMinutes: 500 }).list.find((t) => t.name.startsWith('GitHub'))
-    expect(gh).toMatchObject({ pct: 25, detail: '500 of 2,000 minutes this month' })
+    expect(gh).toMatchObject({ pct: 25, detail: '500 of 2,000 private-repo minutes this month' })
   })
 
   it('sets live readings against the free-tiers rows, and says what an unread one needs', () => {
@@ -373,6 +373,15 @@ describe('free tiers and trials', () => {
     expect(by.Supabase).toMatchObject({ pct: 20, detail: 'Edge Functions 100,000 of 500,000 this month (counted since 28 Oct), largest database 40 of 500 MB, 2 of 2 active free projects' })
     expect(by.Netlify).toMatchObject({ pct: 0, detail: 'No sites on the account, so none of the 300 credits a month used' })
     expect(by.GitHub).toMatchObject({ pct: null, detail: "Private repos, minutes: 2,000 / month. Not read: needs gh's user scope (gh auth refresh -h github.com -s user)" })
+  })
+
+  it('counts only private repos\' Actions minutes, a repo gh cannot find among them', () => {
+    const days = { '2026-10-01': { burrow: 100, wolfpack: 50 }, '2026-10-02': { burrow: 20, gone: 5 } }
+    const month = actionsMonth(days, { burrow: 'private', wolfpack: 'public', gone: 'unknown' })
+    expect(month).toEqual({ minutes: 125, public: 50, top: { repo: 'burrow', minutes: 120 } })
+    const rows = [{ service: 'GitHub Actions (GitHub Free account)', limit: 'Private repos, minutes', value: '2,000 / month', pct: null }]
+    const gh = tiersPart({ freeTiers: [{ limits: rows }] }, { readings: { 'github actions': { ...month, minutes: 2049, billed: 0 } } }).list[0]
+    expect(gh).toMatchObject({ pct: 100, detail: '2,049 of 2,000 private-repo minutes this month (burrow 120). Billed so far: $0.00' })
   })
 
   it('sums the Edge Function hours it kept this month, per free org, and drops last month', () => {
