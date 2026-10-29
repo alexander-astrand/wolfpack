@@ -21,6 +21,7 @@ import {
   withParts,
 } from './dev-hq.mjs'
 import { readFreeTiers } from './scrooge.mjs'
+import { actionsMonth, edgeMonth, netlifyReading, vercelReading } from './tier-readers.mjs'
 import { receipt } from './week-receipt.mjs'
 
 const NOW = Date.parse('2026-10-28T14:00:00Z')
@@ -329,7 +330,7 @@ describe('free tiers and trials', () => {
         { kind: 'trial', name: 'Claude Max 20x (renewal)', pct: null, detail: 'Card on file. At the end: renews at Max 20x', ends_on: '2026-11-08' },
         { kind: 'usage', name: 'Supabase (Free plan)', pct: 30, detail: 'Edge Function invocations: 500,000 / month', ends_on: null },
         { kind: 'usage', name: 'GitHub Actions (GitHub Free account)', pct: null, detail: 'Private repos, minutes: 2,000 / month', ends_on: null },
-        { kind: 'usage', name: 'Resend (Free)', pct: null, detail: 'Emails per day: 100', ends_on: null },
+        { kind: 'usage', name: 'Resend (Free)', pct: null, detail: 'Emails per day: 100. Not read: needs a Resend API key, which only you hold', ends_on: null },
         { kind: 'usage', name: 'CoinGecko (Demo API, free)', pct: 2.4, detail: 'Monthly calls: about 10 000', ends_on: null },
       ],
     })
@@ -338,7 +339,64 @@ describe('free tiers and trials', () => {
 
   it('takes GitHub Actions minutes from gh when it has them', () => {
     const gh = tiersPart(scan, { actionsMinutes: 500 }).list.find((t) => t.name.startsWith('GitHub'))
-    expect(gh).toMatchObject({ pct: 25, detail: '500 of 2,000 minutes this month' })
+    expect(gh).toMatchObject({ pct: 25, detail: '500 of 2,000 private-repo minutes this month' })
+  })
+
+  it('sets live readings against the free-tiers rows, and says what an unread one needs', () => {
+    const rows = (service, list) => list.map(([limit, value]) => ({ service, limit, value, pct: null }))
+    const live = {
+      freeTiers: [
+        {
+          limits: [
+            ...rows('Vercel (Hobby)', [['Fast Data Transfer (bandwidth)', '100 GB / month'], ['Function invocations', '1,000,000 / month'], ['CDN requests', '1,000,000 / month']]),
+            ...rows('Supabase (Free plan)', [['Database size', '500 MB per project'], ['Edge Function invocations', '500,000 / month'], ['Active free projects', '2. The pricing page says']]),
+            ...rows('Netlify (Free, credit-based)', [['Credits', '300 / month, hard limit']]),
+            ...rows('GitHub Actions (GitHub Free account)', [['Private repos, minutes', '2,000 / month']]),
+          ],
+        },
+      ],
+    }
+    const readings = {
+      vercel: vercelReading({ services: [
+        { product: 'pro', name: 'Pro', quantity: 1, cost: 12.258, category: 'subscription' },
+        { product: 'fastDataTransfer', quantity: 0.163, cost: 0.02, category: 'usage' },
+        { product: 'functionInvocation', quantity: 32, category: 'usage' },
+        { product: 'edgeRequest', quantity: 90_000, category: 'usage' },
+        { product: 'buildCpuMinutes', quantity: 20, category: 'usage' },
+      ] }),
+      supabase: { edgeInvocations: 100_000, edgeSince: '2026-10-28', dbMb: 40, activeFree: 2 },
+      netlify: netlifyReading([{ default: true, plan_credits: 300, usages_exceeded: [] }], []),
+      'github actions': { need: "gh's user scope" },
+    }
+    const by = Object.fromEntries(tiersPart(live, { readings }).list.map((t) => [t.name.split(' ')[0], t]))
+    expect(by.Vercel).toMatchObject({ pct: 9, detail: 'Billed this cycle: Pro $12.26, check Vercel billing. CDN requests 90,000 of 1,000,000, Fast Data Transfer 0.16 of 100 GB, Function invocations 32 of 1,000,000, Build CPU 20 min' })
+    expect(by.Supabase).toMatchObject({ pct: 20, detail: 'Edge Functions 100,000 of 500,000 this month (counted since 28 Oct), largest database 40 of 500 MB, 2 of 2 active free projects' })
+    expect(by.Netlify).toMatchObject({ pct: 0, detail: 'No sites on the account, so none of the 300 credits a month used' })
+    expect(by.GitHub).toMatchObject({ pct: null, detail: "Private repos, minutes: 2,000 / month. Not read: needs gh's user scope (gh auth refresh -h github.com -s user)" })
+  })
+
+  it('counts only private repos\' Actions minutes, a repo gh cannot find among them', () => {
+    const days = { '2026-10-01': { burrow: 100, wolfpack: 50 }, '2026-10-02': { burrow: 20, gone: 5 } }
+    const month = actionsMonth(days, { burrow: 'private', wolfpack: 'public', gone: 'unknown' })
+    expect(month).toEqual({ minutes: 125, public: 50, top: { repo: 'burrow', minutes: 120 } })
+    const rows = [{ service: 'GitHub Actions (GitHub Free account)', limit: 'Private repos, minutes', value: '2,000 / month', pct: null }]
+    const gh = tiersPart({ freeTiers: [{ limits: rows }] }, { readings: { 'github actions': { ...month, minutes: 2049, billed: 0 } } }).list[0]
+    expect(gh).toMatchObject({ pct: 100, detail: '2,049 of 2,000 private-repo minutes this month (burrow 120). Billed so far: $0.00' })
+  })
+
+  it('sums the Edge Function hours it kept this month, per free org, and drops last month', () => {
+    const now = Date.parse('2026-11-02T10:00:00Z')
+    const store = { since: '2026-10-20T00:00:00', hours: { 'a/f/2026-10-31T23:00:00': 50, 'a/f/2026-11-01T00:00:00': 10 } }
+    const buckets = [
+      { ref: 'a', fn: 'f', t: '2026-11-01T00:00:00', n: 12 },
+      { ref: 'a', fn: 'g', t: '2026-11-02T09:00:00', n: 3 },
+      { ref: 'b', fn: 'h', t: '2026-11-02T09:00:00', n: 40 },
+    ]
+    const out = edgeMonth(store, buckets, { a: 'org1', b: 'org2' }, now)
+    expect(out.invocations).toBe(40)
+    expect(out.since).toBe(null)
+    expect(Object.keys(out.store.hours)).toHaveLength(3)
+    expect(edgeMonth(null, buckets.slice(1), { a: 'org1', b: 'org1' }, now)).toMatchObject({ invocations: 43, since: '2026-11-02' })
   })
 
   it('reads every free-tiers row with its service for the part', () => {

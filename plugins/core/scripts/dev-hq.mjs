@@ -34,6 +34,7 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { agentName, dropCounted, parseEntries, sessionCommand, tallyEntries, totalTokens } from '../../release/scripts/usage.mjs'
 import { firstNumber, scan as scrooge } from './scrooge.mjs'
+import { readings as tierReadings } from './tier-readers.mjs'
 import { cachedReceipt, projectKey, projectOfCwd } from './week-receipt.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -532,15 +533,85 @@ function bindingLimit(rows) {
   return r ? { ...r, text: `${r.limit.replace(/\s*\([^)]*\)/g, '')}: ${firstClause(r.value)}` } : null
 }
 
+// What a row needs before it can be read, for a service with no reader: the
+// key or login only Alexander holds (his task, 29 Oct: say what they need).
+const NEEDS = {
+  resend: 'a Resend API key, which only you hold',
+  cloudflare: 'a Cloudflare API token or wrangler login, which only you can do',
+}
+const NEED_WORDS = {
+  "gh's user scope": "gh's user scope (gh auth refresh -h github.com -s user)",
+}
+
+const num = (n, digits = 0) => Number(n).toLocaleString('en-US', { maximumFractionDigits: digits })
+const share = (used, cap) => (cap ? Math.min(100, Math.round((used / cap) * 1000) / 10) : null)
+// A limit's number from the service's free-tiers.md rows, by the row's name.
+const capOf = (rows, re) => {
+  const r = rows.find((x) => re.test(x.limit))
+  return r ? firstNumber(firstClause(r.value)) : null
+}
+
+// Vercel's metrics against the Hobby rows: the busiest one sets the bar.
+const VERCEL = [
+  { product: 'fastDataTransfer', row: /^fast data transfer/i, words: 'Fast Data Transfer', unit: ' GB', digits: 2 },
+  { product: 'functionInvocation', row: /^function invocations/i, words: 'Function invocations' },
+  { product: 'edgeRequest', row: /^cdn requests/i, words: 'CDN requests' },
+  { product: 'fastOriginTransfer', row: /^fast origin/i, words: 'Fast Origin Transfer', unit: ' GB', digits: 2 },
+  { product: 'imageOptimizationTransformation', row: /^image transformations/i, words: 'Image transformations' },
+  { product: 'fluidCpuDuration', row: /^active cpu/i, words: 'Active CPU', unit: ' h', digits: 2 },
+]
+
+function vercelRow(r, rows) {
+  const m = r.metrics || {}
+  const all = VERCEL.map((v) => ({ ...v, used: m[v.product] || 0, cap: capOf(rows, v.row) })).filter((v) => v.cap)
+  const top = all.reduce((a, v) => (share(v.used, v.cap) > share(a.used, a.cap) ? v : a), all[0])
+  const say = (v) => `${v.words} ${num(v.used, v.digits)} of ${num(v.cap)}${v.unit || ''}`
+  const shown = [...new Set([top, ...all.filter((v) => /^(fastDataTransfer|functionInvocation)$/.test(v.product))])].filter(Boolean)
+  const bits = shown.map(say)
+  if (m.buildCpuMinutes) bits.push(`Build CPU ${num(m.buildCpuMinutes)} min`)
+  const bill = (r.billed || []).map((b) => `${b.name} $${b.cost.toFixed(2)}`).join(', ')
+  return { pct: top ? share(top.used, top.cap) : null, detail: `${bill ? `Billed this cycle: ${bill}, check Vercel billing. ` : ''}${bits.join(', ')}` }
+}
+
+function supabaseRow(r, rows) {
+  const edgeCap = capOf(rows, /^edge function invocations/i) || 500_000
+  const dbCap = capOf(rows, /^database size/i) || 500
+  const projectCap = capOf(rows, /^active free projects/i) || 2
+  const since = r.edgeSince ? ` (counted since ${Number(r.edgeSince.slice(8, 10))} ${new Date(`${r.edgeSince}T12:00:00Z`).toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' })})` : ''
+  return {
+    pct: Math.max(share(r.edgeInvocations, edgeCap), share(r.dbMb, dbCap)),
+    detail: `Edge Functions ${num(r.edgeInvocations)} of ${num(edgeCap)} this month${since}, largest database ${num(r.dbMb)} of ${num(dbCap)} MB, ${r.activeFree} of ${projectCap} active free projects`,
+  }
+}
+
+function netlifyRow(r) {
+  if (r.over?.length) return { pct: 100, detail: `Over its free limit: ${r.over.join(', ')}` }
+  if (r.sites === 0) return { pct: 0, detail: `No sites on the account, so none of the ${num(r.credits ?? 300)} credits a month used` }
+  return { pct: null, detail: `${r.sites} sites; Netlify reports credits used only on its dashboard` }
+}
+
+function actionsRow(r, rows) {
+  const cap = capOf(rows, /minutes/i)
+  if (!cap || r.minutes == null) return null
+  const top = r.top ? ` (${r.top.repo} ${num(Math.round(r.top.minutes))})` : ''
+  const billed = r.billed != null ? `. Billed so far: $${r.billed.toFixed(2)}` : ''
+  return { pct: share(r.minutes, cap), detail: `${num(Math.round(r.minutes))} of ${num(cap)} private-repo minutes this month${top}${billed}` }
+}
+
+const READERS = { vercel: vercelRow, supabase: supabaseRow, netlify: netlifyRow, 'github actions': actionsRow }
+
 // Dev HQ's free tiers and trials, from scrooge's scan: each open trial with
 // its end, and one row per service across every project's free-tiers.md (by
-// its heading, the same service once), never one per limit. A row's pct is the
-// highest usage any project recorded for it, else null (Burrow shows "not
-// reported"); GitHub Actions takes this month's minutes from gh when it can
-// (Alexander, 28 Oct: "In usage free tiers and trials are not seeded, we have
-// several of those and I want them in there.").
-export function tiersPart(scan, { actionsMinutes = null } = {}) {
+// its heading, the same service once), never one per limit. A service with a
+// reader (tier-readers.mjs: Vercel, Supabase, Netlify, GitHub Actions) takes
+// its live numbers; one without says what it needs to be read. Otherwise the
+// pct is the highest usage any project recorded, else null (Burrow shows
+// "not reported") (Alexander, 28 Oct: "In usage free tiers and trials are
+// not seeded, we have several of those and I want them in there.").
+export function tiersPart(scan, { actionsMinutes = null, readings = {} } = {}) {
   if (!scan) return null
+  const live = { ...readings }
+  if (actionsMinutes != null) live['github actions'] = { minutes: actionsMinutes }
   const list = []
   for (const t of scan.trials || []) {
     if (!t.ends || t.status === 'ended') continue
@@ -563,41 +634,14 @@ export function tiersPart(scan, { actionsMinutes = null } = {}) {
     const used = s.rows.map((r) => r.pct).filter((p) => p != null)
     let pct = used.length ? Math.min(100, Math.max(...used)) : null
     let detail = limit?.text ?? null
-    const cap = limit ? firstNumber(limit.value) : null
-    if (key === 'github actions' && actionsMinutes != null && cap) {
-      pct = Math.min(100, Math.round((actionsMinutes / cap) * 1000) / 10)
-      detail = `${Math.round(actionsMinutes).toLocaleString('en-US')} of ${cap.toLocaleString('en-US')} minutes this month`
-    }
+    const reading = live[key]
+    const need = reading?.need ?? (reading ? null : NEEDS[key.split(' ')[0]])
+    const row = reading && !reading.need && READERS[key] ? READERS[key](reading, s.rows) : null
+    if (row) ({ pct, detail } = row)
+    else if (need && pct == null) detail = `${detail ? `${detail}. ` : ''}Not read: needs ${NEED_WORDS[need] ?? need}`
     list.push({ kind: 'usage', name: s.name, pct, detail: detail ? detail.slice(0, 200) : null, ends_on: null })
   }
   return { full: true, list: list.slice(0, 100) }
-}
-
-// This month's Actions minutes from GitHub's billing report, at most hourly.
-// The report needs gh's `user` scope; without it there's nothing (null), quietly.
-function actionsMinutes(spool, now) {
-  const file = join(spool, 'actions.json')
-  const cached = readJson(file, null)
-  if (cached && now - Date.parse(cached.at) < HOUR) return cached.minutes
-  const gh = (args) => spawnSync('gh', args, { encoding: 'utf8', timeout: 15_000 })
-  let minutes = null
-  const login = gh(['api', 'user', '--jq', '.login'])
-  const user = login.status === 0 ? login.stdout.trim() : ''
-  if (/^[\w-]{1,39}$/.test(user)) {
-    const r = gh(['api', `/users/${user}/settings/billing/usage`])
-    try {
-      const month = iso(now).slice(0, 7)
-      if (r.status === 0) {
-        minutes = (JSON.parse(r.stdout).usageItems || [])
-          .filter((i) => i.product === 'actions' && /minute/i.test(i.unitType) && String(i.date).startsWith(month))
-          .reduce((n, i) => n + (Number(i.quantity) || 0), 0)
-      }
-    } catch {
-      // an answer of another shape: nothing
-    }
-  }
-  writeJson(file, { at: iso(now), minutes })
-  return minutes
 }
 
 // --- the POST ----------------------------------------------------------------------------
@@ -631,7 +675,7 @@ export function parts(p, { now = Date.now(), backfill = false, host = hostname()
   // the ledgers live on Pollux; delphi sends none, so its push never empties his list
   if (!/delphi/i.test(host)) {
     try {
-      tiers = tiersPart(scrooge({ home: p.home, desktop: join(p.home, 'Desktop'), today: iso(now).slice(0, 10) }), { actionsMinutes: actionsMinutes(p.spool, now) })
+      tiers = tiersPart(scrooge({ home: p.home, desktop: join(p.home, 'Desktop'), today: iso(now).slice(0, 10) }), { readings: tierReadings(p.spool, now) })
     } catch {
       // no ledgers here: no tiers
     }
