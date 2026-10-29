@@ -34,10 +34,12 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 Times are Europe/Stockholm; `<date>` is today as `yyyy-mm-dd` from your context. `${CLAUDE_PLUGIN_ROOT}` is the folder of the wolfpack `core` plugin. A scheduled run is unattended: one plain command per call, no pipes or redirections.
 
 1. **The ledgers:** `node ${CLAUDE_PLUGIN_ROOT}/scripts/scrooge.mjs`. It reads `~/.claude/plans/trials.md`, each project's `<plans>free-tiers.md` and `<plans>costs.md` (projects: `~/Desktop/*/.claude/kit.json`) and prints each trial's days left, free-tier rows at 70% or more of their limit, files past their refresh date and rows with no date. A line starting `!!` is due within two days or past; ` !` needs a look. `--json` gives the same as data.
-2. **Live usage, only where no password is needed.** Each call is read-only; when a CLI is missing, not logged in, or answers 401, 403 or 404, skip it silently and say "not read" in one word on that line.
-   - GitHub Actions minutes: `gh api user --jq .login`, then `gh api /users/<login>/settings/billing/usage` (the older `/users/<login>/settings/billing/actions` where that one 404s). Private repos get 2,000 minutes a month on Free; flag at 1,400. Hutzup's repo is Anton's, so its minutes bill his account, not this one.
-   - Vercel, only when `vercel whoami` answers: `vercel teams ls`. The CLI shows no trial or plan, so the trial line still comes from the ledger and says "check the dashboard".
-   - Supabase, only when `supabase projects list` answers: count active projects per org against Free's two.
+2. **Live usage, only where no password is needed:** `node ${CLAUDE_PLUGIN_ROOT}/scripts/tier-readers.mjs`, the same readings Dev HQ's free-tiers card shows (at most hourly, kept in `~/.local/state/burrow-dev/kit/`). It prints one JSON object, read-only:
+   - `vercel`: `vercel usage` for this cycle, its metrics and any subscription it billed (a Pro license after a downgrade is a finding).
+   - `supabase`: the Management API with the CLI's own token: Edge Function invocations this month in the busiest free org (counted from the first hour kept), the largest database in MB, active free projects against Free's two.
+   - `netlify`: credits, sites, anything over its limit.
+   - `github actions`: this month's minutes. Private repos get 2,000 a month on Free; flag at 1,400. Hutzup's repo is Anton's, so its minutes bill his account, not this one.
+   A reading with a `need` key says what it needs (gh's user scope, a login); write that on its line instead of a number. Resend and Cloudflare have no reader, as they need keys only Alexander holds. The trial line still comes from the ledger.
 3. **Write the report.** One line per finding, most urgent first, nothing for what is fine:
    `<what> · <when it bills or ends> · <what to do> · <needs Alexander: yes (why) | no>`.
    A plan change, a card, a cancel or anything on a dashboard only he can open is always "yes". An unknown card on a trial is a finding: he checks whether one is on file. A file past its refresh is "no": the next release's navigator sends `doc-brown` to re-check it. End with one line of what was read (ledgers, and which live reads answered).
