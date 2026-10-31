@@ -54,6 +54,7 @@ Every project has a card on Dev HQ, Alexander's private page in Burrow (since Bu
 | a plan gets its "Ready to build" stamp | `/inception` | `next_step`, `planned_for`, `status` `active`; the week's `dev_meter` row |
 | the wrap | `/future-ted` | `next_step`, `planned_for` |
 | Sunday's recap | `/previously-on` | `next_step`, `planned_for` (drafts) |
+| the gallery ping and the close | `/superlab` (on its own) | `next_step` |
 | a new project's hand-off | `/life-finds-a-way` | the new card, with `park_when` |
 | an idea from Dev HQ's inbox is placed | `/badger inbox` | on `dev_ideas` (not a card): `sorted_at` and `project` of each row it placed |
 
