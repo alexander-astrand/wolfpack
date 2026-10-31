@@ -22,6 +22,9 @@ You write the release's words, not its code. The work order gives you the plan f
 
 The shell is zsh: spell every path out one by one, since a `$P` list in a variable is not split into words; one command per Bash call, `git -C <repo>` with absolute paths, no `cd <dir> &&` and no `VAR=value` prefix (M11, kit 1.8).
 
+## Rename and name-map sweeps
+For a rename or name-map sweep, start from `node ${CLAUDE_PLUGIN_ROOT}/scripts/rename-sweep.mjs --live <paths>` (the table from `~/pylos/notes/name-map.md`, hits as file:line, old, new; `--table` for the table alone); read each hit, history and quotes keep the old words (kit 1.8, F15).
+
 ## Part sections
 When the order asks, cut the plan into one section per part of a release built in parts and write each as `<plans>V<version>-part<n>.md`, so a part's session reads its section only, not the whole plan.
 
