@@ -300,6 +300,16 @@ describe('M12 (kit 1.8): reason codes, allows and the step-aside', () => {
     expect(text).not.toMatch(/SessionEnd/)
   })
 
+  it('a resumed session that ends twice counts once, by its last allows row', () => {
+    const allows = (sid, c) => ['2026-10-30T10:00:00.000Z', 'main', 'SessionEnd', JSON.stringify(c), 'auto', sid, '-', 'allows', 'x', 'session-allows'].join('\t')
+    const guard = [
+      allows('s1', { calls: 10, asks: 1, denies: 0, through: 9 }),
+      allows('s2', { calls: 5, asks: 0, denies: 1, through: 4 }),
+      allows('s1', { calls: 25, asks: 2, denies: 1, through: 22 }),
+    ].join('\n')
+    expect(guardTotals(guard)).toEqual({ sessions: 2, calls: 30, asks: 2, denies: 2, through: 26, asides: 0 })
+  })
+
   it('hooks.json runs guard-allows.mjs at SessionEnd, which writes the row as a process', () => {
     const hooks = JSON.parse(readFileSync(fileURLToPath(new URL('./hooks.json', import.meta.url)), 'utf8'))
     expect(hooks.hooks.SessionEnd[0].hooks[0].command).toMatch(/hooks\/guard-allows\.mjs"$/)

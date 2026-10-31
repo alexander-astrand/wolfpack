@@ -389,16 +389,20 @@ export function guardReasons(guard = '', since) {
 export function guardTotals(guard = '', since) {
   const from = since ? Date.parse(since) : -Infinity
   const t = { sessions: 0, calls: 0, asks: 0, denies: 0, through: 0, asides: 0 }
+  // A resumed session ends again and writes another row; its transcript and
+  // its log rows run on from the first, so the last row holds the whole
+  // session and the earlier ones are dropped (review round 1, nit 2).
+  const last = new Map()
   for (const line of guard.split('\n')) {
     const f = line.split('\t')
     if (f.length < 8 || !(Date.parse(f[0]) >= from)) continue
     if (f[7] === 'step-aside') t.asides++
     if (f[7] !== 'allows') continue
-    try {
-      const c = JSON.parse(f[3])
-      t.sessions++
-      for (const k of ['calls', 'asks', 'denies', 'through']) t[k] += Number(c[k]) || 0
-    } catch { /* a cut row */ }
+    try { last.set(f[5], JSON.parse(f[3])) } catch { /* a cut row */ }
+  }
+  for (const c of last.values()) {
+    t.sessions++
+    for (const k of ['calls', 'asks', 'denies', 'through']) t[k] += Number(c[k]) || 0
   }
   return t
 }
