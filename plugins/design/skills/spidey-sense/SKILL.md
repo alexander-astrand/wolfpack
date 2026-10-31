@@ -57,7 +57,7 @@ Three QA passes lost their named shots to exploratory ones, and parallel runs in
 - **Test data:** mark test rows "TEST …" and delete them afterwards (CLAUDE.md: clean up what you create on dev), unless the order says `seed=shared` (below).
 
 ## More, in `qa-and-refactor.md`
-- **QA seed:** what the project's seed must do (one `javascript_tool` call, and its clean-up) and where the project keeps it. A project with a database can keep seeds as `<name>.up.sql` / `.down.sql` files and a small wrapper script that runs them quietly against its dev database only. **When the order says `seed=shared`** (lanes side by side), the navigator owns the one seed and the one clean-up and no lane cleans: four Bengan Boys each cleaning deleted each other's rows (kit 1.6.1 council M4).
+- **QA seed:** what the project's seed must do (one `javascript_tool` call, and its clean-up) and where the project keeps it. A project with a database keeps seeds as `scripts/qa/seeds/<name>.up.sql` / `.down.sql` pairs, written and run by the database plugin's `gale` skill (`/gale <topic> qa`; its `scripts/seed.mjs up|down <name>` runs them on dev only, every row tagged `TEST QA seed gale:<name>`). **When the order says `seed=shared`** (lanes side by side), the navigator owns the one seed and the one clean-up and no lane cleans: four Bengan Boys each cleaning deleted each other's rows (kit 1.6.1 council M4).
 - **Interaction checks:** wheel and trackpad scroll over a map or other widget, two scrollbars, fold and unfold; both snippets tried on dev.
 - **Proving a refactor changed nothing:** the computed-style snapshot diff.
 
