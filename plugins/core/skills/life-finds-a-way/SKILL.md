@@ -141,9 +141,13 @@ When `<plans><project>/brief.md` exists, the run resumes instead of starting ove
 
 After step 7. Read `${CLAUDE_PLUGIN_ROOT}/skills/life-finds-a-way/reference/setup.md` as a file for the walkthrough (the list, the steps, the Never line).
 
+**No timer for the walk of his steps:** each step waits on him and nothing runs meanwhile, so the turn ends with no timer and no polling (kit 1.5, M9); `/marco-polo` finds the session.
+
 ## The receipt
 
 The last message: a receipt, not a summary.
+
+- **Before the hand-off, check the taste file** on a UI project: `<project folder>/.claude/taste.md` exists and opens with its "Where this project starts" picks block (the three picks with his reasons, the steal / never line). When it is missing or has no picks block, write it from `brief.md` before the receipt, and say so in one line; never hand off a V0.1 whose designers and builders would read no picks.
 
 - **"N steps were yours, M ran by themselves. Written: K files."** (K counts the project's files and the plans files together; Adopt adds its Written / Skipped list above it.)
 - **Next, behind one go** (kit 1.7, council M3: never a start for him to type). The receipt asks go or not now on starting V0.1 (the `wrap_up` box, after all its text). On go, this session starts it (`start_session`, initiation "user_asked", `cwd` the project folder from the brief, the brief `/captain-call 0.1 opus`, title `<project> · release · 0.1`, its own worktree; norms.md "Starting sessions") and links it. The receipt's last line is `Next: V0.1 runs to its draft PR (<that title>)`, or without a go, or when the app refuses the start, `Next: say go and I start /captain-call 0.1 opus (Alexander)` (norms.md, "Last line, every final message"). In adopt, when he skipped the kit.json keys row, add one line: "V0.1.md is at `<plans><project>/V0.1.md`; kit.json doesn't point there yet."
