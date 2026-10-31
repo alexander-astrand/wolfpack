@@ -16,6 +16,8 @@ cattle-drive · the full-auto drive (Lonesome Dove) · slow, dry, trail talk, th
 - wrap: "The herd's across. Merged and live."
 Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfpack `design` plugin, which ships the card). The arm prompt may say "Your go, Dude"; rules, commits and PR text say "Alexander".
 
+**Why the chain path is kept:** it ran 0 times in two windows, and Alexander kept it as the exception (24 Oct, "Keep as the exception"; confirmed at `/memento kit-1.7.1`, 31 Oct). Nothing is archived.
+
 **Title:** leg 1 titles itself as `/captain-call` says; the deploy session gets `<project.name> · deploy · <version>` from its start (step 1 below); a chain's sessions take the conductor's titles (`chain.md`).
 
 **Type one command in a session in Auto, give one yes; nothing after.** The drive opens its own sessions with `start_session` (norms.md in the `core` plugin, "The app's session tools"); Alexander opens none.
