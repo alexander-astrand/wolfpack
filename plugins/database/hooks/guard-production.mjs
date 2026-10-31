@@ -3942,8 +3942,12 @@ async function logDecision(input, result) {
 // would give a Bash call and the rule that decides it, so a session asks
 // "will this loop pass?" before a stall. It never runs the command; the
 // guard's own reads (a PR, git) run as in a real decision.
-export async function explain(command, { cwd = process.cwd(), agent, mode = 'auto' } = {}, env) {
-  const result = decide({ tool_name: 'Bash', tool_input: { command }, cwd, permission_mode: mode, agent_type: agent }, env)
+// The two logs a real decision appends to under a marker (ctx.log, ctx.chainLog)
+// are silenced, so a dry run leaves no phantom line in full-auto.log or
+// full-auto-chain.log (review round 1, must 1); a caller's env still wins.
+export async function explain(command, { cwd = process.cwd(), agent, mode = 'auto' } = {}, env = {}) {
+  const quiet = { log: () => {}, chainLog: () => {}, ...env }
+  const result = decide({ tool_name: 'Bash', tool_input: { command }, cwd, permission_mode: mode, agent_type: agent }, quiet)
   if (!result) return 'verdict: pass (no decision; the normal permission rules, Auto mode\'s classifier, judge it)\n'
   const lines = [`verdict: ${result.decision}`, `reason: ${String(result.reason ?? '').split('\n')[0]}`]
   try {

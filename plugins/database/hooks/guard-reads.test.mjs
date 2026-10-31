@@ -1,5 +1,5 @@
 // First: the tests' project and its kit.json (the fixture's values).
-import './fixtures/kit-project.mjs'
+import { KIT_PROJECT } from './fixtures/kit-project.mjs'
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -254,6 +254,23 @@ describe('F16 (kit 1.8): guard-production.mjs --explain', () => {
   it('a passing read prints pass, and a listed read allow', async () => {
     expect(await explain(`r=${root}; for d in $r/.claude/worktrees/*/; do wc -l "$d"x; done`, { cwd: root }, STUBS)).toMatch(/^verdict: pass/)
     expect(await explain('git diff --stat', { cwd: root }, STUBS)).toMatch(/^verdict: allow\n/)
+  })
+
+  // Review round 1, must 1: under a marker a real decision logs the call; a dry one must not.
+  it('under an armed marker it writes no line to full-auto.log or full-auto-chain.log', async () => {
+    const logs = ['full-auto.log', 'full-auto-chain.log'].map((f) => join(KIT_PROJECT, '.claude', f))
+    for (const f of logs) rmSync(f, { force: true })
+    const cmd = 'scripts/prod-db.sh push 0.14.1 0052'
+    const marker = { version: '0.14.1', commands: [cmd], pr: 44, headSha: 'a'.repeat(40), expiresAt: new Date(Date.now() + 3600_000).toISOString() }
+    const { log, chainLog, ...rest } = STUBS
+    const env = { ...rest, marker: () => marker, openPr: () => null }
+    const text = await explain(cmd, { cwd: root, agent: 'ranjit' }, env)
+    expect(text).toMatch(/^verdict: /)
+    for (const f of logs) expect(existsSync(f), f).toBe(false)
+    // The control: the same call decided for real does log, so the check above means something.
+    decide({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: root, permission_mode: 'auto', agent_type: 'ranjit' }, env)
+    expect(logs.some((f) => existsSync(f))).toBe(true)
+    for (const f of logs) rmSync(f, { force: true })
   })
 
   it('as a process it prints without running the command, and wants a command', () => {
