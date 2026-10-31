@@ -55,6 +55,7 @@ describe('fill.mjs', () => {
     const checks = readFileSync(join(tmp, 'proj', '.claude', 'builder-checks.md'), 'utf8')
     expect(checks).toContain('whole pixels')
     expect(checks).toContain('navigator.share')
+    expect(checks).toContain('floatingText')
   })
 
   it('fails naming the file and key when a value is missing, and writes nothing', () => {

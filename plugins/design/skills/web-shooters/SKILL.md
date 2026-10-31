@@ -26,7 +26,7 @@ Kit 1.5 (skills lens S2): `darth-vader`, `bengt-johansson` and `oceans-eleven` e
 - **Not counted:** a frame shot for `scroll` coordinates or to wake the pane (`scale` ≤ 0.25).
 
 ## The page scan (before any screenshot)
-`<design>/scripts/qa/page-scan.js` scans one page at every width and theme in one browser call, in same-origin iframes that share the tab's sign-in: the page scrolling sideways, text that's cut off, sideways rows a mouse can't drag (no `data-drag-scroll`), tap targets under 44px, and text under AA contrast on its real background (text over an image or gradient is counted as `contrastUnknown`: look at those). It replaced each project's own `layout-check.js` in kit 1.5 (`[layout-check]`); the plugin's old copy went in kit 1.7.
+`<design>/scripts/qa/page-scan.js` scans one page at every width and theme in one browser call, in same-origin iframes that share the tab's sign-in: the page scrolling sideways, text that's cut off, sideways rows a mouse can't drag (no `data-drag-scroll`), tap targets under 44px, text under AA contrast on its real background (text over an image or gradient is counted as `contrastUnknown`: look at those), and floating text (`floatingText`: text with no card, section, border or fill between it and the page ground; the page title, nav, header, footer, tab bars, dialogs, controls and anything under `data-floating-ok` are left out). It replaced each project's own `layout-check.js` in kit 1.5 (`[layout-check]`); the plugin's old copy went in kit 1.7.
 
 The project keeps one copy at `public/qa/page-scan.js` (Vite and Next both serve `public/` at the root; it only reads the page); copy it from `<design>` again when `cmp` says it differs. On the page's own tab:
 
@@ -35,7 +35,7 @@ window.__scanArgs = { widths: [375, 1024], themes: ['dark', 'light'], themeVia: 
 const src = await (await fetch('/qa/page-scan.js')).text(); JSON.parse(await eval(src)).summary
 ```
 
-`themeVia` is how the app switches theme (the project's CLAUDE.md says): `param:<name>` (`?theme=`), `storage:<localStorage key>` (put back afterwards), `attr:<attribute>` or `class` on `<html>`. Read `.summary` first (one line per width and theme), then only the lists with a count. Over about 30 s of pages (three widths and three themes), add `background: true` and poll `window.__scan.done`: a call times out at 45 s. Cut-off titles, rows without drag, sideways page scroll and low contrast are findings; small targets are worth a look.
+`themeVia` is how the app switches theme (the project's CLAUDE.md says): `param:<name>` (`?theme=`), `storage:<localStorage key>` (put back afterwards), `attr:<attribute>` or `class` on `<html>`. Read `.summary` first (one line per width and theme), then only the lists with a count. Over about 30 s of pages (three widths and three themes), add `background: true` and poll `window.__scan.done`: a call times out at 45 s. Cut-off titles, rows without drag, sideways page scroll, low contrast and floating text are findings; small targets are worth a look.
 
 ## Headless: shots and flows with no pane
 For pages that need no sign-in (mocks, public pages), one headless Chromium does the work and the pane is never involved:

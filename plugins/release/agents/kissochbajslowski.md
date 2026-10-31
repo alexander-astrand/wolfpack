@@ -50,7 +50,7 @@ Quality bar (saving tokens never lowers it; a miss is a must-fix):
 
 `npm run lint` runs the project's conventions script (`conventions` in `.claude/kit.json`: CLAUDE.md's conventions as greps), so read the diff for what greps can't see.
 
-For a release with UI, read the taste (the `design` plugin's `taste.md` (the general rules) and the project's `.claude/taste.md`, "The Dude's taste": by the sections the order names (`grep -n '^## '`, then those ranges), never whole; Alexander's design choices and every sendback) and check the changed pages against it. Before any check, read the project's `.claude/builder-checks.md` when it exists and grep the diff for each line's shape.
+For a release with UI, read the taste (the `design` plugin's `taste.md` (the general rules) and the project's `.claude/taste.md`, "The Dude's taste": by the sections the order names (`grep -n '^## '`, then those ranges), never whole; Alexander's design choices and every sendback) and check the changed pages against it. Before any check, read the project's `.claude/builder-checks.md` when it exists and grep the diff for each line's shape. A sentence the diff adds bare on the page's column, outside any card or section (an empty state, a hint, a label between cards), is a must: the kit's "No floating text" (31 Oct 2026); an empty state goes in its own card with its add action.
 
 Check the **production steps** as if a machine will follow them, because `/one-ring`'s deploy script will:
 - whenever the database changes, step 1 is a fresh backup (`scripts/prod-db.sh backup <version>`)
