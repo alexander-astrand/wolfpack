@@ -8,7 +8,8 @@
 // the lessons and taste changes on every branch with the sendback count, the
 // permission logs per project by source, and a stale-reference pre-grep.
 // Kit 1.8 (the kit 1.7.1 council's "for the next council") added the learning
-// diff (F20), and main passes the real gh call so the cheaper lines include
+// diff (F20), a row per spawn, guard reasons per agent and the questions per
+// skill and session (F21, council-asks.mjs), and main passes the real gh call so the cheaper lines include
 // the window's PR bodies (H3).
 //
 // Usage: node council-facts.mjs --since <YYYY-MM-DD> --out <facts.md>
@@ -25,7 +26,8 @@ import { byBirth, sessionRow, tableOf as speedTable } from './council-speed.mjs'
 import { roleTotals, tableOf as rolesTable } from './council-roles.mjs'
 import { buildCards, ghPrBodies, projectDirs, renderCards } from './council-skills.mjs'
 import { startRows, startsTable } from './council-starts.mjs'
-import { spawnTally, spawnsTable } from './council-spawns.mjs'
+import { spawnRows, spawnRowsTable, spawnTally, spawnsTable } from './council-spawns.mjs'
+import { guardReasons, guardTable, questionTally, questionsTable } from './council-asks.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const HELP = `Usage: node council-facts.mjs --since <YYYY-MM-DD> --out <facts.md>
@@ -267,6 +269,9 @@ export function buildFacts(o, { run = git, prBodies } = {}) {
   out.push('## Closing lines (from the cards)', '', closingTable(cards), '')
   out.push('## Session starts (start_session by initiation)', '', startsTable(startRows(allDirs, from)), '')
   out.push('## Agent spawns (role and the model the call asked for)', '', spawnsTable(spawnTally(allDirs, from)), '')
+  out.push('## Agent spawns, one row each', '', spawnRowsTable(spawnRows(allDirs, from)), '')
+  out.push('## Guard reasons, per agent', '', guardTable(guardReasons(Object.values(o.projects).map((repo) => join(repo, '.claude', 'guard-decisions.log')), from)), '')
+  out.push('## Questions (AskUserQuestion), per skill and session', '', questionsTable(questionTally(allDirs, from)), '')
   out.push('## Lessons and taste changes', '', learningSection(o.projects, o.since, run), '')
   out.push('## Permission logs, by source', '', permissionSection(o.projects, from), '')
   out.push('## Stale references', '', staleSection(staleRefs(kitFiles(kitRoot), kitRoot, o.retired), o.retired), '')

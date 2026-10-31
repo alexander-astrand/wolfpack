@@ -115,7 +115,7 @@ describe('buildFacts', () => {
     const o = { since: '2026-10-10', kit: f.kit, transcripts: f.transcripts, projects: { repo: f.repo }, retired: ['special-delivery'], git: null, from: null }
     const { facts, cards } = buildFacts(o)
     const heads = facts.split('\n').filter((l) => l.startsWith('## '))
-    expect(heads).toEqual(['## Git range', '## Speed, per project', '## Roles (runs per model)', '## Closing lines (from the cards)', '## Session starts (start_session by initiation)', '## Agent spawns (role and the model the call asked for)', '## Lessons and taste changes', '## Permission logs, by source', '## Stale references'])
+    expect(heads).toEqual(['## Git range', '## Speed, per project', '## Roles (runs per model)', '## Closing lines (from the cards)', '## Session starts (start_session by initiation)', '## Agent spawns (role and the model the call asked for)', '## Agent spawns, one row each', '## Guard reasons, per agent', '## Questions (AskUserQuestion), per skill and session', '## Lessons and taste changes', '## Permission logs, by source', '## Stale references'])
     expect(facts).toContain('| s1 | /jedi | jedi |')
     expect(facts).toContain('| s2 | title: kit · lane · b2 |')
     expect(facts).toContain('| c-3po | sonnet | 1 |')
