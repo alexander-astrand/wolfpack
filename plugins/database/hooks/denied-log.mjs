@@ -35,7 +35,12 @@
 // `guard` or `classifier`, with a ready settings.json allow line for the
 // classifier's repeats of one named npm script. A guard row gets none: an allow rule
 // doesn't skip a hook's ask, and its ask is on purpose. Nothing that reaches
-// production, a key, a delete or a push to main ever gets one.
+// production, a key, a delete or a push to main ever gets one. Kit 1.8
+// (Feature 16): it then lists each repeated guard reason by code with the
+// rule in guard-production.mjs that decides it and, for an agent's habit
+// (psql, --workdir, heredoc edits), the line the agent should carry; and the
+// session totals (calls let through, asked, denied: the ask rate). To ask the
+// guard about one command before running it: `guard-production.mjs --explain`.
 //
 // As a hook it only ever writes the log: it exits 0 and prints nothing, and
 // never sends `retry` (a retry is a refusal re-spelled, which the guard's
@@ -336,6 +341,8 @@ export function summarize({ denied = '', guard = '', since } = {}) {
     for (const line of text.split('\n')) {
       const f = line.split('\t')
       if (f.length < 6 || !(Date.parse(f[0]) >= from)) continue
+      // The session counts and step-asides are totals, not refusals (guardTotals).
+      if (source === 'guard' && (f[7] === 'allows' || f[7] === 'step-aside')) continue
       const [time, , tool, head] = f
       const shape = shapeOf(tool, head, f[6])
       const key = `${source}\t${tool}\t${shape}`
@@ -355,14 +362,66 @@ export function summarize({ denied = '', guard = '', since } = {}) {
     .sort((a, b) => b.count - a.count || a.shape.localeCompare(b.shape))
 }
 
-export function summaryText(rows) {
-  if (!rows.length) return 'No refusals or guard asks logged in that window.\n'
+/**
+ * Kit 1.8 (Feature 16): the guard's asks and denies by reason code, each with
+ * the rule that decides it and, for an agent's habit, the line to carry.
+ * Rows from before column 10 get their code from the reason text.
+ * @returns {{ code: string, count: number, asks: number, denies: number, rule: string | null, carry: string | null, why: string }[]}
+ */
+export function guardReasons(guard = '', since) {
+  const from = since ? Date.parse(since) : -Infinity
+  const byCode = new Map()
+  for (const line of guard.split('\n')) {
+    const f = line.split('\t')
+    if (f.length < 9 || !(Date.parse(f[0]) >= from) || (f[7] !== 'ask' && f[7] !== 'deny')) continue
+    const code = f[9] || reasonCode(f[8])
+    const known = GUARD_REASONS.find((r) => r.code === code)
+    const g = byCode.get(code) ?? { code, count: 0, asks: 0, denies: 0, rule: known ? `guard-production.mjs ${known.rule}` : null, carry: known?.carry ?? null, why: f[8] }
+    g.count++
+    if (f[7] === 'ask') g.asks++
+    else g.denies++
+    byCode.set(code, g)
+  }
+  return [...byCode.values()].sort((a, b) => b.count - a.count || a.code.localeCompare(b.code))
+}
+
+/** The `allows` and `step-aside` rows added up: an ask rate needs both halves. */
+export function guardTotals(guard = '', since) {
+  const from = since ? Date.parse(since) : -Infinity
+  const t = { sessions: 0, calls: 0, asks: 0, denies: 0, through: 0, asides: 0 }
+  for (const line of guard.split('\n')) {
+    const f = line.split('\t')
+    if (f.length < 8 || !(Date.parse(f[0]) >= from)) continue
+    if (f[7] === 'step-aside') t.asides++
+    if (f[7] !== 'allows') continue
+    try {
+      const c = JSON.parse(f[3])
+      t.sessions++
+      for (const k of ['calls', 'asks', 'denies', 'through']) t[k] += Number(c[k]) || 0
+    } catch { /* a cut row */ }
+  }
+  return t
+}
+
+export function summaryText(rows, { reasons = [], totals = null } = {}) {
+  if (!rows.length && !reasons.length && !totals?.sessions && !totals?.asides) return 'No refusals or guard asks logged in that window.\n'
   const out = ['count\tsource\ttool\tshape\tallow line or why']
   for (const r of rows) {
     const note = r.allow ?? (r.source === 'guard' ? `guard ${r.why ? `asks on purpose: ${r.why}` : 'asks on purpose'}`
       : r.count > 1 ? 'no allow line: not a dev read, or it names production, a key, a delete or a push' : 'once')
     out.push([r.count, r.source, r.tool, r.shape, note].join('\t'))
   }
+  // Repeated reasons only: a reason seen once has no habit to fix.
+  const repeats = reasons.filter((r) => r.count > 1)
+  if (repeats.length) {
+    out.push('', 'Guard reasons that repeat (decided by; the line an agent should carry, if it is a habit)', 'count\tcode\tdecided by\tcarry or reason')
+    for (const r of repeats) out.push([r.count, r.code, r.rule ?? 'not in GUARD_REASONS (denied-log.mjs)', r.carry ? `carry: ${r.carry}` : r.why].join('\t'))
+  }
+  if (totals?.sessions) {
+    const rate = totals.calls ? ` (asks ${(100 * totals.asks / totals.calls).toFixed(1)} %, denies ${(100 * totals.denies / totals.calls).toFixed(1)} %)` : ''
+    out.push('', `Guard totals: ${totals.sessions} sessions counted at their end, ${totals.calls} guarded calls, ${totals.through} let through, ${totals.asks} asked, ${totals.denies} denied${rate}.`)
+  }
+  if (totals?.asides) out.push(`${totals.asides} sessions ran the project's own guard (the kit's stepped aside).`)
   return out.join('\n') + '\n'
 }
 
@@ -378,7 +437,8 @@ function summaryMain(argv) {
     process.exit(1)
   }
   const dir = join(at('--dir') ?? (process.env.CLAUDE_PROJECT_DIR || process.cwd()), '.claude')
-  process.stdout.write(summaryText(summarize({ denied: readOr(join(dir, DENIED_LOG)), guard: readOr(join(dir, GUARD_LOG)), since })))
+  const guard = readOr(join(dir, GUARD_LOG))
+  process.stdout.write(summaryText(summarize({ denied: readOr(join(dir, DENIED_LOG)), guard, since }), { reasons: guardReasons(guard, since), totals: guardTotals(guard, since) }))
 }
 
 async function main() {

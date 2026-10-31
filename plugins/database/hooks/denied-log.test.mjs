@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { deniedLine, guardLine, reasonCode, run, sessionEnd, shapeOf, stepAsideOnce, summarize, summaryText, toolCalls } from './denied-log.mjs'
+import { deniedLine, guardLine, guardReasons, guardTotals, reasonCode, run, sessionEnd, shapeOf, stepAsideOnce, summarize, summaryText, toolCalls } from './denied-log.mjs'
 import { GH_PR_READS, GIT_READS, PIPE_FILTERS, TEXT_READS, guardListedHead } from './read-list.mjs'
 
 const HOOK = fileURLToPath(new URL('./denied-log.mjs', import.meta.url))
@@ -276,6 +276,28 @@ describe('M12 (kit 1.8): reason codes, allows and the step-aside', () => {
     const rows = readFileSync(file, 'utf8').trim().split('\n').map((l) => l.split('\t'))
     expect(rows.map((r) => [r[5], r[7], r[9]])).toEqual([['s1', 'step-aside', 'step-aside'], ['s2', 'step-aside', 'step-aside']])
     expect(rows[0]).toHaveLength(10)
+  })
+
+  // Feature 16: the summary names the rule and the habit, and the ask rate.
+  it('--summary lists repeated guard reasons with the rule and the line to carry, and the session totals', () => {
+    const row = (sid, decision, why, code = '') => ['2026-10-30T10:00:00.000Z', 'database:the-playbook', 'Bash', '{"command":"x"}', 'auto', sid, '-', decision, why, code].join('\t')
+    const guard = [
+      row('s1', 'ask', 'psql can reach any database. Check where it connects.', 'psql'),
+      // an old nine-column row gets its code from the text
+      row('s1', 'ask', 'psql can reach any database. Check where it connects.').replace(/\t$/, ''),
+      row('s2', 'deny', '--workdir can point the CLI at another link. Run it from the repo root.', 'workdir'),
+      row('s1', 'allows', '10 guarded calls', 'session-allows').replace('{"command":"x"}', '{"calls":10,"asks":2,"denies":0,"through":8}'),
+      row('s3', 'step-aside', 'stepped aside', 'step-aside'),
+    ].join('\n')
+    const reasons = guardReasons(guard)
+    expect(reasons.map((r) => [r.code, r.count])).toEqual([['psql', 2], ['workdir', 1]])
+    expect(reasons[0].rule).toMatch(/^guard-production\.mjs segmentRules/)
+    const text = summaryText(summarize({ guard }), { reasons, totals: guardTotals(guard) })
+    expect(text).toMatch(/\n2\tpsql\tguard-production\.mjs segmentRules[^\n]*\tcarry: Read the local schema with `supabase db query --local`/)
+    expect(text).not.toMatch(/\n1\tworkdir\t/)
+    expect(text).toContain('1 sessions counted at their end, 10 guarded calls, 8 let through, 2 asked, 0 denied (asks 20.0 %')
+    expect(text).toContain("1 sessions ran the project's own guard")
+    expect(text).not.toMatch(/SessionEnd/)
   })
 
   it('hooks.json runs guard-allows.mjs at SessionEnd, which writes the row as a process', () => {
