@@ -28,6 +28,11 @@ A missing file or key fails closed: no ref counts as dev, nobody is the deployer
 - A new database function starts closed: grant `execute` explicitly, and name it in a grants test (`supabase/tests/function_grants.sql`).
 - Anything beyond a row-level policy is a `security definer` function that checks the caller's role.
 
+## Seeds
+
+- QA fixtures live in `scripts/qa/seeds/<name>.up.sql` and `<name>.down.sql`, written by `gale` and run on dev only by the plugin's `scripts/seed.mjs up|down <name>`; every row's label carries `TEST QA seed gale:<name>` and the down deletes by that text alone.
+- Real content (rows the people using the app will keep) never goes in by SQL: it goes through the project's own connector tools, the app's door, as `gale`'s `real` mode does.
+
 ## Edge Functions
 
 - Act as the caller (a shared helper builds the client from the caller's token), never as the service role on a user's behalf.

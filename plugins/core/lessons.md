@@ -109,4 +109,5 @@ Moved here from Hutzup's lessons at 3.3.3, 11 Oct 2026; `/future-ted` replaces s
 - **[motion-qa]** The browser pane draws no frames (rAF 0), runs no smooth scroll, and `shot.mjs` freezes CSS animations at desktop widths, so anything animated or scroll-driven is checked by headless Chromium probes or with motion off, never by eye, and the smooth path goes to his phone look.
 - **[next-dev]** Next 16 refuses a second dev server in one folder: a lane shoots with `next start` on its own port or works in its own worktree.
 - **[links-live]** Every outbound link is fetched and its page title read before it ships; a 200 alone proves nothing (a lapsed domain can serve another site).
+- **[seed-door]** Real content goes in through the project's own connector tools (the app's door: rules, RLS, bin, log), never by SQL on production; QA fixtures go to dev as tagged `.up.sql`/`.down.sql` pairs, no up without its down. The yes before the write is the stop.
 - **[layout-check]** QA runs `<design>/scripts/qa/page-scan.js` from the project's `public/qa/`; a project deletes its old `scripts/qa/layout-check.js`.

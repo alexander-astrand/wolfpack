@@ -25,7 +25,7 @@
       "name": "database",
       "source": "./plugins/database",
       "version": "1.8.0",
-      "description": "The Supabase pack: the production guard (the Slap Bet Commissioner) with its hooks, the-playbook (the deployer agent is each project's own), and SQL tests with bro-code. Its production scripts are copied into each project's scripts/ once (see its README)."
+      "description": "The Supabase pack: the production guard (the Slap Bet Commissioner) with its hooks, the-playbook (the deployer agent is each project's own), SQL tests with bro-code, and gale, who seeds data (real content through the project's connector, QA fixtures on dev). Its production scripts are copied into each project's scripts/ once (see its README)."
     },
     {
       "name": "wolfpack",
