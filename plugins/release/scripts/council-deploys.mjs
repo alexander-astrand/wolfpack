@@ -13,6 +13,13 @@ import { readEntries } from './usage.mjs'
 import { windowFiles } from './council-starts.mjs'
 
 const ONE_RING = /<command-name>\s*\/?(?:[\w-]+:)?one-ring\s*<\/command-name>/
+// The line deploy.mjs prints just before DONE (its `costLine`, kit 1.8). Only
+// that line counts: a looser "cost ... 4.5M" match read the one-ring skill
+// body, which mentions the baseline, as the run's cost (review MUST 2).
+const COST = /^COST: \d+(?:\.\d+)? min this run\b.*$/m
+// The skill body the harness injects after the command, as an isMeta entry
+// whose text starts with this line: it quotes DONE and cost lines as examples.
+const SKILL_BODY = /^\s*Base directory for this skill:/
 const textOf = (c) => (typeof c === 'string' ? c : Array.isArray(c) ? c.map((b) => (b?.type === 'text' ? b.text : b?.type === 'tool_result' ? textOf(b.content) : '')).join('\n') : '')
 
 // The runs in one transcript: each /one-ring command and what followed it, up
@@ -26,13 +33,13 @@ export function runsIn(entries, session) {
       continue
     }
     const run = runs.at(-1)
-    if (!run || !text) continue
+    if (!run || !text || e?.isMeta || SKILL_BODY.test(text)) continue
     if (!run.ended) {
       const end = /^(DONE: .*|STOP [\w-]+: .*)$/m.exec(text)
       if (end) run.ended = end[1].trim()
     }
     if (!run.cost) {
-      const cost = /^.*\bcost\b.*\d+(?:\.\d+)?\s?M\b.*$/im.exec(text)
+      const cost = COST.exec(text)
       if (cost) run.cost = cost[0].trim()
     }
   }
