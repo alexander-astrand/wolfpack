@@ -32,10 +32,11 @@ Follow your instructions in full, then put the whole report in one fenced code b
 
 ## Grep checks (2.10.1)
 
-Run these on the branch and report any hit as a finding (the rules are in CLAUDE.md's "Conventions in the code"; 2.10 shipped the shelf without drag and section titles squeezed by notes and toggles):
+Run these on the branch and report any hit as a finding (the rules are in the project's conventions section, if it has one; 2.10 shipped the shelf without drag and section titles squeezed by notes and toggles):
 
+- **Start from the hits:** `node ${CLAUDE_PLUGIN_ROOT}/scripts/review-greps.mjs --repo <repo> --version <version>` runs the conventions script, every backticked grep in `.claude/builder-checks.md`, the kit's repeat shapes and the version field on the branch's diff, and prints only hits (kit 1.8, F12). Confirm each hit, then read the diff for what greps can't see; the lines below say what each check is.
 - **Run the project's conventions script** (`conventions` in `.claude/kit.json`, via `npm run lint`; `--counts` shows each rule's hits and allowlist): any hit it prints is a finding, and a lint already failing on the branch means the builder skipped the check. Its rules replace the hand greps this list used to carry (sideways rows without the drag component, popovers outside a portal, a second scrollbar, maps that take the scroll, "films" in UI text, raw buttons, the pointer, typed text in email HTML, hover outside buttons, and the rest it lists). Then read the diff for what greps can't see: a secret in a URL, spoiler text in push or email, a cross-page state with two owners.
-- **No conventions script?** Then grep the diff by hand for each rule in the project's `CLAUDE.md` "Conventions in the code" (kit 1.5, lens Could).
+- **No conventions script?** Then grep the diff by hand for each rule in the project's conventions section, if it has one (kit 1.5, lens Could).
 - **The project's own repeat-sendback greps:** every line of its `.claude/builder-checks.md` (page shapes, layout rules, UI strings, switches and their entry points, function headers, kit-logic test sizes). Run each on the diff; a hit is a finding (kit 1.5, lens Should 1).
 - **Every fixed finding is in a diff (2.10.1):** for each finding the fix pass reports as fixed, find the change in the fix commit (`git -C <repo> show --stat <sha>`, then the Grep tool on the file or `git -C <repo> diff <sha>~1 <sha> -- <path>`; never `git show <sha> | grep`, which prompts); report one without a change as still open.
 - **The release field matches (`[release-bump]`):** the project's version field, when it has one, must read the version being reviewed; anything else is a must (the footer or about page would show the last release).
