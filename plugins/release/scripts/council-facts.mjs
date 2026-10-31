@@ -140,6 +140,10 @@ export const SOURCES = [
   ['hooks', 'session-hooks.log'],
 ]
 
+// The guard's per-session rows (kit 1.8 guard paste): an `allows` total at
+// SessionEnd and one `step-aside` row. Totals, not decisions, so not counted.
+const NOT_DECISIONS = new Set(['allows', 'step-aside'])
+
 // Rows on or after `from` (column 1 is an ISO time), and the top tools (column 3).
 export function logRows(file, from) {
   if (!existsSync(file)) return null
@@ -147,7 +151,7 @@ export function logRows(file, from) {
   let rows = 0
   for (const line of readFileSync(file, 'utf8').split('\n')) {
     const cols = line.split('\t')
-    if (!line.trim() || Date.parse(cols[0]) < from) continue
+    if (!line.trim() || Date.parse(cols[0]) < from || NOT_DECISIONS.has(cols[7])) continue
     rows += 1
     const tool = cols[2] || '?'
     tools.set(tool, (tools.get(tool) || 0) + 1)

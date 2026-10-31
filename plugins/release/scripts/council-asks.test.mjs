@@ -24,6 +24,17 @@ describe('guardReason and guardReasons', () => {
     expect(table.split('\n').slice(2)).toEqual(['| the-playbook | ask | psql | 2 |', '| main | deny | prod-db | 1 |'])
     expect(guardTable(new Map())).toContain('No guard rows')
   })
+
+  it('counts allows as the calls let through, from the last allows row per session (kit 1.8)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'council-asks-'))
+    const log = join(dir, 'guard-decisions.log')
+    const allows = (sid, through) => ['2026-10-20T00:00:00Z', 'main', 'SessionEnd', JSON.stringify({ calls: through + 1, asks: 1, denies: 0, through }), 'auto', sid, '-', 'allows', 'why', 'session-allows'].join('\t')
+    // s1 ended twice (resumed): only its last row counts. s2 adds 7. A cut row counts 0.
+    const cut = allows('s3', 1).replace(/\{.*\}/, '{"calls":')
+    writeFileSync(log, [allows('s1', 10), allows('s1', 40), allows('s2', 7), cut].join('\n') + '\n')
+    const tally = guardReasons([log], Date.parse('2026-10-10'))
+    expect([...tally]).toEqual([['main\tallows\tsession-allows', 47]])
+  })
 })
 
 describe('questionTally', () => {

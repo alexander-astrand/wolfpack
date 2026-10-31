@@ -181,6 +181,13 @@ describe('--mutate', () => {
     expect(run('--mutate', '0042').out).toMatch(/^FAIL 0042_bad\.sql as it is/)
     expect(run('--mutate', '004').out).toMatch(/exactly one suite; 004 matched 2/)
   })
+
+  it('counts a flip that prints nothing as an ERROR, not as failed, and exits 1', () => {
+    suite('0043_mute.sql', `do $$ begin perform pg_temp.expect_ok('a'); ${PASSES}end $$;\n-- fake: PASS mute\n-- fake-if expect_error('a': \n`)
+    const r = run('--mutate', '0043')
+    expect(r.code).toBe(1)
+    expect(r.out).toBe("ERROR 0043_mute.sql:1 printed no PASS: (nothing)\n1 flipped: 0 failed as they should, 0 survived, 1 gave no verdict; 0 other checks not mutated")
+  })
 })
 
 describe('the parts', () => {
@@ -197,6 +204,8 @@ describe('the parts', () => {
     expect(verdict('ERROR: PASS a (2 checks)').ok).toBe(true)
     expect(verdict('ERROR: FAIL a\n x').ok).toBe(false)
     expect(verdict('connection refused').detail[0]).toMatch(/printed no PASS/)
+    expect(verdict('connection refused').failed).toBe(false)
+    expect(verdict('ERROR: FAIL a\n x').failed).toBe(true)
     expect(withHelpers('a\n-- @helpers\nb', 'H')).toBe('a\nH\nb')
   })
 })

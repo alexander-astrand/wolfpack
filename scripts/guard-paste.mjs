@@ -9,7 +9,8 @@
 // terminal, where no hook stands between him and the files. This script is
 // that paste: it checks the checkout is clean and on a release branch, applies
 // the patch with `git am --3way` (the lane's commits keep their authors and
-// messages), runs the database plugin's hook tests, and on green removes the
+// messages), runs the database plugin's hook tests and then `npm test` (the
+// whole suite and the kit check, which reads hooks.json), and on green removes the
 // patch folder in one more commit and pushes. On red it pushes nothing and
 // prints how to undo. Default patch: the newest *.patch in guard-paste/.
 // --dry prints the steps and runs none.
@@ -35,7 +36,11 @@ export function defaultPatch(root = ROOT) {
 export function steps(patch, head) {
   return [
     ['git', ['am', '--3way', patch]],
+    // The hook tests first, as the fast gate; then the whole suite, which ends
+    // with scripts/check.mjs: that is what validates hooks.json and any hook
+    // the patch adds (kit 1.8's SessionEnd hook), which the hook tests never read.
     ['npx', ['vitest', 'run', HOOKS_DIR]],
+    ['npm', ['test']],
     ['git', ['rm', '-r', '-q', PASTE_DIR]],
     ['git', ['commit', '-q', '-m', `Guard paste landed: ${patch.split('/').at(-1)} applied by a person`]],
     ['git', ['push', '-q']],
@@ -83,7 +88,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
     console.log(`(on red: ${undo})`)
     process.exit(0)
   }
-  const [am, tests, ...land] = plan
+  const [am, hookTests, fullTests, ...land] = plan
   try {
     run(...am)
   } catch {
@@ -91,11 +96,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
     console.error(`guard-paste: ${AM_STOPPED}`)
     process.exit(1)
   }
-  try {
-    run(...tests)
-  } catch {
-    console.error(`guard-paste: the hook tests failed after the paste; nothing pushed. Undo with: ${undo}`)
-    process.exit(1)
+  for (const [gate, what] of [[hookTests, 'the hook tests'], [fullTests, 'npm test (the whole suite and the kit check)']]) {
+    try {
+      run(...gate)
+    } catch {
+      console.error(`guard-paste: ${what} failed after the paste; nothing pushed. Undo with: ${undo}`)
+      process.exit(1)
+    }
   }
   for (const s of land) run(...s)
   console.log(`guard-paste: ${patch} applied, tests green, pushed on ${branch}.`)

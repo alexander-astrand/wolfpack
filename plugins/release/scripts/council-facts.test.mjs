@@ -75,6 +75,13 @@ describe('permissionSection', () => {
     expect(text).toContain('### repo\n')
     expect(text).toContain('| guard | .claude/guard-decisions.log | 1 | Bash 1 |')
   })
+  it('does not count the guard\'s allows and step-aside rows as decisions (kit 1.8)', () => {
+    const f = fixture()
+    const row = (tool, decision) => ['2026-10-17T10:00:00Z', 'main', tool, '{}', 'auto', 's1', '-', decision, 'why', decision].join('\t')
+    put(join(f.repo, '.claude', 'guard-decisions.log'), [row('Bash', 'ask'), row('SessionEnd', 'allows'), row('Bash', 'step-aside')].join('\n') + '\n')
+    const text = permissionSection({ repo: f.repo }, Date.parse('2026-10-10'))
+    expect(text).toContain('| guard | .claude/guard-decisions.log | 1 | Bash 1 |')
+  })
 })
 
 describe('staleRefs', () => {

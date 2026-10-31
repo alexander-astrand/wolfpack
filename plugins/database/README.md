@@ -25,6 +25,12 @@ A project's `.claude/agents/ranjit.md` is this plugin's `templates/ranjit.md` (o
 
 Every `ask` and `deny` the guard decides goes to the project's `.claude/guard-decisions.log` with its reason, and every Auto mode refusal to `.claude/permission-denied.log` (`hooks/denied-log.mjs`). Both are tab-separated in the same column order, written in `denied-log.mjs`'s header. `node <plugin>/hooks/denied-log.mjs --summary [--since <YYYY-MM-DD>] [--dir <project>]` groups the repeats from both, marks each `guard` or `classifier`, and prints a `settings.json` allow line for the classifier's dev-only repeats. The guard's read allowlist takes `git show|diff|cat-file|ls-tree|rev-parse|status|log` and `grep`, `rg` and `wc` on the repo's own files (not `.claude/`, `.git/` or `.env*`), so those skip the classifier.
 
+After the guard paste (kit 1.8; `guard-paste/kit-1.8.patch` until a person applies it with `node scripts/guard-paste.mjs`):
+- Column 10 of every guard row is a stable reason code (such as `psql`), so a count groups by rule rather than by wording.
+- Two rows that are totals, not decisions: one `allows` row per session at its end (column 4 holds `{ calls, asks, denies, through }`, reason code `session-allows`), written by the SessionEnd hook `hooks/guard-allows.mjs`; and one `step-aside` row per session when a project's own guard ran in place of the kit's (HutzUp).
+- `denied-log.mjs --summary` adds a reason table: each repeated guard reason by code, the rule in `guard-production.mjs` that decides it, and the line an agent should carry for a habit (psql, `--workdir`, heredoc edits); then the session totals and the ask rate from the `allows` rows.
+- `node <plugin>/hooks/guard-production.mjs --explain '<command>'` (`[--agent <name>] [--cwd <dir>]`) is the dry guard: it prints the verdict, the reason and its code, the rule and what to do instead, never running the command.
+
 ## Install the scripts
 
 The three production scripts ship in this plugin's `scripts/` folder. A person copies them into the project's `scripts/` once; the guard never lets an agent copy them, and a `/cattle-drive` preflight stops until they are there. From the project root:
