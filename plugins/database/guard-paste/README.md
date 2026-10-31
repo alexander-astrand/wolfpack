@@ -9,4 +9,4 @@ The guard is frozen: a release prepares its change and a person pastes it (`[fro
 5. **L3** a bare "token" in a human step no longer holds the deploy (an env name, a secret kind or a hand-over verb still does).
 6. **F6** the deploy prints a cost line (minutes, the longest wait, the 4.5M / 12 min baseline) before `DONE`.
 
-Paste it from the release checkout with `node scripts/guard-paste.mjs`: it applies the patch with `git am --3way`, runs the hook tests, removes this folder in one commit and pushes. `--dry` prints the steps first. On red nothing is pushed and it prints the undo.
+Paste it from the release checkout with `node scripts/guard-paste.mjs`: it applies the patch with `git am --3way`, runs the hook tests and then `npm test` (the whole suite and `node scripts/check.mjs`, which validates `hooks.json` and the new SessionEnd hook), removes this folder in one commit and pushes. `--dry` prints the steps first. On red nothing is pushed and it prints the undo.

@@ -72,7 +72,9 @@ test('refusal stops main, a dirty checkout and a missing patch', () => {
 test('steps apply, test, remove the patch, commit, push, and keep an undo', () => {
   const s = steps('plugins/database/guard-paste/kit-1.8.patch', 'abc123')
   assert.deepEqual(s[0], ['git', ['am', '--3way', 'plugins/database/guard-paste/kit-1.8.patch']])
-  assert.equal(s[1][0], 'npx')
-  assert.deepEqual(s.map(([f]) => f), ['git', 'npx', 'git', 'git', 'git', 'undo'])
+  assert.deepEqual(s[1], ['npx', ['vitest', 'run', 'plugins/database/hooks']])
+  // The gate before the push is the whole suite plus the kit check, not the hook tests alone.
+  assert.deepEqual(s[2], ['npm', ['test']])
+  assert.deepEqual(s.map(([f]) => f), ['git', 'npx', 'npm', 'git', 'git', 'git', 'undo'])
   assert.deepEqual(s.at(-1)[1], ['git', 'reset', '--hard', 'abc123'])
 })
