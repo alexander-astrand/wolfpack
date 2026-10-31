@@ -65,6 +65,7 @@ When a `CHAIN … ORDER` from the conductor starts you (`/cattle-drive <version>
 - `git fetch`, and `main` is up to date with `origin/main`. Uncommitted changes stop the run.
 - **Bump the release field first:** `[release-bump]` the first commit of every release sets the project's version field, when it has one (the footer or about page reads it), to the version. Push it before any step starts.
 - **Standing facts exist:** when the project has no `.claude/standing-facts.md`, copy this plugin's `templates/standing-facts.md` there (Read, then Write) and commit it with the release bump (H3, kit 1.8: builders and the wrap read a file no project had).
+- **The page scan is copied:** for a release that changes a page, `web-shooters` says who copies `page-scan.js`: when `cmp <design>/scripts/qa/page-scan.js public/qa/page-scan.js` says it is missing or differs, `mkdir -p public/qa`, `cp <design>/scripts/qa/page-scan.js public/qa/` and commit it with the release bump (a QA agent has no Write; with no copy it runs `qa-pass.mjs`, which carries the scan).
 - If the release needs the database: the CLI is linked to dev (`refs.dev` in `.claude/kit.json`) and this is a local session (`cloud-city` skill: the cloud has no CLI or database).
 
 ## 2. Plan

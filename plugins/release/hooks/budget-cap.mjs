@@ -104,7 +104,6 @@ export const SHOT_CAPS = {
   'tomas-svensson': 5,
   'magnus-wislander': 5,
   'staffan-olsson': 5,
-  'stefan-lovgren': 5,
 }
 // `scroll` needs a fresh screenshot for its coordinate frame, so QA takes tiny
 // ones (scale 0.2) just to scroll. Counting them left 2.12.2's wheel checks
