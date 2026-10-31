@@ -5,7 +5,11 @@
 // navigator runs one line and r2-d2 reads one file (Feature 10, kit 1.6.1 council).
 // Sections, in order: the git range, the speed table per project, roles with
 // runs per model, the cards' closing-lines table, session starts, agent spawns,
-// the permission logs per project by source, and a stale-reference pre-grep.
+// the lessons and taste changes on every branch with the sendback count, the
+// permission logs per project by source, and a stale-reference pre-grep.
+// Kit 1.8 (the kit 1.7.1 council's "for the next council") added the learning
+// diff (F20), and main passes the real gh call so the cheaper lines include
+// the window's PR bodies (H3).
 //
 // Usage: node council-facts.mjs --since <YYYY-MM-DD> --out <facts.md>
 //          [--project <name>=<repo path>]… [--git <repo> --from <commit>]
@@ -63,6 +67,50 @@ export function gitRange(repo, from, run = git) {
   } catch (e) {
     return `git failed: ${String(e.stderr || e.message).trim().split('\n')[0]}`
   }
+}
+
+// ---- lessons and taste over the window, every branch (F20, kit 1.7.1 council)
+
+// The learning lens started from dates and missed a wrap PR's lessons still on
+// its branch; `git log --all` lists each change wherever it sits. A taste line
+// with a source in parentheses is a sendback, so added ones are the count.
+export const LEARN_FILES = ['.claude/lessons.md', '.claude/taste.md']
+export const sendbackLine = (l) => /^\+(?!\+\+)\s*[-*]\s.*\([^)]{2,}\)/.test(l)
+
+export function learningChanges(repo, since, run = git) {
+  try {
+    const log = run(['-C', repo, 'log', '--all', `--since=${since}`, '--date=short', '--format=@@%h|%ad|%D|%s', '--numstat', '--', ...LEARN_FILES])
+    const commits = []
+    for (const line of log.split('\n')) {
+      if (line.startsWith('@@')) {
+        const [sha, date, refs, ...subj] = line.slice(2).split('|')
+        commits.push({ sha, date, refs, subject: subj.join('|'), files: [] })
+      } else if (line.trim() && commits.length) {
+        const [add, del, file] = line.split('\t')
+        commits.at(-1).files.push(`${file.replace('.claude/', '')} +${add} -${del}`)
+      }
+    }
+    const patch = run(['-C', repo, 'log', '--all', `--since=${since}`, '--format=', '-p', '--', '.claude/taste.md'])
+    const sendbacks = new Set(patch.split('\n').filter(sendbackLine).map((l) => l.slice(1).trim()))
+    return { commits, sendbacks: sendbacks.size }
+  } catch (e) {
+    return { error: String(e.stderr || e.message).trim().split('\n')[0] }
+  }
+}
+
+export function learningSection(projects, since, run = git) {
+  const out = ['Every branch (`git log --all`); a sendback is an added taste line with a source in parentheses, each text once.', '']
+  for (const [project, repo] of Object.entries(projects)) {
+    const r = learningChanges(repo, since, run)
+    if (r.error) {
+      out.push(`### ${project}`, '', `git failed: ${r.error}`, '')
+      continue
+    }
+    out.push(`### ${project}: ${r.commits.length} commits, ${r.sendbacks} sendbacks added to taste`, '')
+    for (const c of r.commits) out.push(`- ${c.date} \`${c.sha}\`${c.refs ? ` (${c.refs})` : ''} ${c.subject}: ${c.files.join(', ')}`)
+    out.push('')
+  }
+  return out.join('\n').trimEnd()
 }
 
 // ---- the speed table, per project
@@ -219,6 +267,7 @@ export function buildFacts(o, { run = git, prBodies } = {}) {
   out.push('## Closing lines (from the cards)', '', closingTable(cards), '')
   out.push('## Session starts (start_session by initiation)', '', startsTable(startRows(allDirs, from)), '')
   out.push('## Agent spawns (role and the model the call asked for)', '', spawnsTable(spawnTally(allDirs, from)), '')
+  out.push('## Lessons and taste changes', '', learningSection(o.projects, o.since, run), '')
   out.push('## Permission logs, by source', '', permissionSection(o.projects, from), '')
   out.push('## Stale references', '', staleSection(staleRefs(kitFiles(kitRoot), kitRoot, o.retired), o.retired), '')
   return { facts: out.join('\n'), cards, cheaper }
