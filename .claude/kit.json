@@ -8,5 +8,5 @@
   "keychain": { "dev": "", "prod": "" },
   "backupRoot": "",
   "ci": { "workflow": ".github/workflows/test.yml", "jobs": ["test"] },
-  "kit": { "version": "1.7.0" }
+  "kit": { "version": "1.8.0" }
 }
