@@ -69,6 +69,45 @@ describe('builder-checks pipelines', () => {
     const lines = [{ file: 'src/a.ts', line: 1, text: 'from("game_nights")' }, { file: 'src/aApi.ts', line: 2, text: 'game_nights' }, { file: 'docs/x.md', line: 3, text: 'navigator.share' }]
     expect(hitsOf(lines, checks).map((h) => `${h.check} @ ${h.where}`)).toEqual(['Game nights filtered @ src/a.ts:1'])
   })
+
+  // Real lines from reel-helper's and Burrow's .claude/builder-checks.md
+  // (31 Oct 2026), copied in with the prose after the grep trimmed (review MUST 3).
+  const REAL = [
+    "- **A logo or mark draws on whole pixels** (the kit's taste: a wordmark at 109x25.25 and a mark at 18.9px both blurred, in two projects). `git diff main -U0 | grep -nE '^\\+.*[0-9]+\\.[0-9]+px'` shows no fractional size in a logo, mark or icon box; a computed size goes through `Math.round`.",
+    "- **An add line keeps its text until the write succeeds.** Use `AddLine` (`components/ui/add-line.tsx`), or clear only after the write returns. Grep: `git diff main -- components | grep -n \"setText('')\\|setValue('')\"`. (V0.6 G2 N11: notes, other shops, wishes, `aa71d30`.)",
+    "- **A page's width, column count and sticky top come from `<Page shape>` / `styles/layout.css`, under Full only.** Calm keeps its own page CSS untouched. Grep the diff: `git diff main -- '*.css' | grep -n 'max-width:\\|position: sticky'` outside layout.css; the `layout` convention fails on them. (V0.9 S2, scoped to Full in V0.10 P1b.)",
+    "- **Today comes from `localDate`, a week, month or year edge from `lib/dates.ts`.** Grep the diff: `git diff main -- app components lib | grep -n \"^+.*\\(Europe/Stockholm\\|sv-SE\\)\"` (only `lib/time.ts` may hold it). (V0.12 inception, gap 1.)",
+    "- **A page that stops showing a fact stops reading it.** A step that removes a window, card or line from a page removes its loader's query too. Grep the diff's removed fields against the page's loader: `git diff main -- components | grep -n \"^-.*\\(facts\\|windows\\|sum\\)\"`, then the loader for each.",
+    "- **A clean-up that deletes a style greps what the page shows first.** Grep: each deleted selector in `git diff main -- '*.css' | grep -n \"^-\\.\"` against `components/` and `app/`.",
+    "- **A layout change is looked at, not measured.** Grep: `git log -1 --format=%B | grep -c '1440'`. (V0.9, aborted: builders checked a width cap and PNG hashes and never looked.)",
+    "- **A lock file is written by npm 10.** Grep: `git diff main --name-only | grep package-lock.json` prints a line only when the commit body names npm 10.",
+  ]
+
+  it('reads a git diff pipeline the way the shell does: `^\\+` fires, `-- <paths>` and globs scope it', () => {
+    const { checks, manual } = projectChecks(REAL.join('\n'))
+    expect(checks).toHaveLength(4)
+    expect(manual).toBe(4)
+    const lines = [
+      { file: 'src/Logo.tsx', line: 1, text: '  <svg width="18.9px" />' },
+      { file: 'components/add.tsx', line: 2, text: "    setText('')" },
+      { file: 'styles/page.css', line: 3, text: '  max-width: 720px;' },
+      { file: 'components/a.tsx', line: 4, text: '  style={{ position: sticky }}' },
+      { file: 'app/today.tsx', line: 5, text: "  const tz = 'Europe/Stockholm'" },
+      { file: 'docs/notes.md', line: 6, text: 'Europe/Stockholm' },
+      { file: 'components/b.tsx', line: 7, text: '-.old facts windows sum' },
+    ]
+    expect(hitsOf(lines, checks).map((h) => h.where)).toEqual(['src/Logo.tsx:1', 'components/add.tsx:2', 'styles/page.css:3', 'app/today.tsx:5'])
+  })
+
+  it('counts `^-` patterns, other git commands and any non-plain grep option as read by hand', () => {
+    expect(parsePipeline('git diff main -- components | grep -n "^-.*\\(facts\\|windows\\|sum\\)"')).toBe(null)
+    expect(parsePipeline("git log -1 --format=%B | grep -c '1440'")).toBe(null)
+    expect(parsePipeline('git diff main --name-only | grep package-lock.json')).toBe(null)
+    expect(parsePipeline('grep -rn --include=*.ts "navigator.share" src')).toBe(null)
+    expect(parsePipeline('grep -n -e "setText" -e "setValue" components')).toBe(null)
+    expect(parsePipeline('grep -L "no_oauth_client" supabase/migrations/x.sql')).toBe(null)
+    expect(parsePipeline('git diff main -- app components lib | grep -n "x"')).toMatchObject({ paths: ['app', 'components', 'lib'], diff: true })
+  })
 })
 
 describe('review', () => {

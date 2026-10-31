@@ -16,7 +16,10 @@
 //   in the client with no visibility word in the file's added lines.
 // - every backticked grep in the project's `.claude/builder-checks.md`, its
 //   pipeline of `grep` and `grep -v` applied to the added lines (its path, such
-//   as `src`, kept). A line with no grep is a read-by-hand check, only counted.
+//   as `src`, or `git diff -- <paths>`, kept; after `git diff` the first grep
+//   sees the `+`). A line with no grep, or one this can't read the way the
+//   shell would (`^-` removed lines, `git log`, `-e`, `-c`, `--include=`), is a
+//   read-by-hand check, only counted.
 // - the project's conventions script (`conventions` in `.claude/kit.json`),
 //   its output printed when it exits non-zero.
 // - `[release-bump]`: package.json's version against --version.
@@ -78,26 +81,61 @@ export function toRegExp(pat, { ere = false, fixed = false, ignoreCase = false }
   return new RegExp(src, ignoreCase ? 'i' : '')
 }
 
-// One builder-checks pipeline as filters: [{ re, negate }] and the paths of its
-// first grep; null when the command has no grep this script can apply.
+// grep letters that only change how lines are found or printed. Anything else
+// (-e and -f take an argument, -c, -l and -L print counts or names, -w and -x
+// change the match, any --long option) is a check this script would misread,
+// so its line counts as read by hand (review MUST 3).
+const PLAIN_FLAGS = /^-[nrRiEFvHhsI]+$/
+
+// `git diff <ref> [-U<n>] [-- <paths>]`: its paths, or null for any other git
+// command or option (`git log`, `--name-only`), whose output isn't diff lines.
+function diffPaths(w) {
+  if (w[1] !== 'diff') return null
+  const sep = w.indexOf('--')
+  const opts = sep < 0 ? w.slice(2) : w.slice(2, sep)
+  if (opts.some((x) => x.startsWith('-') && !/^-U\d*$/.test(x))) return null
+  return sep < 0 ? [] : w.slice(sep + 1)
+}
+
+// One builder-checks pipeline as filters: [{ re, negate }], the paths it reads
+// (its first grep's, or `git diff -- <paths>`) and whether it reads a diff;
+// null when the command has no grep this script can apply.
 export function parsePipeline(cmd) {
   const filters = []
   let paths = []
-  for (const seg of cmd.split(/\s\|\s/)) {
+  let diff = false
+  for (const [n, seg] of cmd.split(/\s\|\s/).entries()) {
     const w = words(seg.trim())
-    if (w[0] === 'git') continue
+    if (w[0] === 'git' && n === 0) {
+      paths = diffPaths(w)
+      if (!paths) return null
+      diff = true
+      continue
+    }
     if (w[0] !== 'grep') return null
-    const flags = w.slice(1).filter((x) => /^-[a-zA-Z]+$/.test(x)).join('')
-    const rest = w.slice(1).filter((x) => !/^-[a-zA-Z]+$/.test(x))
+    const opts = w.slice(1).filter((x) => x.startsWith('-'))
+    if (opts.some((x) => !PLAIN_FLAGS.test(x))) return null
+    const flags = opts.join('')
+    const rest = w.slice(1).filter((x) => !x.startsWith('-'))
     if (!rest.length) return null
+    // A diff's removed lines (`^-`) are never among the added lines read here.
+    if (diff && !filters.length && /^\^\\?-/.test(rest[0])) return null
     try {
       filters.push({ re: toRegExp(rest[0], { ere: /E/.test(flags), fixed: /F/.test(flags), ignoreCase: /i/.test(flags) }), negate: /v/.test(flags) })
     } catch {
       return null
     }
-    if (filters.length === 1) paths = rest.slice(1)
+    if (filters.length === 1 && !diff) paths = rest.slice(1)
   }
-  return filters.length ? { filters, paths } : null
+  return filters.length ? { filters, paths, diff } : null
+}
+
+// A path from a check against a diff file: a folder or file, or a git pathspec
+// glob such as `*.css` (its `*` crosses folders, as git's does).
+function underPath(file, d) {
+  if (d === '.' || file === d || file.startsWith(`${d.replace(/\/$/, '')}/`)) return true
+  if (!d.includes('*')) return false
+  return new RegExp(`^${d.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`).test(file)
 }
 
 // The checks in a builder-checks.md: one per bullet, with each backticked grep.
@@ -114,7 +152,9 @@ export function projectChecks(text) {
     }
     // The first grep reads the line; a later one in the pipe reads grep's
     // output, `file:line:text`, so `| grep -v Api` drops a file by its name.
-    for (const p of pipes) checks.push({ name, test: (l) => (!p.paths.length || p.paths.some((d) => d === '.' || l.file === d || l.file.startsWith(`${d.replace(/\/$/, '')}/`))) && p.filters.every((f, i) => f.re.test(i ? `${l.file}:${l.line}:${l.text}` : l.text) !== f.negate) })
+    // After `git diff` the first grep sees the line with its `+`, so a
+    // `^\+` pattern matches as it does in the shell.
+    for (const p of pipes) checks.push({ name, test: (l) => (!p.paths.length || p.paths.some((d) => underPath(l.file, d))) && p.filters.every((f, i) => f.re.test(i ? `${l.file}:${l.line}:${l.text}` : p.diff ? `+${l.text}` : l.text) !== f.negate) })
   }
   return { checks, manual }
 }
