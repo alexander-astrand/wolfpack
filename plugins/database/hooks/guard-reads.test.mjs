@@ -1,10 +1,12 @@
 // First: the tests' project and its kit.json (the fixture's values).
 import './fixtures/kit-project.mjs'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
-import { DEV_REF, READ_BUDGET_MS, decide, readTimeout } from './guard-production.mjs'
+import { DEV_REF, READ_BUDGET_MS, decide, explain, readTimeout } from './guard-production.mjs'
 
 // Kit 1.7 (the kit 1.6.1 council's H5, H1 and M10): the dev reads the guard
 // now allows, the shapes that still go to the classifier or a person, a
@@ -236,6 +238,32 @@ describe('M1 (kit 1.8): refusals name /one-ring first', () => {
     expect(r?.decision).toBe('deny')
     expect(r.reason).toMatch(/\/one-ring[^]*\/skinny-pete/)
     expect(r.reason).not.toMatch(/only through \/skinny-pete/i)
+  })
+})
+
+// Kit 1.8 (Feature 16): the dry guard prints the verdict and the rule.
+describe('F16 (kit 1.8): guard-production.mjs --explain', () => {
+  it('a refused loop prints deny, its code, the rule and what to do instead', async () => {
+    const text = await explain(`for f in $d/*; do bash $f; done`, { cwd: root }, STUBS)
+    expect(text).toMatch(/^verdict: deny\n/)
+    expect(text).toMatch(/\ncode: arm-script\n/)
+    expect(text).toMatch(/decided by: guard-production\.mjs SCRIPT_DENIED/)
+    expect(text).toMatch(/\ninstead: /)
+  })
+
+  it('a passing read prints pass, and a listed read allow', async () => {
+    expect(await explain(`r=${root}; for d in $r/.claude/worktrees/*/; do wc -l "$d"x; done`, { cwd: root }, STUBS)).toMatch(/^verdict: pass/)
+    expect(await explain('git diff --stat', { cwd: root }, STUBS)).toMatch(/^verdict: allow\n/)
+  })
+
+  it('as a process it prints without running the command, and wants a command', () => {
+    const file = fileURLToPath(new URL('./guard-production.mjs', import.meta.url))
+    const marker = join(root, 'explain-ran')
+    const r = spawnSync(process.execPath, [file, '--explain', `touch ${marker}`, '--cwd', root], { encoding: 'utf8' })
+    expect(r.status).toBe(0)
+    expect(r.stdout).toMatch(/^verdict: /)
+    expect(existsSync(marker)).toBe(false)
+    expect(spawnSync(process.execPath, [file, '--explain']).status).toBe(2)
   })
 })
 

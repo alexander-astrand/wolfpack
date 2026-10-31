@@ -3937,4 +3937,33 @@ async function logDecision(input, result) {
   } catch { /* no log, same verdict */ }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+// Kit 1.8 (Feature 16): the dry guard. `node guard-production.mjs --explain
+// '<command>' [--agent <name>] [--cwd <dir>]` prints the verdict this guard
+// would give a Bash call and the rule that decides it, so a session asks
+// "will this loop pass?" before a stall. It never runs the command; the
+// guard's own reads (a PR, git) run as in a real decision.
+export async function explain(command, { cwd = process.cwd(), agent, mode = 'auto' } = {}, env) {
+  const result = decide({ tool_name: 'Bash', tool_input: { command }, cwd, permission_mode: mode, agent_type: agent }, env)
+  if (!result) return 'verdict: pass (no decision; the normal permission rules, Auto mode\'s classifier, judge it)\n'
+  const lines = [`verdict: ${result.decision}`, `reason: ${String(result.reason ?? '').split('\n')[0]}`]
+  try {
+    const { GUARD_REASONS, reasonCode } = await import('./denied-log.mjs')
+    const code = reasonCode(result.reason)
+    const known = GUARD_REASONS.find((r) => r.code === code)
+    lines.push(`code: ${code}`, `decided by: ${known ? `guard-production.mjs ${known.rule}` : 'a rule not in GUARD_REASONS (denied-log.mjs); grep this file for the reason text'}`)
+    if (known?.carry) lines.push(`instead: ${known.carry}`)
+  } catch { /* the verdict stands without its code */ }
+  return lines.join('\n') + '\n'
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  const argv = process.argv.slice(2)
+  if (argv[0] === '--explain') {
+    const at = (flag) => { const i = argv.indexOf(flag); return i > 0 ? argv[i + 1] : undefined }
+    if (!argv[1]) {
+      process.stderr.write("usage: node guard-production.mjs --explain '<command>' [--agent <name>] [--cwd <dir>]\n")
+      process.exit(2)
+    }
+    explain(argv[1], { agent: at('--agent'), cwd: at('--cwd') ?? process.cwd() }).then((text) => { process.stdout.write(text); process.exit(0) })
+  } else main()
+}
