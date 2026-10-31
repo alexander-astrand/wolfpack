@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { format, norm, parseArgs, repeats, run, score } from './taste-repeats.mjs'
+import { format, norm, parseArgs, repeats, repeatWords, run, score } from './taste-repeats.mjs'
 
 describe('norm', () => {
   it('turns paths and page names into the same words', () => {
@@ -23,6 +23,13 @@ describe('score', () => {
   it('skips untagged rules with no repeat word, and lines that are not rules', () => {
     expect(score('- Covers show whole.', ['/books'])).toBeNull()
     expect(score('Solved on: event page.', ['/x'])).toBeNull()
+  })
+  it('does not count an ordinal "second" or a Repeat field label as a repeat (the council\'s 21 that were 16)', () => {
+    expect(score('- The second bar sits under the header, never over it.', ['/x'])).toBeNull()
+    expect(score('- The form puts **Repeat:** under the date, and the "Repeat" select is full width.', ['/x'])).toBeNull()
+    expect(score('- Repeat: weekly shows as one chip.', ['/x'])).toBeNull()
+    expect(repeatWords('- Sent back a second time: the second bar overlaps.')).toEqual(['second'])
+    expect(repeatWords('- (Trips, 3.1: "the third sendback on this, repeated")')).toEqual(['third', 'repeated'])
   })
   it('adds one for the project file', () => {
     expect(score('- A maple. Solved on: polls row. (x)', ['/map'], { project: true }).score).toBe(4)

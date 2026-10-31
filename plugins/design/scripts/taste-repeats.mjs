@@ -9,7 +9,8 @@
 // under the current folder), takes every rule line ("- ..."), and scores it for the pages given:
 //   +3  it carries `Solved on: <page>` for a page outside the list: a pattern one page got right
 //       that these pages may not have copied (the commonest repeat, kit 1.6.1 council M6)
-//   +2  for each repeat word (second, third, again, repeat, identical, still, "did we not learn"), at most two
+//   +2  for each repeat word (again, repeat, identical, still, "did we not learn", and second or third
+//       only before time, round, sendback and the like), at most two; a field label (`Repeat:`) is not one
 //   +2  it names one of the pages outside its tag: that page was sent back for it before
 //   +1  it is in the project's file, the more specific of the two
 // A rule needs a tag or a repeat word to count. Prints the top three (or --top n) as file:line, the
@@ -19,7 +20,20 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-export const REPEAT_WORDS = /\b(second|third|again|repeat(?:ed|s)?|identical|still)\b|did we not learn/gi
+// "second" and "third" count only in a repeat phrase ("a second time", "third
+// sendback"): alone they are mostly ordinals, and "second bar" was a false hit
+// that put the council's 16 repeat lines at 21.
+export const REPEAT_WORDS = /\b(?:(second|third)(?=[\s-]+(?:time|round|sendback|send-back|pass|try|attempt|report|ask)s?\b)|again|repeat(?:ed|s)?|identical|still)\b|did we not learn/gi
+// A field label is a name, not a repeat: `Repeat:` or **Repeat:** (capital,
+// then a colon), or the word alone in quotes ("Repeat", `Repeat`): a form's
+// Repeat field was the other false hit. Cut before matching. A quote with more
+// in it ("we did this again") still counts: that is Alexander's sendback.
+const WORD = 'repeat(?:ed|s)?|second|third|again|identical|still'
+const LABEL_COLON = /\*{0,2}\b(?:Repeat(?:ed|s)?|Second|Third|Again|Identical|Still):\*{0,2}/g
+const LABEL_QUOTED = new RegExp(`(["'\`])(?:${WORD})\\1`, 'gi')
+export const repeatWords = (line) => [
+  ...new Set((line.replace(LABEL_COLON, ' ').replace(LABEL_QUOTED, ' ').match(REPEAT_WORDS) ?? []).map((w) => w.toLowerCase())),
+]
 
 // A page name as words: "/trips/:id" and "Trips page" both become "trips".
 export const norm = (s) =>
@@ -41,7 +55,7 @@ export function score(line, pages, { project = false } = {}) {
     n += 3
     reasons.push(`solved on ${tag[1].trim()}`)
   }
-  const words = [...new Set((line.match(REPEAT_WORDS) ?? []).map((w) => w.toLowerCase()))].slice(0, 2)
+  const words = repeatWords(line).slice(0, 2)
   if (!tag && !words.length) return null
   if (words.length) {
     n += 2 * words.length
