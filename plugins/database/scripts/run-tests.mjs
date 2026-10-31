@@ -3,11 +3,23 @@
 // prints only what failed. For a project with no test command of its own.
 //
 // Usage: node scripts/run-tests.mjs [prefix] [--root <project>]
+//        node scripts/run-tests.mjs --mutate <suite> [--root <project>]
 //   prefix   one suite while writing: a file name or its start (0035 works)
 //   prints   FAIL <file> with its failed checks, indented; then one count line
 //   exit 0   every suite said PASS
 //   exit 1   a suite failed, or the prefix named none
 //   exit 2   usage, or it can't tell that the target is dev: nothing ran
+//
+// --mutate: the proof each check can fail (bro-code's "loosen the rule once
+// and see FAIL", kit 1.7.1 council Feature 19). The suite must PASS as it is;
+// then it runs once per `expect_ok(` / `expect_error(` call in the suite's
+// own text with that one call flipped to the other, and each run must FAIL.
+// A run that still says PASS prints `SURVIVED <file>:<line>`: that check
+// passes whatever the rule does. It covers only those two helpers (other
+// checks, such as expect_count, are counted as not mutated), never the
+// pasted helpers, a comment or a line defining a helper, and costs one run
+// per call, so it is for the access-rule steps, one suite at a time. exit 1
+// on any survivor.
 //
 // What it does, per bro-code: every supabase/tests/*.sql not starting with _
 // (those are pasted, never run alone), sorted; a suite's `-- @helpers` line
@@ -43,14 +55,17 @@ const read = (p) => (existsSync(p) ? readFileSync(p, 'utf8') : '')
 export function parseArgs(argv) {
   let root = process.env.CLAUDE_PROJECT_DIR || process.cwd()
   const rest = []
+  let mutate = false
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--root') {
       if (!argv[i + 1]) return { error: '--root needs a folder' }
       root = argv[++i]
-    } else rest.push(argv[i])
+    } else if (argv[i] === '--mutate') mutate = true
+    else rest.push(argv[i])
   }
-  if (rest.length > 1 || (rest[0] || '').startsWith('-')) return { error: 'usage: run-tests.mjs [prefix] [--root <project>]' }
-  return { root: resolve(root), prefix: rest[0] ? basename(rest[0]) : null }
+  if (rest.length > 1 || (rest[0] || '').startsWith('-')) return { error: 'usage: run-tests.mjs [prefix] [--root <project>] | --mutate <suite>' }
+  if (mutate && !rest[0]) return { error: '--mutate needs one suite' }
+  return { root: resolve(root), prefix: rest[0] ? basename(rest[0]) : null, mutate }
 }
 
 /** `{ flag }` for dev, or `{ error }` when it can't tell. Never production. */
@@ -112,6 +127,65 @@ export function verdict(out) {
   return { ok, detail: lines.length ? lines : [`printed no PASS: ${all.slice(-1)[0] || '(nothing)'}`] }
 }
 
+/** Sends one suite's text (helpers already pasted) and returns its verdict. */
+function send({ root, flag, bin, scratch, name, sent }) {
+  if (!CLOSES.test(sent)) return { ok: false, detail: ["no raise exception 'PASS': it would keep its rows, not run"] }
+  const copy = join(scratch, name)
+  writeFileSync(copy, sent)
+  const r = spawnSync(bin, ['db', 'query', flag, '-f', copy], { cwd: root, encoding: 'utf8' })
+  return r.error
+    ? { ok: false, detail: [`could not start ${bin}: ${r.error.code || r.error.message}`] }
+    : verdict((r.stdout || '') + (r.stderr || ''))
+}
+
+const CHECK_CALL = /\bexpect_(ok|error)(\s*\()/g
+const OTHER_CHECK = /\bexpect_(?!ok\b|error\b)\w+\s*\(/g
+// A comment, or a line that defines a helper, is not a check to flip.
+const NOT_A_CHECK_LINE = /^\s*--|\bfunction\s+(pg_temp\.)?expect_/i
+
+/** One copy of the suite per flippable check, that check flipped. */
+export function mutants(src) {
+  const lines = src.split('\n')
+  const out = []
+  let other = 0
+  lines.forEach((line, i) => {
+    if (NOT_A_CHECK_LINE.test(line)) return
+    other += (line.match(OTHER_CHECK) || []).length
+    for (const m of line.matchAll(CHECK_CALL)) {
+      const flipped = `expect_${m[1] === 'ok' ? 'error' : 'ok'}${m[2]}`
+      const changed = line.slice(0, m.index) + flipped + line.slice(m.index + m[0].length)
+      out.push({ line: i + 1, text: line.trim(), src: [...lines.slice(0, i), changed, ...lines.slice(i + 1)].join('\n') })
+    }
+  })
+  return { mutants: out, other }
+}
+
+/** --mutate: the suite passes as it is, and fails with any one check flipped. */
+export function runMutate({ root, prefix, flag, bin = 'supabase' }) {
+  const files = suites(root, prefix)
+  if (files.length !== 1) return { code: 1, lines: [`FAIL --mutate needs exactly one suite; ${prefix} matched ${files.length}`] }
+  const [f] = files
+  const dir = join(root, 'supabase', 'tests')
+  const helpers = read(join(dir, '_helpers.sql'))
+  const src = readFileSync(join(dir, f), 'utf8')
+  const { mutants: list, other } = mutants(src)
+  const scratch = mkdtempSync(join(tmpdir(), 'run-tests-'))
+  try {
+    const base = send({ root, flag, bin, scratch, name: f, sent: withHelpers(src, helpers) })
+    if (!base.ok) return { code: 1, lines: [`FAIL ${f} as it is, so nothing to mutate`, ...base.detail.map((d) => `    ${d}`)] }
+    if (!list.length) return { code: 1, lines: [`FAIL ${f}: no expect_ok( or expect_error( call to flip (${other} other checks)`] }
+    const lines = []
+    for (const m of list) {
+      if (send({ root, flag, bin, scratch, name: f, sent: withHelpers(m.src, helpers) }).ok) lines.push(`SURVIVED ${f}:${m.line} ${m.text}`)
+    }
+    const survived = lines.length
+    lines.push(`${list.length} flipped: ${list.length - survived} failed as they should, ${survived} survived; ${other} other checks not mutated`)
+    return { code: survived ? 1 : 0, lines }
+  } finally {
+    rmSync(scratch, { recursive: true, force: true })
+  }
+}
+
 export function runAll({ root, prefix, flag, bin = 'supabase' }) {
   const files = suites(root, prefix)
   const lines = []
@@ -124,18 +198,7 @@ export function runAll({ root, prefix, flag, bin = 'supabase' }) {
   let failed = 0
   try {
     for (const f of files) {
-      const sent = withHelpers(readFileSync(join(dir, f), 'utf8'), helpers)
-      let result
-      if (!CLOSES.test(sent)) {
-        result = { ok: false, detail: ["no raise exception 'PASS': it would keep its rows, not run"] }
-      } else {
-        const copy = join(scratch, f)
-        writeFileSync(copy, sent)
-        const r = spawnSync(bin, ['db', 'query', flag, '-f', copy], { cwd: root, encoding: 'utf8' })
-        result = r.error
-          ? { ok: false, detail: [`could not start ${bin}: ${r.error.code || r.error.message}`] }
-          : verdict((r.stdout || '') + (r.stderr || ''))
-      }
+      const result = send({ root, flag, bin, scratch, name: f, sent: withHelpers(readFileSync(join(dir, f), 'utf8'), helpers) })
       if (!result.ok) {
         failed++
         lines.push(`FAIL ${f}`, ...result.detail.map((d) => `    ${d}`))
@@ -159,7 +222,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     process.stderr.write(`run-tests: refused, nothing ran: ${t.error}\n`)
     process.exit(2)
   }
-  const { code, lines } = runAll({ ...args, flag: t.flag, bin: process.env.RUN_TESTS_SUPABASE || 'supabase' })
+  const run = args.mutate ? runMutate : runAll
+  const { code, lines } = run({ ...args, flag: t.flag, bin: process.env.RUN_TESTS_SUPABASE || 'supabase' })
   console.log(lines.join('\n'))
   process.exit(code)
 }

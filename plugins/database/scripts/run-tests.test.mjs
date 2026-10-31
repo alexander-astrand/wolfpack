@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { parseArgs, target, verdict, withHelpers } from './run-tests.mjs'
+import { mutants, parseArgs, target, verdict, withHelpers } from './run-tests.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const RUN = join(HERE, 'run-tests.mjs')
@@ -21,7 +21,11 @@ const file = args[args.indexOf('-f') + 1]
 const src = fs.readFileSync(file, 'utf8')
 fs.appendFileSync(path.join(process.cwd(), 'calls.log'), args.join(' ') + '\\n')
 fs.writeFileSync(path.join(process.cwd(), 'sent-' + path.basename(file)), src)
-const say = (src.match(/^-- fake: (.*)$/m) || [])[1] || ''
+// \`-- fake-if <text>: <say>\` wins when <text> is in the rest of the suite
+// (the --mutate tests: a flipped check that the suite notices).
+const body = src.split('\\n').filter((l) => !l.startsWith('-- fake')).join('\\n')
+const cond = [...src.matchAll(/^-- fake-if (.*?): (.*)$/gm)].find((m) => body.includes(m[1]))
+const say = cond ? cond[2] : (src.match(/^-- fake: (.*)$/m) || [])[1] || ''
 process.stderr.write(say.replace(/\\\\n/g, '\\n') + '\\n')
 process.exit(1)
 `
@@ -141,9 +145,49 @@ describe('a run', () => {
   })
 })
 
+describe('--mutate', () => {
+  const SUITE = [
+    'create function pg_temp.expect_ok(n text) returns void language sql as $$ select $$;',
+    'do $$ begin',
+    "  perform pg_temp.expect_ok('strong');",
+    "  -- perform pg_temp.expect_ok('commented');",
+    "  perform pg_temp.expect_error('weak'); perform pg_temp.expect_count('n', 1);",
+    "  raise exception 'PASS m (2 checks)';",
+    'end $$;',
+    '-- fake: PASS m (2 checks)',
+    "-- fake-if expect_error('strong': FAIL m\\n  strong flipped",
+  ].join('\n')
+
+  it('flips each expect_ok and expect_error call once, skipping comments and definitions', () => {
+    const { mutants: list, other } = mutants(SUITE)
+    expect(list.map((m) => m.line)).toEqual([3, 5])
+    expect(list[0].src).toContain("pg_temp.expect_error('strong')")
+    expect(list[1].src).toContain("pg_temp.expect_ok('weak')")
+    expect(other).toBe(1)
+  })
+
+  it('prints the check that survives and exits 1', () => {
+    suite('0040_m.sql', SUITE)
+    const r = run('--mutate', '0040')
+    expect(r.code).toBe(1)
+    expect(r.out).toBe("SURVIVED 0040_m.sql:5 perform pg_temp.expect_error('weak'); perform pg_temp.expect_count('n', 1);\n2 flipped: 1 failed as they should, 1 survived; 1 other checks not mutated")
+    expect(calls()).toHaveLength(3)
+  })
+
+  it('exits 0 when every flip fails, and refuses a suite that fails as it is', () => {
+    suite('0041_ok.sql', `do $$ begin perform pg_temp.expect_ok('a'); ${PASSES}end $$;\n-- fake: PASS ok\n-- fake-if expect_error('a': FAIL ok\n`)
+    expect(run('--mutate', '0041')).toMatchObject({ code: 0, out: '1 flipped: 1 failed as they should, 0 survived; 0 other checks not mutated' })
+    suite('0042_bad.sql', `${PASSES}-- fake: FAIL bad\n`)
+    expect(run('--mutate', '0042').out).toMatch(/^FAIL 0042_bad\.sql as it is/)
+    expect(run('--mutate', '004').out).toMatch(/exactly one suite; 004 matched 2/)
+  })
+})
+
 describe('the parts', () => {
   it('parses the prefix and the root', () => {
-    expect(parseArgs(['0035', '--root', '/x'])).toEqual({ root: '/x', prefix: '0035' })
+    expect(parseArgs(['0035', '--root', '/x'])).toEqual({ root: '/x', prefix: '0035', mutate: false })
+    expect(parseArgs(['--mutate', '0035', '--root', '/x']).mutate).toBe(true)
+    expect(parseArgs(['--mutate']).error).toMatch(/needs one suite/)
     expect(parseArgs(['supabase/tests/0035_a.sql', '--root', '/x']).prefix).toBe('0035_a.sql')
     expect(parseArgs(['a', 'b']).error).toMatch(/usage/)
     expect(parseArgs(['--root']).error).toMatch(/needs a folder/)

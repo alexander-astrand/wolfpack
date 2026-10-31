@@ -15,8 +15,7 @@ bro-code · the database tester (Barney Stinson's Bro Code, article by article) 
 
 Database logic is tested on **dev** with SQL files in `supabase/tests/`, run with `supabase db query --linked -f <file>` (the CLI must be linked to dev). **On a local stack** (`refs.dev` in `.claude/kit.json` is a placeholder such as `localstacknotahosted`, or the project's `CLAUDE.md` says dev is local) there is no `--linked`: run the project's own test command (Burrow: `npm run test:db`, or `npm run test:db -- <file>` for one), which runs each file against the local stack (lens Must 4, kit 1.5). Each file acts as fixture users inside one transaction and always ends by raising an exception, so nothing is kept. The message is `PASS <name> (n checks)` or `FAIL <name>` followed by the failed checks.
 
-## Budget, when run inside another session
-Inside `the-playbook` its `maxTurns` and tag hold. Typed as `/bro-code` in someone else's session, nothing caps it: one such hour ran 80.9M (kit 1.6.1 council, M8). So in the first message say the expected size: extending a suite about 4M, a new suite for a new function about 12M (the playbook's prices in `oceans-eleven`, "Sizing the-playbook"). That figure is the line, at most 15M. After each suite run, read this session's tokens: `node <the release plugin>/scripts/usage.mjs --timeline <id>` (`--timeline` is a flag, the id from `get_session` `self` is positional), or `get_usage` before and after when the script isn't reachable (1% of the week is about 46M by default; the project's `kit.json` `meter.tokensPerPoint` wins; so it is coarse). At the line, stop: commit what is green and report what is left.
+**Typed as `/bro-code` on its own** (no cap; one hour ran 80.9M): say the size first (a suite extended about 4M, a new one about 12M), stop at 15M with what is green committed.
 
 ## Scope first
 Before writing, find what already covers the name: `node ${CLAUDE_PLUGIN_ROOT}/scripts/scope.mjs <table|function>` prints the suites naming it, the pinned lists in `src/`, `scripts/` and `supabase/functions/`, and its foreign-key pairs (no script reachable: `grep -ln '<name>' supabase/tests src supabase/functions`). Put the count and the list in your first message. When the order already carries the sheet, use it and don't run it again. When a change renames, splits or removes a policy, wall, function or column and the list is over 10 files, ask for the step to be split before editing (kit 1.6.1 council, M8: 26 suites read one by one for one wall).
@@ -24,7 +23,7 @@ Before writing, find what already covers the name: `node ${CLAUDE_PLUGIN_ROOT}/s
 ## Add to an existing file first
 The project's own access rules and test suites (its `CLAUDE.md` lists them) say which file covers what. The general rule: a grants file that says exactly which functions `anon`/`authenticated` may execute (**every new function goes there**), an access-holes file for closed holes, and one file per area (isolation between owners or groups, roles, the domain's own logic).
 
-A new file only for a new area, in the same style: the header comment says what it proves, how to run it, and the fixture uuid suffixes.
+A new file only for a new area, in the same style: the header comment says what it proves, how to run it, and the fixture uuid suffixes. Start it with `node ${CLAUDE_PLUGIN_ROOT}/scripts/new-suite.mjs <area>`, which writes `supabase/tests/<area>.test.sql` in the pattern below (it says FAIL until it has a check, and tells you when the project's `-- @helpers` line replaces its helper block).
 
 ## The pattern
 - `begin;` then `create temp table results (n serial, name text, ok boolean, detail text) on commit drop;`
@@ -39,7 +38,7 @@ A new file only for a new area, in the same style: the header comment says what 
 - **The deferred "group needs an owner" check:** `set constraints public.group_members_need_owner immediate` inside a `DO` block to test it.
 - **SQL-inserted auth users lack `instance_id`/`aud`**, so GoTrue admin calls (deleteUser) say "User not found" for them. To test Edge Functions, make accounts through `invite-user`, accept via SQL (`accept_group_invites()` as that user), and delete them afterwards.
 - `supabase db query` returns errors as JSON; the PASS/FAIL text is inside the message.
-- **Prove the test can fail:** loosen the rule on purpose once (in the transaction), see FAIL, then put it back.
+- **Prove the test can fail:** loosen the rule on purpose once (in the transaction), see FAIL, then put it back. For the `expect_ok`/`expect_error` checks, `node ${CLAUDE_PLUGIN_ROOT}/scripts/run-tests.mjs --mutate <suite>` does it per check: each flipped call must make the suite FAIL, and a `SURVIVED <file>:<line>` check passes whatever the rule does. One run per check, so for access-rule suites; other checks (counts) still by hand.
 
 ## Run one while writing, all once at the end
 - **While writing:** only the suite you touched, by its prefix: the project's database test command with the file (such as `npm run test:db -- 0035`), or with none, `node ${CLAUDE_PLUGIN_ROOT}/scripts/run-tests.mjs 0035`.
