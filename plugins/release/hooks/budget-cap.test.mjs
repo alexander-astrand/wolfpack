@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { tallyEntries, totalTokens } from '../scripts/usage.mjs'
 import {
   ABOVE_CEILING,
+  ABSENT_CAP,
+  noCapReason,
   DEFAULT_BUDGETS,
   MODEL_DEFAULTS,
   OTHER_BUDGET,
@@ -606,6 +608,36 @@ describe('spawns (kit 1.5)', () => {
     expect(spawn({ subagent_type: 'release:c-3po', description: 'write the README' })).toBe('allow')
     expect(spawn({ subagent_type: 'claude-code-guide', description: 'hooks docs' })).toBe('allow')
     expect(spawn({ subagent_type: 'statusline-setup', description: 'line' })).toBe('allow')
+  })
+
+  // Kit 1.8 (council H7): three Fable designer runs went out with no cap or "lifted".
+  it('refuses a mosbius-designs spawn with no number in its cap', () => {
+    for (const description of ['mosbius-designs: Trips A', 'mosbius-designs: Trips A [budget lifted]', 'mosbius-designs: palettes [budget unlimited]']) {
+      expect(spawn({ subagent_type: 'design:mosbius-designs', description }), description).toBe(noCapReason('mosbius-designs'))
+    }
+    // Named by the description on a nameless type too.
+    expect(spawn({ subagent_type: 'general-purpose', description: 'mosbius-designs: Trips' })).toMatch(/needs a number in its cap/)
+    expect(spawn({ subagent_type: 'design:mosbius-designs', description: 'mosbius-designs: Trips, two options [budget 5M]' })).toBe('allow')
+    expect(spawn({ subagent_type: 'general-purpose', description: 'mosbius-designs: icons [budget 12M]' })).toBe('allow')
+    // Other roles keep their default when the tag is absent.
+    expect(spawn({ subagent_type: 'release:saul-goodman', description: 'saul-goodman: step 2' })).toBe('allow')
+  })
+})
+
+describe('budget absent (kit 1.8)', () => {
+  it('stops an untagged mosbius-designs run at 12M even when the kit gives more', () => {
+    mkdirSync(join(root, '.claude'), { recursive: true })
+    writeFileSync(join(root, '.claude', 'kit.json'), JSON.stringify({ budgets: { 'mosbius-designs': '30M' } }))
+    agent('ab1', { type: 'mosbius-designs', description: 'mosbius-designs: x [budget lifted]', tokens: 12.1 * M })
+    expect(call('ab1', 'mosbius-designs')).toBe('deny')
+    agent('ab2', { type: 'mosbius-designs', description: 'mosbius-designs: x', tokens: 9 * M })
+    expect(call('ab2', 'mosbius-designs')).toBe('allow')
+    expect(ABSENT_CAP).toBe(12 * M)
+  })
+
+  it('lets a number in the tag win', () => {
+    agent('ab3', { type: 'mosbius-designs', description: 'mosbius-designs: x [budget 20M]', tokens: 13 * M })
+    expect(call('ab3', 'mosbius-designs')).toBe('allow')
   })
 })
 
