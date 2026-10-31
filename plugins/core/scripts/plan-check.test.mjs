@@ -1,8 +1,10 @@
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { copyFileSync, mkdtempSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { agentModels, cells, check, stepTables } from './plan-check.mjs'
+import { agentModels, cells, check, parseExpected, stepTables } from './plan-check.mjs'
 
 const models = { 'chris-de-kok': 'opus', kissochbajslowski: 'sonnet', 'bengt-johansson': 'sonnet', 'jesse-pinkman': 'sonnet' }
 
@@ -86,6 +88,34 @@ describe('plan-check', () => {
   it('splits cells on pipes outside backticks and escapes', () => {
     expect(cells('| a | `Enter|Tab` | b \\| c |')).toEqual(['a', '`Enter|Tab`', 'b | c'])
     expect(stepTables(plan(good))[0].rows).toHaveLength(4)
+  })
+
+  it('parses every Expected headline shape, unit required, any case', () => {
+    expect(parseExpected('**Expected:** ≈ 120M')).toBe(120e6)
+    expect(parseExpected('Expected: ~120M')).toBe(120e6)
+    expect(parseExpected('- **Expected real spend ≈ 106M (about 2.3 points).**')).toBe(106e6)
+    expect(parseExpected('**Expected: ≈ 1.2b.** Cap 2B')).toBe(1.2e9)
+    expect(parseExpected('Expected: 800k')).toBe(8e5)
+    expect(parseExpected('Expected: ≈ 120')).toBeNull()
+    expect(check(plan(good, 'Expected: ≈ 120'), models).fails).toEqual([expect.stringMatching(/^item 2:/)])
+  })
+
+  // MUST 1 of the kit 1.8 review: the old `file://${argv[1]}` guard exited 0
+  // with no output through a spaced path or a symlink, so a failing plan stamped.
+  it('runs as a CLI through a spaced path and a symlink, and fails a failing plan', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'plan check '))
+    const real = join(tmp, 'a dir', 'plan-check.mjs')
+    mkdirSync(join(tmp, 'a dir'))
+    copyFileSync(fileURLToPath(new URL('./plan-check.mjs', import.meta.url)), real)
+    const link = join(tmp, 'link.mjs')
+    symlinkSync(real, link)
+    const file = join(tmp, 'V9.9.md')
+    writeFileSync(file, plan(good, 'Cap 140M.'))
+    for (const script of [real, link]) {
+      const r = spawnSync(process.execPath, [script, file, '--agents', tmp], { encoding: 'utf8' })
+      expect(r.status).toBe(1)
+      expect(r.stdout).toMatch(/^item 2:/m)
+    }
   })
 
   it('reads the route models from the agent files', () => {

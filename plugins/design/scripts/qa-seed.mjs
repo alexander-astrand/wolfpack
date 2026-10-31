@@ -105,7 +105,7 @@ export function run(o, log = console.log, exec = spawnSync) {
   return 0
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL((await import('node:fs')).realpathSync(process.argv[1])).href) {
   try {
     const o = parseArgs(process.argv.slice(2))
     if (o.help) {

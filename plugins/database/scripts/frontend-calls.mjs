@@ -24,7 +24,7 @@
 // council, Feature 7, database lens Feature 2). From the SQL, the shape the
 // builder codes against is the shape the database has.
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 /** The SQL with comments removed and string and dollar-quoted text blanked. */
@@ -216,7 +216,7 @@ export function render(file, { functions, dropped }) {
   return lines
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const files = process.argv.slice(2)
   if (!files.length || files.some((f) => f.startsWith('-'))) {
     process.stderr.write('usage: frontend-calls.mjs <migration.sql> [more.sql ...]\n')

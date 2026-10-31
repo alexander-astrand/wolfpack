@@ -14,7 +14,7 @@
 //    (usage.mjs's budgetRows, imported, so the numbers are the ones Hank and
 //    the PR's Usage section use). The agent is its name or an agent id
 //    prefix; with several spawns of one name, the latest.
-// 2. Appends one row to the steps file beside the plan: `<plan>-steps.tsv`
+// 2. Appends one row (last, once step 3's PR edit went through) to the steps file beside the plan: `<plan>-steps.tsv`
 //    (V2.3.md -> V2.3-steps.tsv). Beside the plan because the notes file
 //    already lives there and c-3po and future-ted know the folder; TSV because
 //    a row is one append with no parsing, and `column -t` or a spreadsheet
@@ -29,9 +29,10 @@
 // --dry prints the steps row and the new body instead of writing either.
 
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, existsSync, readFileSync } from 'node:fs'
+import { appendFileSync, existsSync, readFileSync, realpathSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { parseExpected } from '../../core/scripts/plan-check.mjs'
 import { budgetRows, budgetTableMarkdown, hankBudgets, projectDir, readEntries, resolveSession, tallyEntries, totalTokens } from './usage.mjs'
 
 export const TAGS = ['order', 'route', 'rule', 'drop']
@@ -49,13 +50,9 @@ export function parseBudgetArg(s) {
   return (m[2]?.toLowerCase() === 'k' ? 1e3 : 1e6) * n
 }
 
-// The plan's headline `Expected: ≈ 260M` (also `~`, no sign, `1.2B`) -> tokens.
-export function parseExpected(planText) {
-  const m = /^\s*(?:\*\*)?Expected:?(?:\*\*)?:?\s*[≈~]?\s*([\d.]+)\s*([MBk])/im.exec(String(planText ?? ''))
-  if (!m) return null
-  const unit = { k: 1e3, M: 1e6, B: 1e9 }[m[2]] ?? 1e6
-  return Number(m[1]) * unit
-}
+// The plan's headline `Expected: ≈ 260M` -> tokens: core's plan-check parser, so
+// the cost line and /inception's item 2 read the same line the same way.
+export { parseExpected }
 
 export function stepsFileFor(plan) {
   return join(dirname(plan), `${basename(plan).replace(/\.md$/, '')}-steps.tsv`)
@@ -212,13 +209,18 @@ export function run(o, { budgets, gh = realGh, now = new Date(), log = console.l
   const stamp = `${now.toISOString().slice(0, 16)}Z`
 
   const line = stepsLine({ when: stamp, agent: row.agent, step, budget, used: row.tokens, stopped: row.stopped, tag: o.tag, cheaper: o.cheaper })
-  if (o.plan) {
+  // The steps row lands last, after the PR edit succeeded: a PR edit that
+  // throws (the body moved twice) used to leave the row behind, and the rerun
+  // the error asks for appended it a second time.
+  const writeSteps = () => {
+    if (!o.plan) return log('no --plan: no steps file and no cost line')
     const file = stepsFileFor(o.plan)
     if (o.dry) log(`steps file ${file} would get:\n${line}`)
     else appendSteps(file, line)
-  } else log('no --plan: no steps file and no cost line')
+  }
 
   if (o.pr == null) {
+    writeSteps()
     log(`${row.agent}: ${step}, ${fmtM(row.tokens)} of ${budget ? fmtM(budget) : 'no budget'}${row.stopped ? ', stopped by Hank' : ''}`)
     return { row, line }
   }
@@ -231,13 +233,15 @@ export function run(o, { budgets, gh = realGh, now = new Date(), log = console.l
   const budgetRow = budgetTableMarkdown([{ ...row, step, budget, tagged: o.budget != null || row.tagged }]).split('\n')[2]
   const cheaper = o.cheaper ? `- \`${o.tag}\` ${row.agent} (${clean(step)}): ${clean(o.cheaper)}` : null
   const res = updatePr({ gh, pr: o.pr, changes: { budgetRow, cheaper, tick: o.tick, cost }, dry: o.dry })
+  writeSteps()
   if (o.dry) log(`PR #${o.pr} body would be:\n${res.body}`)
   else log(`PR #${o.pr}: ${res.written ? 'updated' : 'unchanged'}${res.retried ? ' (body moved under us, redone once)' : ''}${cost ? `; ${cost}` : ''}`)
   for (const n of res.notes) log(`note: ${n}`)
   return { row, line, ...res }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+// Node runs the real file, so a symlinked path compares as its real URL.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   try {
     const o = parseArgs(process.argv.slice(2))
     run(o, { budgets: await hankBudgets() })

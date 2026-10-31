@@ -75,6 +75,11 @@ describe('parsers', () => {
     expect(parseExpected('Cap 52M\nExpected: ≈ 260M\n')).toBe(260e6)
     expect(parseExpected('**Expected:** ~1.2B')).toBe(1.2e9)
     expect(parseExpected('Expected = commits x rate')).toBeNull()
+    // One parser with plan-check: the older headline and lower-case units read the same.
+    expect(parseExpected('- **Expected real spend ≈ 106M (about 2.3 points).**')).toBe(106e6)
+    expect(parseExpected('Expected: ~120m')).toBe(120e6)
+    expect(parseExpected('Expected: ≈ 800K')).toBe(8e5)
+    expect(parseExpected('Expected: ≈ 120 tokens')).toBeNull()
     expect(stepsFileFor('/p/V2.3.md')).toBe('/p/V2.3-steps.tsv')
     expect(costLine(13e6, 40e6)).toBe('Spent: 13.0M of 40.0M expected (33 %)')
   })
@@ -211,6 +216,16 @@ describe('run', () => {
     expect(g.edits).toHaveLength(0)
     expect(() => readFileSync(join(dir, 'V9-steps.tsv'))).toThrow()
     expect(out.join('\n')).toContain('Spent: 9.1M of 10.0M expected (91 %)')
+  })
+
+  it('appends no steps row when the PR edit fails, so the rerun adds it once', () => {
+    const failPlan = join(dir, 'V8.md')
+    writeFileSync(failPlan, 'Expected: ≈ 10M\n')
+    const moving = fakeGh(BODY, { onView: (s) => (s.body += '\nmore') })
+    expect(() => run(opts(['--pr', '12', '--plan', failPlan]), { budgets, gh: moving.gh, now, log: quiet })).toThrow(/changed twice/)
+    expect(() => readFileSync(join(dir, 'V8-steps.tsv'))).toThrow()
+    run(opts(['--pr', '12', '--plan', failPlan]), { budgets, gh: fakeGh(BODY).gh, now, log: quiet })
+    expect(readFileSync(join(dir, 'V8-steps.tsv'), 'utf8').trim().split('\n')).toHaveLength(2)
   })
 
   it('names a missing agent', () => {

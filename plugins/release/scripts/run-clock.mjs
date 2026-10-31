@@ -24,7 +24,7 @@
 // a symlink.
 
 import { execFileSync } from 'node:child_process'
-import { lstatSync, readdirSync } from 'node:fs'
+import { lstatSync, readdirSync, realpathSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -141,7 +141,7 @@ export function report(o, now = Date.now()) {
   return shown.length ? formatRows(shown, { limit: o.limit, transcripts: o.transcripts.length > 0 }) : ''
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   try {
     const out = report(parseArgs(process.argv.slice(2)))
     if (out) console.log(out)

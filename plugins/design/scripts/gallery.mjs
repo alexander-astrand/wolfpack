@@ -10,7 +10,7 @@
 //
 // --from-reports reads the designers' saved reports (kit 1.8): every JSON shot line in them, and
 // each report's tokens (a "tokens" field or the Agent result's total_tokens) as a per-page rate.
-// It writes shots.json beside the gallery from them, shows the rate per page, and prints the
+// It writes shots.json beside the gallery from them (one already there moves to shots.json.bak), shows the rate per page, and prints the
 // rate line for the gallery notes.
 //
 // <shots.json> is a list of shots, or { "topic", "title", "words": [...], "shots": [...] }:
@@ -22,7 +22,7 @@
 // Artifact tool can publish it as is. Light and dark follow the viewer's setting; at 375 the page
 // never scrolls sideways.
 // Writes <out> (default: gallery.html beside the JSON) and prints its path and size.
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, extname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -257,7 +257,10 @@ export function writeGallery(o) {
     doc = normalise({ topic: o.topic ?? undefined, words: o.words, shots })
     doc.rates = rates
     // The record of what the gallery shows, written for the next round and the cull: never by hand.
-    writeFileSync(join(dirname(o.out), 'shots.json'), JSON.stringify({ topic: o.topic ?? undefined, words: doc.words, rates, shots }, null, 2) + '\n')
+    // A shots.json already there may be hand-curated: it moves to shots.json.bak, never lost.
+    const record = join(dirname(o.out), 'shots.json')
+    if (existsSync(record)) renameSync(record, `${record}.bak`)
+    writeFileSync(record, JSON.stringify({ topic: o.topic ?? undefined, words: doc.words, rates, shots }, null, 2) + '\n')
   } else {
     const base = dirname(resolve(o.input))
     doc = normalise(JSON.parse(readFileSync(resolve(o.input), 'utf8')))
