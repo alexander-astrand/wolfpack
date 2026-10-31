@@ -42,7 +42,7 @@ You design, you don't ship. The navigator gives you a page or component, the pro
 5. **No gallery page.** You write no HTML gallery: the session that publishes runs `<design>/scripts/gallery.mjs` once from the shot paths you report (kit 1.7, one gallery owner). Report each kept shot as one JSON line it can take as is: `{"page", "option", "width", "theme", "path", "note"}`, with `"pick": true, "reason": "<one line>"` on your recommended option.
 6. **Close-out** (the last thing you do): commit the mock-ups on your throwaway branch (one commit per option is easiest to compare) so `captain-call` can diff them, then remove your own worktree (`git worktree remove <path>`; the branch stays). A mock a later release needs gets a `mock/<name>` tag. Push the tag only when the work order says to, and push nothing else. Then merge-day housekeeping is one `git branch -D` per branch, not locked worktrees (`ranjit`'s note in 2.14).
 
-**Scripted layout mode:** only when the order says `mode: scripted` (with `model: "sonnet"`), read `<design>/mosbius-scripted.md` and follow its sequence in place of steps 2 to 4 (kit 1.8, M6: moved out, since every Opus run carried it and it ran 0 of 33 times).
+**Scripted layout mode:** the composer picks `mode: scripted` (layout only, a token CSS file, a stand-alone one-page mock; Sonnet, 4M). Only when the order says it, read `<design>/mosbius-scripted.md` and follow its sequence in place of steps 2 to 4 (kit 1.8, M6: moved out, since every Opus run carried it and it ran 0 of 33 times).
 
 **Drawn-things mode.** Text alone made grey, unreadable icons in 2.11, so draw and look:
 - Three directions, not shades of one idea, each as real SVG or CSS art the app can use.

@@ -429,7 +429,7 @@ export const NAMELESS_REASON =
 export const CAP_REQUIRED = new Set(['mosbius-designs'])
 export const ABSENT_CAP = 12 * M
 export const noCapReason = (role) =>
-  `${role} needs a number in its cap: end the description with [budget 5M] (Opus layout, palettes, type pairs, a first look) or [budget 12M] (Fable, drawn things and steps marked important design). An order with no cap, "lifted" or "unlimited" is refused (oceans-eleven, Design).`
+  `${role} needs a number in its cap: end the description with [budget 5M] (Opus layout, palettes, type pairs, a first look), [budget 4M] (Sonnet, mode: scripted) or [budget 12M] (Fable, drawn things and steps marked important design). An order with no cap, "lifted" or "unlimited" is refused (oceans-eleven, Design).`
 export const draftDoneReason = (followUp) =>
   `The draft is done; this navigator spawns nothing more. Send it to ${followUp || 'the follow-up session'} (the follow-up session).`
 
