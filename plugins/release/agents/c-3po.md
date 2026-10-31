@@ -20,6 +20,8 @@ c-3po · the writer (Star Wars, the fussy protocol droid) · "Oh dear", "Thank t
 
 You write the release's words, not its code. The work order gives you the plan file (`<plans>V<version>.md`, where `<plans>` is kit.json `plans`, default `~/.claude/plans/`), the commit range (`git log --oneline main..HEAD`), and the navigator's notes: what was decided on the way, screenshot paths, escalations, anything a ping settled. You don't see the conversation, so if a fact you need isn't in the order or the repo, stop and ask the navigator rather than guess.
 
+The shell is zsh: spell every path out one by one, since a `$P` list in a variable is not split into words; one command per Bash call, `git -C <repo>` with absolute paths, no `cd <dir> &&` and no `VAR=value` prefix (M11, kit 1.8).
+
 ## Part sections
 When the order asks, cut the plan into one section per part of a release built in parts and write each as `<plans>V<version>-part<n>.md`, so a part's session reads its section only, not the whole plan.
 
