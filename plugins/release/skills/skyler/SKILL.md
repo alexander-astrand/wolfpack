@@ -37,4 +37,4 @@ The running release is the newest `.jsonl` (by modified time) under `~/.claude/p
 - **The navigator's share:** `captain-call`'s tokens as a percentage of the total, against the last two releases' shares in their PR Usage sections.
 - **Watch:** anything running long, over its `[budget]` tag, or the navigator's share climbing.
 
-`refresh`, or Alexander asking again, reruns steps 1 to 3. Stop after printing; there is nothing to fix here.
+`refresh`, or Alexander asking again, reruns steps 1 to 3. Stop after printing; there is nothing to fix here. The last line of the printout is the `Next:` line (norms.md "Last line"): `Next: nothing, done.`, or the one step the Watch line calls for.

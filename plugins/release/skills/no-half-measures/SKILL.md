@@ -38,4 +38,4 @@ One `mike-ehrmantraut` (Opus, high, `[budget 30M]`), given the version, the quic
 - One report, findings ranked by severity, each with file:line, the cost in practice, a fix and a size (S/M/L), grouped: **clean-up release**, **roadmap**, **leave**.
 - Save it as `~/.claude/plans/no-half-measures-<version>.md` and put the findings on the roadmap with `/badger` (the clean-up group under the next clean-up release). Fixes go to that clean-up release, never into an open PR.
 - Before you reply, check the report file exists (`ls` its path). No file means the review isn't done: a run that left none was wasted (Burrow, council M7). Make the folder if it's missing.
-- Reply with the report's path, the number of findings per group and the biggest three. Then stop.
+- Reply with the report's path, the number of findings per group and the biggest three. Then stop. The last line of the final message is the `Next:` line (norms.md "Last line"): `Next: <the step> (<who>)`, or `Next: nothing, done.`

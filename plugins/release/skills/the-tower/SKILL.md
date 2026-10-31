@@ -72,3 +72,5 @@ Both print one line under 80 characters. To see the session part, pass a real `t
 ## Remove
 
 Delete the `statusLine` key from `~/.claude/settings.json` (or put the backup back: `cp ~/.claude/settings.json.bak-the-tower ~/.claude/settings.json`, which also undoes anything changed since the install). Restart Claude Code.
+
+The last line of the final message is the `Next:` line (norms.md "Last line"): `Next: restart Claude Code to see the line (Alexander)` after an install or remove, else `Next: nothing, done.`
