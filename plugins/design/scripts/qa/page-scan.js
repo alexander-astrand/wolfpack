@@ -22,6 +22,9 @@
 //   smallTargets   buttons and links under 44px tall or wide (inline links in running text left out)
 //   lowContrast    text under WCAG AA (4.5:1, large text 3:1) on its resolved background
 //   contrastUnknown text over an image or gradient, which needs a look instead of a number
+//   floatingText   text lying bare on the page ground, with no card or section surface under it
+//                  (the kit's taste, "No floating text"); the page title (h1), the nav, header,
+//                  footer, tab bars, dialogs, controls and anything under [data-floating-ok] are left out
 ;(async () => {
   const args = (typeof window !== 'undefined' && window.__scanArgs) || {}
   const MIN_TARGET = 44
@@ -156,7 +159,42 @@
     }
     lowContrast.sort((a, b) => a.ratio - b.ratio)
 
-    const lists = { overflow, cutOff, rowsWithoutDrag, smallTargets, lowContrast }
+    // Floating text: the ground is the first box at or above the main column (main, else body) that
+    // paints itself (a fill or the page art). A surface is anything between a text and the ground
+    // that paints itself apart from it: its own fill, a border, a shadow or an image.
+    let groundEl = doc.querySelector('main') || doc.body
+    while (groundEl.parentElement && cs(groundEl).backgroundImage === 'none' && !(parseColor(cs(groundEl).backgroundColor)?.[3] >= 1)) groundEl = groundEl.parentElement
+    const ground = parseColor(cs(groundEl).backgroundColor)
+    const sameAsGround = (c) => ground && ground[3] > 0 && c.slice(0, 3).every((v, i) => Math.abs(v - ground[i]) < 2)
+    const surface = (e) => {
+      const s = cs(e)
+      if (s.backgroundImage !== 'none' || s.boxShadow !== 'none') return true
+      const c = parseColor(s.backgroundColor)
+      if (c && c[3] > 0.05 && !sameAsGround(c)) return true
+      // A box border on at least two sides; a lone divider line doesn't hold text.
+      const sides = ['Top', 'Right', 'Bottom', 'Left'].filter((d) => parseFloat(s[`border${d}Width`]) > 0 && parseColor(s[`border${d}Color`])?.[3] > 0)
+      return sides.length >= 2
+    }
+    const notText = 'h1, nav, header, footer, [role="navigation"], [role="tablist"], [role="dialog"], dialog, button, [role="button"], a, input, select, textarea, label:has(input), svg, [data-floating-ok]'
+    const floatingText = []
+    const seenFloat = new Set()
+    const floatWalker = doc.createTreeWalker(doc.body, 4 /* NodeFilter.SHOW_TEXT */)
+    for (let n = floatWalker.nextNode(); n; n = floatWalker.nextNode()) {
+      const el = n.parentElement
+      if (!el || seenFloat.has(el) || !n.textContent.trim()) continue
+      seenFloat.add(el)
+      if (/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName) || !visible(el) || el.closest(notText)) continue
+      let held = false
+      for (let e = el; e && !e.contains(groundEl); e = e.parentElement) {
+        if (surface(e) || cs(e).position === 'fixed') {
+          held = true
+          break
+        }
+      }
+      if (!held) floatingText.push({ selector: describe(el), text: n.textContent.trim().replace(/\s+/g, ' ').slice(0, 60) })
+    }
+
+    const lists = { overflow, cutOff, rowsWithoutDrag, smallTargets, lowContrast, floatingText }
     const counts = Object.fromEntries(Object.entries(lists).map(([k, v]) => [k, v.length]))
     counts.contrastUnknown = contrastUnknown
     if (pageScrolls && !overflow.length) counts.overflow = 1
