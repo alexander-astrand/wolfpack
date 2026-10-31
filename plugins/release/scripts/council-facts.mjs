@@ -9,7 +9,8 @@
 // permission logs per project by source, and a stale-reference pre-grep.
 // Kit 1.8 (the kit 1.7.1 council's "for the next council") added the learning
 // diff (F20), a row per spawn, guard reasons per agent and the questions per
-// skill and session (F21, council-asks.mjs), and main passes the real gh call so the cheaper lines include
+// skill and session (F21, council-asks.mjs), the window's /one-ring runs
+// with their cost line (council-deploys.mjs), and main passes the real gh call so the cheaper lines include
 // the window's PR bodies (H3).
 //
 // Usage: node council-facts.mjs --since <YYYY-MM-DD> --out <facts.md>
@@ -28,6 +29,7 @@ import { buildCards, ghPrBodies, projectDirs, renderCards } from './council-skil
 import { startRows, startsTable } from './council-starts.mjs'
 import { spawnRows, spawnRowsTable, spawnTally, spawnsTable } from './council-spawns.mjs'
 import { guardReasons, guardTable, questionTally, questionsTable } from './council-asks.mjs'
+import { deployRuns, deploysTable } from './council-deploys.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const HELP = `Usage: node council-facts.mjs --since <YYYY-MM-DD> --out <facts.md>
@@ -272,6 +274,7 @@ export function buildFacts(o, { run = git, prBodies } = {}) {
   out.push('## Agent spawns, one row each', '', spawnRowsTable(spawnRows(allDirs, from)), '')
   out.push('## Guard reasons, per agent', '', guardTable(guardReasons(Object.values(o.projects).map((repo) => join(repo, '.claude', 'guard-decisions.log')), from)), '')
   out.push('## Questions (AskUserQuestion), per skill and session', '', questionsTable(questionTally(allDirs, from)), '')
+  out.push('## /one-ring runs', '', deploysTable(deployRuns(allDirs, from)), '')
   out.push('## Lessons and taste changes', '', learningSection(o.projects, o.since, run), '')
   out.push('## Permission logs, by source', '', permissionSection(o.projects, from), '')
   out.push('## Stale references', '', staleSection(staleRefs(kitFiles(kitRoot), kitRoot, o.retired), o.retired), '')
