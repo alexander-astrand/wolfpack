@@ -1,7 +1,7 @@
 From 7d52b07eff6d9e07d90da996271a27ca99331e40 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Alexander=20=C3=85strand?= <alexander.astrand@gmail.com>
 Date: Sat, 31 Oct 2026 09:30:12 +0100
-Subject: [PATCH 1/6] H5: a glob under a $var folder is judged by its last part
+Subject: [PATCH 1/9] H5: a glob under a $var folder is judged by its last part
  (kit 1.8)
 
 mayBeScripts tested the whole folder for $ or a backtick, so `for d in $r/.claude/worktrees/*/; do wc -l "$d"x; done` was refused as the arm script. Now only the last part decides; the head may hold plain $name or ${name} only, and a .. keeps the old rule. The lens's seven probe shapes and five refusals are in guard-reads.test.mjs.
@@ -85,7 +85,7 @@ index f559415..33d130b 100644
 From 50c116c02a9a93afeadff966f3416071a4d650e9 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Alexander=20=C3=85strand?= <alexander.astrand@gmail.com>
 Date: Sat, 31 Oct 2026 09:31:50 +0100
-Subject: [PATCH 2/6] M1: the guard sends a refused session to /one-ring,
+Subject: [PATCH 2/9] M1: the guard sends a refused session to /one-ring,
  /skinny-pete as the fallback (kit 1.8)
 
 The header and every refusal that said "only through /skinny-pete" (merge by API, a non-dev ref, SUPABASE_PROJECT_ID, gh pr merge/ready, prod-db.sh) now name /one-ring first and /skinny-pete as the fallback for a manual or broken case, through one PROD_ROUTE constant. No other hook file carried the stale wording; both ranjit templates already say "Under /one-ring do not run me".
@@ -234,7 +234,7 @@ index 33d130b..56a79d5 100644
 From 501c79c2a98e2a651a0a9afe609aa1c0f10a1030 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Alexander=20=C3=85strand?= <alexander.astrand@gmail.com>
 Date: Sat, 31 Oct 2026 09:36:40 +0100
-Subject: [PATCH 3/6] M12: the guard log gets a reason code, a per-session
+Subject: [PATCH 3/9] M12: the guard log gets a reason code, a per-session
  allow count and a step-aside row (kit 1.8)
 
 - guard-decisions.log column 10: a stable reason code from GUARD_REASONS in denied-log.mjs (arm-script, marker-write, psql, workdir...), or other-<hash> of the reason with paths and numbers taken out.
@@ -666,7 +666,7 @@ index 4243afa..36a9bb0 100644
 From b46da9f98f011335a335075221f05fb205246979 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Alexander=20=C3=85strand?= <alexander.astrand@gmail.com>
 Date: Sat, 31 Oct 2026 09:38:16 +0100
-Subject: [PATCH 4/6] F16: the guard summary names the rule and the habit, and
+Subject: [PATCH 4/9] F16: the guard summary names the rule and the habit, and
  a dry guard (kit 1.8)
 
 - denied-log.mjs --summary: each repeated guard reason by code, the rule in guard-production.mjs that decides it, and for an agent's habit (psql, --workdir, heredoc edits) the line the agent should carry; then the session totals and the ask rate from the allows rows, and how many sessions ran a project's own guard.
@@ -926,7 +926,7 @@ index 56a79d5..646caad 100644
 From 2bae4d02b6cf4aa694200633dbd4866dcf724b6f Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Alexander=20=C3=85strand?= <alexander.astrand@gmail.com>
 Date: Sat, 31 Oct 2026 09:38:55 +0100
-Subject: [PATCH 5/6] L3: a bare "token" in a human step no longer holds the
+Subject: [PATCH 5/9] L3: a bare "token" in a human step no longer holds the
  deploy (kit 1.8)
 
 His rule is that a deploy waits only on a secret, a password or a payment. HOLD_WORD_RE held on the word token anywhere ("Check the token refresh page"). Now a token holds as an env name (GITHUB_TOKEN), with a secret kind (API, access, auth, bearer, bot, deploy, personal access) or after a verb that hands one over (set, add, paste, rotate, create, generate, copy); the [secret] tag still holds as before. Tests both ways.
@@ -990,7 +990,7 @@ index 00f5984..4c43337 100644
 From 608a32824a4c547ca56e2b6c06cb783ec83a0085 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Alexander=20=C3=85strand?= <alexander.astrand@gmail.com>
 Date: Sat, 31 Oct 2026 09:39:51 +0100
-Subject: [PATCH 6/6] F6: /one-ring's deploy prints its cost against the
+Subject: [PATCH 6/9] F6: /one-ring's deploy prints its cost against the
  baseline before DONE (kit 1.8)
 
 deploy.mjs prints the DONE line, so the cost line lives there: COST with this run's minutes, the step it waited on longest (the progress line that ended the longest gap) and Burrow's 4.5M tokens / 12 min baseline beside it. Tokens are the session's, which the script can't see; the line points at /car-wash and usage.mjs --timeline. DONE stays the last line.
@@ -1093,6 +1093,199 @@ index 4c43337..17ecfbf 100644
    })
  
    it('finds the PR by number too, and uses functions-touched when the project has it', () => {
+-- 
+2.49.0
+
+
+From c1d017afc085e1eff643666a47e4015ad0cf4624 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Alexander=20=C3=85strand?= <alexander.astrand@gmail.com>
+Date: Sat, 31 Oct 2026 10:12:08 +0100
+Subject: [PATCH 7/9] F16 fix: --explain writes nothing, even under an armed
+ marker (kit 1.8)
+
+Review round 1, must 1 (kissochbajslowski): explain() called decide() with no env, so under a marker ctx.log and ctx.chainLog appended a phantom line to full-auto.log and full-auto-chain.log. Both are silenced now; a test arms a stub marker, checks neither log appears, and checks that the real decide does write one.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ plugins/database/hooks/guard-production.mjs |  8 ++++++--
+ plugins/database/hooks/guard-reads.test.mjs | 19 ++++++++++++++++++-
+ 2 files changed, 24 insertions(+), 3 deletions(-)
+
+diff --git a/plugins/database/hooks/guard-production.mjs b/plugins/database/hooks/guard-production.mjs
+index be72fd4..c8b5f1f 100644
+--- a/plugins/database/hooks/guard-production.mjs
++++ b/plugins/database/hooks/guard-production.mjs
+@@ -3942,8 +3942,12 @@ async function logDecision(input, result) {
+ // would give a Bash call and the rule that decides it, so a session asks
+ // "will this loop pass?" before a stall. It never runs the command; the
+ // guard's own reads (a PR, git) run as in a real decision.
+-export async function explain(command, { cwd = process.cwd(), agent, mode = 'auto' } = {}, env) {
+-  const result = decide({ tool_name: 'Bash', tool_input: { command }, cwd, permission_mode: mode, agent_type: agent }, env)
++// The two logs a real decision appends to under a marker (ctx.log, ctx.chainLog)
++// are silenced, so a dry run leaves no phantom line in full-auto.log or
++// full-auto-chain.log (review round 1, must 1); a caller's env still wins.
++export async function explain(command, { cwd = process.cwd(), agent, mode = 'auto' } = {}, env = {}) {
++  const quiet = { log: () => {}, chainLog: () => {}, ...env }
++  const result = decide({ tool_name: 'Bash', tool_input: { command }, cwd, permission_mode: mode, agent_type: agent }, quiet)
+   if (!result) return 'verdict: pass (no decision; the normal permission rules, Auto mode\'s classifier, judge it)\n'
+   const lines = [`verdict: ${result.decision}`, `reason: ${String(result.reason ?? '').split('\n')[0]}`]
+   try {
+diff --git a/plugins/database/hooks/guard-reads.test.mjs b/plugins/database/hooks/guard-reads.test.mjs
+index 646caad..3ed1ec8 100644
+--- a/plugins/database/hooks/guard-reads.test.mjs
++++ b/plugins/database/hooks/guard-reads.test.mjs
+@@ -1,5 +1,5 @@
+ // First: the tests' project and its kit.json (the fixture's values).
+-import './fixtures/kit-project.mjs'
++import { KIT_PROJECT } from './fixtures/kit-project.mjs'
+ import { spawnSync } from 'node:child_process'
+ import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+ import { tmpdir } from 'node:os'
+@@ -256,6 +256,23 @@ describe('F16 (kit 1.8): guard-production.mjs --explain', () => {
+     expect(await explain('git diff --stat', { cwd: root }, STUBS)).toMatch(/^verdict: allow\n/)
+   })
+ 
++  // Review round 1, must 1: under a marker a real decision logs the call; a dry one must not.
++  it('under an armed marker it writes no line to full-auto.log or full-auto-chain.log', async () => {
++    const logs = ['full-auto.log', 'full-auto-chain.log'].map((f) => join(KIT_PROJECT, '.claude', f))
++    for (const f of logs) rmSync(f, { force: true })
++    const cmd = 'scripts/prod-db.sh push 0.14.1 0052'
++    const marker = { version: '0.14.1', commands: [cmd], pr: 44, headSha: 'a'.repeat(40), expiresAt: new Date(Date.now() + 3600_000).toISOString() }
++    const { log, chainLog, ...rest } = STUBS
++    const env = { ...rest, marker: () => marker, openPr: () => null }
++    const text = await explain(cmd, { cwd: root, agent: 'ranjit' }, env)
++    expect(text).toMatch(/^verdict: /)
++    for (const f of logs) expect(existsSync(f), f).toBe(false)
++    // The control: the same call decided for real does log, so the check above means something.
++    decide({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: root, permission_mode: 'auto', agent_type: 'ranjit' }, env)
++    expect(logs.some((f) => existsSync(f))).toBe(true)
++    for (const f of logs) rmSync(f, { force: true })
++  })
++
+   it('as a process it prints without running the command, and wants a command', () => {
+     const file = fileURLToPath(new URL('./guard-production.mjs', import.meta.url))
+     const marker = join(root, 'explain-ran')
+-- 
+2.49.0
+
+
+From 8c2bacdd32602a0e7ca9ea5847f05ebb5732f044 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Alexander=20=C3=85strand?= <alexander.astrand@gmail.com>
+Date: Sat, 31 Oct 2026 10:12:59 +0100
+Subject: [PATCH 8/9] M12 fix: a resumed session's allows count once (kit 1.8)
+
+Review round 1, nit 2: a resumed session ends again and writes another allows row; guardTotals summed them all. Its transcript and log rows run on from the first, so the last row per session id holds the whole session and the earlier ones are dropped. Test added.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ plugins/database/hooks/denied-log.mjs      | 14 +++++++++-----
+ plugins/database/hooks/denied-log.test.mjs | 10 ++++++++++
+ 2 files changed, 19 insertions(+), 5 deletions(-)
+
+diff --git a/plugins/database/hooks/denied-log.mjs b/plugins/database/hooks/denied-log.mjs
+index 7c22459..6acf7f7 100644
+--- a/plugins/database/hooks/denied-log.mjs
++++ b/plugins/database/hooks/denied-log.mjs
+@@ -389,16 +389,20 @@ export function guardReasons(guard = '', since) {
+ export function guardTotals(guard = '', since) {
+   const from = since ? Date.parse(since) : -Infinity
+   const t = { sessions: 0, calls: 0, asks: 0, denies: 0, through: 0, asides: 0 }
++  // A resumed session ends again and writes another row; its transcript and
++  // its log rows run on from the first, so the last row holds the whole
++  // session and the earlier ones are dropped (review round 1, nit 2).
++  const last = new Map()
+   for (const line of guard.split('\n')) {
+     const f = line.split('\t')
+     if (f.length < 8 || !(Date.parse(f[0]) >= from)) continue
+     if (f[7] === 'step-aside') t.asides++
+     if (f[7] !== 'allows') continue
+-    try {
+-      const c = JSON.parse(f[3])
+-      t.sessions++
+-      for (const k of ['calls', 'asks', 'denies', 'through']) t[k] += Number(c[k]) || 0
+-    } catch { /* a cut row */ }
++    try { last.set(f[5], JSON.parse(f[3])) } catch { /* a cut row */ }
++  }
++  for (const c of last.values()) {
++    t.sessions++
++    for (const k of ['calls', 'asks', 'denies', 'through']) t[k] += Number(c[k]) || 0
+   }
+   return t
+ }
+diff --git a/plugins/database/hooks/denied-log.test.mjs b/plugins/database/hooks/denied-log.test.mjs
+index 9b16bca..a64567f 100644
+--- a/plugins/database/hooks/denied-log.test.mjs
++++ b/plugins/database/hooks/denied-log.test.mjs
+@@ -300,6 +300,16 @@ describe('M12 (kit 1.8): reason codes, allows and the step-aside', () => {
+     expect(text).not.toMatch(/SessionEnd/)
+   })
+ 
++  it('a resumed session that ends twice counts once, by its last allows row', () => {
++    const allows = (sid, c) => ['2026-10-30T10:00:00.000Z', 'main', 'SessionEnd', JSON.stringify(c), 'auto', sid, '-', 'allows', 'x', 'session-allows'].join('\t')
++    const guard = [
++      allows('s1', { calls: 10, asks: 1, denies: 0, through: 9 }),
++      allows('s2', { calls: 5, asks: 0, denies: 1, through: 4 }),
++      allows('s1', { calls: 25, asks: 2, denies: 1, through: 22 }),
++    ].join('\n')
++    expect(guardTotals(guard)).toEqual({ sessions: 2, calls: 30, asks: 2, denies: 2, through: 26, asides: 0 })
++  })
++
+   it('hooks.json runs guard-allows.mjs at SessionEnd, which writes the row as a process', () => {
+     const hooks = JSON.parse(readFileSync(fileURLToPath(new URL('./hooks.json', import.meta.url)), 'utf8'))
+     expect(hooks.hooks.SessionEnd[0].hooks[0].command).toMatch(/hooks\/guard-allows\.mjs"$/)
+-- 
+2.49.0
+
+
+From 0f4cfc8f289b1d8bd5781325627f49d43ed9b069 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Alexander=20=C3=85strand?= <alexander.astrand@gmail.com>
+Date: Sat, 31 Oct 2026 10:13:28 +0100
+Subject: [PATCH 9/9] L3 fix: more verbs that hand a token over hold the deploy
+ (kit 1.8)
+
+Review round 1, nit 3: update, enter, provide, replace, store, save, put, refresh and regenerate join the verb group (generate now matches regenerate). A bare "token" still does not hold. Tests for Update, Enter, Regenerate, Replace and Save.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ plugins/database/hooks/deploy.mjs      | 5 +++--
+ plugins/database/hooks/deploy.test.mjs | 7 +++++++
+ 2 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/plugins/database/hooks/deploy.mjs b/plugins/database/hooks/deploy.mjs
+index a79473f..a232c86 100644
+--- a/plugins/database/hooks/deploy.mjs
++++ b/plugins/database/hooks/deploy.mjs
+@@ -165,8 +165,9 @@ const HOLD_TAG_RE = /\[(?:secret|password|payment)\]/i
+ // page", "the token count" are no secret); a token still holds as an env
+ // name (GITHUB_TOKEN), with a kind that makes it a secret (API, access, auth,
+ // bearer, bot, deploy, personal access token), or after a verb that hands one
+-// over (set, add, paste, rotate, create, generate, copy). Still errs closed.
+-const HOLD_WORD_RE = /(?:\b|_)(?:secrets?|passwords?|payments?|api[_\s-]?keys?|credentials?|service[_\s-]?role|secret[_\s-]?keys?)(?:\b|_)|[A-Za-z0-9]_tokens?\b|\btokens?_[A-Za-z0-9]|\b(?:api|access|auth|bearer|bot|deploy|personal[\s-]access)[\s_-]?tokens?\b|\b(?:set|add|paste|rotate|create|generate|copy)\b[^.;]*\btokens?\b/i
++// over (set, add, paste, rotate, create, (re)generate, copy, update, enter,
++// provide, replace, store, save, put, refresh). Still errs closed.
++const HOLD_WORD_RE = /(?:\b|_)(?:secrets?|passwords?|payments?|api[_\s-]?keys?|credentials?|service[_\s-]?role|secret[_\s-]?keys?)(?:\b|_)|[A-Za-z0-9]_tokens?\b|\btokens?_[A-Za-z0-9]|\b(?:api|access|auth|bearer|bot|deploy|personal[\s-]access)[\s_-]?tokens?\b|\b(?:set|add|paste|rotate|create|(?:re)?generate|copy|update|enter|provide|replace|store|save|put|refresh)\b[^.;]*\btokens?\b/i
+ 
+ /**
+  * Whether an unticked human step holds the deploy: only a secret, a password
+diff --git a/plugins/database/hooks/deploy.test.mjs b/plugins/database/hooks/deploy.test.mjs
+index 17ecfbf..7ca24bb 100644
+--- a/plugins/database/hooks/deploy.test.mjs
++++ b/plugins/database/hooks/deploy.test.mjs
+@@ -373,7 +373,14 @@ describe('the helpers', () => {
+       '- [ ] Create a personal access token for the CI',
+       '- [ ] Store the access token',
+       '- [ ] Set TOKEN_SECRET',
++      // Review round 1, nit 3: more verbs that hand a token over.
++      '- [ ] Update the token in Vercel',
++      '- [ ] Enter the token',
++      '- [ ] Regenerate the token',
++      '- [ ] Replace the old token on the host',
++      '- [ ] Save the token in the dashboard',
+     ]) expect(holdsDeploy(step), step).toBe(true)
++    expect(holdsDeploy('- [ ] Check the token refresh page'), 'refresh after the token is no hand-over').toBe(false)
+   })
+ 
+   it('alreadyListed: a marked comment that names every step', () => {
 -- 
 2.49.0
 
