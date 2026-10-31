@@ -38,6 +38,7 @@ Pick by the first word of the arguments. All three use one skeleton: **What it i
 2. Gather facts only from: `README.md`, memory `project_roadmap.md` (status and pointers; never the roadmap page in full), the plan files in `~/.claude/plans/`, and `git log`. **Never guess a number**, a date or a status; if a fact isn't in a source, leave it out or write "not known yet".
 3. Write the brief in the register, skeleton above, under about 300 words unless the subject needs more.
 4. Output **one fenced block** and nothing inside it that isn't meant to be pasted. One line after it saying which sources it came from.
+5. The last line of the final message is the `Next:` line (norms.md "Last line"): `Next: <the step> (<who>)`, usually `Next: paste the brief (Alexander)`, or `Next: nothing, done.` This skill can be the whole session, and a turn with no such line is sent back once by the Stop hook.
 
 ## The project one-pager
 

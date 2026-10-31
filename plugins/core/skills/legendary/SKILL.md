@@ -35,7 +35,7 @@ Read only `CLAUDE.md` and the roadmap in memory (`project_roadmap.md`), so ideas
 5. Keep replies short; a wall of options loses the thread.
 6. **Between rounds the next step is his:** end the turn with no timer and no polling (kit 1.5, M9: one `/legendary` stayed open 43 h). `/marco-polo` finds sessions waiting on him, so nothing is lost.
 
-7. **Ceiling: about 20M** (two sessions ran to 47.4M and 22.6M with no ceiling). Read it at the start of each round: this session's tokens from the `get_usage` context figure, or `node usage.mjs --timeline <this session's id>` from the `release` plugin's `scripts/` folder (`get_session` on `self` gives the id). Past it, stop: say what the session has used, give the closing list below as it stands, and offer a fresh `/legendary` that starts from it. Carry on only on his word.
+7. **Ceiling: about 20M** (two sessions ran to 47.4M and 22.6M with no ceiling). Read it at the start of each round: this session's tokens from the `get_usage` context figure, or `node usage.mjs --timeline <this session's id>` from the `release` plugin's `scripts/` folder (`get_session` on `self` gives the id). Past it, stop: say what the session has used, give the closing list below as it stands, write a five-line summary of where the talk stands to `<plans>talks/<date>-<topic>.md` (`<plans>` is kit.json `plans`, default `~/.claude/plans/`), and offer a fresh `/legendary` that is given that path, so it reads five lines and not the talk. Carry on only on his word.
 
 ## Closing checklist
 When Alexander says he's done (or the ideas dry up), give one list with every idea, his words verbatim, and where it lands, each with a recommendation he can accept or change:
