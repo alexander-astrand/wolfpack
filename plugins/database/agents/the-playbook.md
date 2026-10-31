@@ -47,7 +47,7 @@ Tests:
 - Add checks for new logic following the `bro-code` skill (loaded for you): the fitting file from the scope sheet's suites, or a new one in the same style.
 - While writing, run only the suite you touched (its prefix); all of them once at the end, with the project's database test command (its `CLAUDE.md` names it; with none, the plugin's `scripts/run-tests.mjs`), to a file and `echo $?`, as `bro-code` says. Every file must PASS.
 - No green after three tries on one suite: stop and report the suite, the failing check and what you tried.
-- Clean up any rows you create on dev.
+- Suites roll back, so they leave nothing. Only an Edge Function's live call on dev leaves rows (accounts, invites): delete those afterwards.
 
 Edge Functions: redeploy what you changed with `supabase functions deploy <name> --project-ref <refs.dev from .claude/kit.json>` on a hosted dev; on a local stack, serve and run it the way the project's `CLAUDE.md` says (Burrow: `node scripts/serve-fn.mjs` and one call). Members' calls act as the caller through `_shared/caller.ts`; keep the service role for what only it can do.
 
