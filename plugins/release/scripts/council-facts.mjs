@@ -19,7 +19,7 @@ import { basename, dirname, join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { byBirth, sessionRow, tableOf as speedTable } from './council-speed.mjs'
 import { roleTotals, tableOf as rolesTable } from './council-roles.mjs'
-import { buildCards, projectDirs, renderCards } from './council-skills.mjs'
+import { buildCards, ghPrBodies, projectDirs, renderCards } from './council-skills.mjs'
 import { startRows, startsTable } from './council-starts.mjs'
 import { spawnTally, spawnsTable } from './council-spawns.mjs'
 
@@ -202,12 +202,13 @@ export function closingTable(cards) {
   return cards.slice(start, end < 0 ? undefined : end).split('\n').slice(1).join('\n').trim()
 }
 
-export function buildFacts(o, { run = git } = {}) {
+export function buildFacts(o, { run = git, prBodies } = {}) {
   const from = Date.parse(`${o.since}T00:00:00`)
   const kitRoot = dirname(o.kit)
   const dirsOf = Object.fromEntries(Object.entries(o.projects).map(([p, repo]) => [p, projectDirs(o.transcripts, repo)]))
   const allDirs = Object.values(dirsOf).flat()
-  const r = buildCards(o)
+  // PR bodies only when a gh call is passed (main passes the real one), so tests stay offline.
+  const r = buildCards(prBodies ? { ...o, prBodies } : o)
   const { cards, cheaper } = renderCards(r, o)
   const out = [`# Council facts (window ${o.since} to ${new Date().toISOString().slice(0, 10)})`, '']
   out.push(`Built by \`plugins/release/scripts/council-facts.mjs\`. Transcript folders read: ${allDirs.length ? allDirs.map((d) => `\`${basename(d)}\``).join(', ') : 'none'}. The cards are in \`skills-cards.md\` beside this file, every "Cheaper next time:" line in \`skills-cards-cheaper.md\`.`, '')
@@ -229,7 +230,7 @@ function main() {
     console.log(HELP)
     process.exit(o.help ? 0 : 1)
   }
-  const { facts, cards, cheaper } = buildFacts(o)
+  const { facts, cards, cheaper } = buildFacts(o, { prBodies: ghPrBodies })
   writeFileSync(o.out, facts)
   writeFileSync(join(dirname(o.out), 'skills-cards.md'), cards)
   writeFileSync(join(dirname(o.out), 'skills-cards-cheaper.md'), cheaper)

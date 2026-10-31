@@ -12,6 +12,7 @@
 // --project: one per project to read (its transcripts are found from the repo
 // path, its lessons and permission log in its .claude/); none means the cwd.
 // --transcripts: the folder of per-project transcript folders (~/.claude/projects).
+import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
@@ -217,7 +218,40 @@ const bump = (m, k) => m.set(k, (m.get(k) || 0) + 1)
 // a template's placeholder) is not an idea.
 const realCheaper = (s) => s.length >= 15 && !/^[<`"'(]/.test(s) && !/^(one idea|<)/i.test(s)
 
-export function buildCards({ kit, projects, transcripts, since }) {
+// The text a tool_result carries: a string, or text blocks.
+export const resultText = (content) => (typeof content === 'string' ? content : Array.isArray(content) ? content.map((c) => (c?.type === 'text' ? c.text : '')).join('\n') : '')
+
+// Every real "Cheaper next time:" idea in a text, one per line.
+export const cheaperIn = (text) => [...String(text || '').matchAll(/Cheaper next time:\s*([^\n]+)/gi)].map((m) => m[1].trim()).filter(realCheaper)
+
+// A PR body's routed lines (H3, F24, kit 1.7.1 council): the navigator copies
+// each agent's line into "Notes for review" with a tag (captain-call:90), often
+// without the phrase, so a tagged bullet under that heading counts too.
+export function prCheaperLines(body) {
+  const out = new Set(cheaperIn(body))
+  let inNotes = false
+  for (const line of String(body || '').split('\n')) {
+    if (/^#{1,6}\s/.test(line)) inNotes = /notes for review/i.test(line)
+    else if (inNotes && /^\s*[-*]\s/.test(line) && /[`[(](order|route|rule|drop)[`\])]/.test(line)) {
+      const t = line.replace(/^\s*[-*]\s+/, '').replace(/^cheaper next time:\s*/i, '').trim()
+      if (![...out].some((o) => t.includes(o))) out.add(t)
+    }
+  }
+  return [...out]
+}
+
+// The window's PR bodies through gh, from the repo's folder. gh missing or
+// logged out gives none and a note, so the cards still build offline.
+export function ghPrBodies(repo, since, run = execFileSync) {
+  try {
+    const raw = run('gh', ['pr', 'list', '--state', 'all', '--limit', '200', '--search', `created:>=${since}`, '--json', 'number,body'], { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+    return { prs: JSON.parse(raw || '[]'), note: null }
+  } catch (e) {
+    return { prs: [], note: `gh failed in ${basename(repo)}: ${String(e.stderr || e.message).trim().split('\n')[0]}` }
+  }
+}
+
+export function buildCards({ kit, projects, transcripts, since, prBodies = () => ({ prs: [], note: 'PR bodies not read (no gh call passed)' }) }) {
   const FROM = Date.parse(`${since}T00:00:00`)
   const { skills, agents } = loadKit(kit)
   const AGENT_NAMES = new Set(agents.map((a) => a.name))
@@ -229,6 +263,10 @@ export function buildCards({ kit, projects, transcripts, since }) {
   let sessionsRead = 0
   let subRead = 0
   const untitled = { titled: 0, none: 0 }
+  const cheaperFrom = { agent: 0, parent: 0, pr: 0 }
+  const parentOther = []
+  const prCheaper = []
+  const prNotes = []
 
   const agentOf = (meta) => {
     const raw = stripPlugin(meta.agentType || meta.agent_type || meta.subagentType || '')
@@ -321,8 +359,34 @@ export function buildCards({ kit, projects, transcripts, since }) {
           if (e.type !== 'assistant' || !Array.isArray(e.message?.content)) continue
           for (const c of e.message.content) {
             if (c.type !== 'text') continue
-            const m = /Cheaper next time:\s*([^\n]+)/.exec(c.text)
-            if (m && realCheaper(m[1].trim())) st.cheaper.push(`${project} ${id.slice(0, 8)}: ${m[1].trim()}`)
+            for (const line of cheaperIn(c.text)) {
+              st.cheaper.push(`${project} ${id.slice(0, 8)}: ${line}`)
+              cheaperFrom.agent += 1
+            }
+          }
+        }
+      }
+      // The parent's Agent results (H3, F24): the hand-back a navigator reads.
+      // 13 of the 1.7.1 window's lines sat only there; a line the run's own file
+      // already gave is the same string, so the cards' uniq drops the copy.
+      const agentCalls = new Map()
+      for (const e of main) {
+        if (e.type === 'assistant' && Array.isArray(e.message?.content)) for (const c of e.message.content) if (c.type === 'tool_use' && c.name === 'Agent') agentCalls.set(c.id, c.input || {})
+        if (e.type !== 'user' || !Array.isArray(e.message?.content)) continue
+        const t = Date.parse(e.timestamp)
+        if (!Number.isNaN(t) && t < FROM) continue
+        for (const c of e.message.content) {
+          if (c.type !== 'tool_result' || !agentCalls.has(c.tool_use_id)) continue
+          const input = agentCalls.get(c.tool_use_id)
+          const who = agentOf({ agentType: input.subagent_type, description: input.description })
+          const st = agentStats.get(who.name)
+          for (const line of cheaperIn(resultText(c.content))) {
+            const key = `${project} ${id.slice(0, 8)}: ${line}`
+            if (!st) parentOther.push(`${who.name}: ${key}`)
+            else if (!st.cheaper.includes(key)) {
+              st.cheaper.push(key)
+              cheaperFrom.parent += 1
+            }
           }
         }
       }
@@ -335,6 +399,25 @@ export function buildCards({ kit, projects, transcripts, since }) {
       } else if (start && start >= FROM && cmd) bump(otherSkills, `/${cmd} (start)`)
       else if (start && start >= FROM && label.startsWith('title: ')) untitled.titled += 1
       else if (start && start >= FROM) untitled.none += 1
+    }
+  }
+
+  // The window's PR bodies (H3, F24): where captain-call routes each line. A
+  // line naming a kit agent lands on its card; the rest are listed apart.
+  const agentRe = [...AGENT_NAMES].map((n) => [n, new RegExp(`(?<![\\w-])${n.replace(/-/g, '\\-')}(?![\\w-])`)])
+  for (const [project, repo] of Object.entries(projects)) {
+    const { prs, note } = prBodies(repo, since)
+    if (note) prNotes.push(note)
+    for (const pr of prs || []) {
+      for (const line of prCheaperLines(pr.body)) {
+        const key = `${project} #${pr.number}: ${line}`
+        const who = agentRe.find(([, re]) => re.test(line))?.[0]
+        const st = who && agentStats.get(who)
+        if (st && st.cheaper.some((c) => c.endsWith(line))) continue
+        cheaperFrom.pr += 1
+        if (st) st.cheaper.push(key)
+        else prCheaper.push(key)
+      }
     }
   }
 
@@ -366,7 +449,7 @@ export function buildCards({ kit, projects, transcripts, since }) {
     })
   }
 
-  return { skills, agents, skillStats, agentStats, otherSkills, otherAgents, denied, sessionsRead, subRead, untitled, lessonFiles: lessonFiles.map(shortPath), lessonsFor, mismatches: new Map(agents.map((a) => [a.name, toolMismatches(a)])), onePaths: new Map([...skills, ...agents].map((x) => [`${x.kind} ${x.name}`, oneProjectPaths(x, projects, kit)])) }
+  return { cheaperFrom, parentOther, prCheaper, prNotes, skills, agents, skillStats, agentStats, otherSkills, otherAgents, denied, sessionsRead, subRead, untitled, lessonFiles: lessonFiles.map(shortPath), lessonsFor, mismatches: new Map(agents.map((a) => [a.name, toolMismatches(a)])), onePaths: new Map([...skills, ...agents].map((x) => [`${x.kind} ${x.name}`, oneProjectPaths(x, projects, kit)])) }
 }
 
 // ---- the cards
@@ -450,11 +533,15 @@ export function renderCards(r, { kit, since }) {
   out.push(`- Permission refusals in the window: ${r.denied.rows} rows, ${r.denied.main} by a navigator ("main"), others: ${top(r.denied.other, 10) || 'none'}`)
   out.push('')
   const cheaper = ['# Skills lens: every "Cheaper next time:" line, by agent', '']
+  const f = r.cheaperFrom || { agent: 0, parent: 0, pr: 0 }
+  cheaper.push(`Read from three places (H3, kit 1.7.1 council): the agents' own transcripts (${f.agent}), the parents' Agent results not already there (${f.parent}), and the window's PR bodies (${f.pr}; a "Notes for review" bullet tagged order, route, rule or drop counts too).${r.prNotes?.length ? ` ${r.prNotes.join('; ')}.` : ''}`, '')
   for (const a of r.agents) {
     const st = r.agentStats.get(a.name)
     const uniq = [...new Set(st.cheaper)]
     if (uniq.length) cheaper.push(`## ${a.name} (${uniq.length} lines, ${st.runs.length} runs)`, '', ...uniq.map((c) => `- ${c}`), '')
   }
+  if (r.parentOther?.length) cheaper.push('## Parents\' Agent results from agents with no card', '', ...[...new Set(r.parentOther)].map((c) => `- ${c}`), '')
+  if (r.prCheaper?.length) cheaper.push('## PR bodies, no agent named', '', ...[...new Set(r.prCheaper)].map((c) => `- ${c}`), '')
   return { cards: out.join('\n'), cheaper: cheaper.join('\n') }
 }
 
@@ -464,7 +551,7 @@ function main() {
     console.log('Usage: node council-skills.mjs --since <YYYY-MM-DD> --out <cards.md> [--project <name>=<repo>]… [--transcripts <dir>] [--kit <plugins dir>] [--json <out.json>]')
     process.exit(o.help ? 0 : 1)
   }
-  const r = buildCards(o)
+  const r = buildCards({ ...o, prBodies: ghPrBodies })
   const { cards, cheaper } = renderCards(r, o)
   writeFileSync(o.out, cards)
   writeFileSync(o.out.replace(/\.md$/, '') + '-cheaper.md', cheaper)
