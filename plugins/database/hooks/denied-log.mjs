@@ -17,7 +17,18 @@
 // `.claude/guard-decisions.log` from guard-production.mjs, with the same
 // seven columns (guardLine, below) and two more:
 //   8 decision (`ask` or `deny`)   9 the guard's reason, first line
+//   10 a stable reason code (kit 1.8, M12): `arm-script`, `psql`, `workdir`
+//      ... from GUARD_REASONS below, or `other-<hash>` of the reason with its
+//      paths, refs and numbers taken out, so the same rule groups as one
 // So a council can tell a deliberate guard ask from a classifier refusal.
+// Two more row kinds (kit 1.8, M12), same ten columns:
+//   - `allows` (code `session-allows`), one per session at its end
+//     (sessionEnd, run by guard-allows.mjs, the SessionEnd hook): column 4 holds
+//     {"calls","asks","denies","through"} counted from the session's
+//     transcripts (its subagents' too), so an ask rate can be computed.
+//   - `step-aside` (code `step-aside`), once per session, when guard-entry.mjs
+//     steps aside for a project's own guard (stepAsideOnce), so a project like
+//     HutzUp still shows which guard ran.
 //
 // `node denied-log.mjs --summary [--since <YYYY-MM-DD>] [--dir <project>]`
 // reads both logs and prints the repeats grouped by shape, each marked
@@ -30,7 +41,8 @@
 // never sends `retry` (a retry is a refusal re-spelled, which the guard's
 // rules forbid).
 
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { appendFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { guardListedHead } from './read-list.mjs'
@@ -90,10 +102,136 @@ export function deniedLine(input, { mask = null, now = Date.now() } = {}) {
   ].join('\t')
 }
 
-/** The guard's line: deniedLine's seven columns, then decision and reason. */
+/** The guard's line: deniedLine's seven columns, then decision, reason and reason code. */
 export function guardLine(input, result, { mask = null, now = Date.now() } = {}) {
   const why = String(result?.reason ?? '').split('\n')[0]
-  return [deniedLine(input, { mask, now }), flat(result?.decision) || '?', flat(mask ? mask(why) : why).slice(0, 300)].join('\t')
+  return [deniedLine(input, { mask, now }), flat(result?.decision) || '?', flat(mask ? mask(why) : why).slice(0, 300), reasonCode(why)].join('\t')
+}
+
+// ------------------------------------------------------------ reason codes
+
+// Kit 1.8 (M12, Feature 16): each repeated guard reason, the rule in
+// guard-production.mjs that decides it, and for an agent's habit (not a guard
+// error) the line the agent should carry. First match wins, so the narrow
+// texts come first. A reason no row matches gets `other-<hash>`.
+export const GUARD_REASONS = [
+  { code: 'one-ring-spawn', re: /^Under \/one-ring the deploy is/, rule: 'oneRingSpawn' },
+  { code: 'arm-script', re: /^scripts\/full-auto\.sh (?:arms production|is never copied)/, rule: 'SCRIPT_DENIED (mentionsScript, scriptGlob, mayBeScripts)', carry: 'A loop or glob passes when the folder before its `*` ends in a literal name (kit 1.8, H5); never `scripts/` or a run-time `$d` as that last part. Check a shape first with `guard-production.mjs --explain`.' },
+  { code: 'marker-write', re: /^The full-auto marker and its log are written only by/, rule: 'MARKER_DENIED (the marker-write rules)', carry: 'Edit files with Edit or Write, never a heredoc, `python3 -`, `perl -pi` or a shell loop that writes ([edit-not-heredoc]).' },
+  { code: 'built-at-runtime', re: /is built at run time and may be/, rule: 'segmentRules (a command word built at run time)', carry: 'Spell each command out; a `$var` goes in arguments only, never as the command or its subcommand.' },
+  { code: 'psql', re: /can reach any database\. Check where it connects/, rule: 'segmentRules (database clients ask)', carry: 'Read the local schema with `supabase db query --local` from the lane root, never `docker exec ... psql` (the-playbook).' },
+  { code: 'workdir', re: /^--workdir can point the CLI/, rule: 'checkSupabase (--workdir)', carry: 'Run supabase from the lane\'s own root (one command, no `cd`), never with `--workdir` (the-playbook).' },
+  { code: 'prod-db', re: /^scripts\/prod-db\.sh reaches production/, rule: 'checkProdDb' },
+  { code: 'prod-ref', re: /isn't dev\b|isn't the dev project|would point the CLI away from dev/, rule: 'segmentRules, checkSupabase, checkProdDb (project refs)' },
+  { code: 'merge', re: /^Merging goes through `gh pr merge`|ships a release\. Only the deploy/, rule: 'MERGE_BY_API, checkGh', carry: 'A merge is /one-ring\'s, on Alexander\'s go; never `gh pr merge` or the API from a build session.' },
+  { code: 'frozen-file', re: /frozen set/, rule: 'protectedChange (FROZEN in chain-arm.mjs)', carry: 'A frozen file changes in a setup session or as a patch a person pastes ([frozen]).' },
+  { code: 'nested-claude', re: /nested claude/i, rule: 'nestedClaude' },
+  { code: 'fed-shell', re: /which the guard can't read, so a person decides/, rule: 'fedShell', carry: 'Write the code to a scratch file and run it by name (`node <file>`), never through a pipe, heredoc or `sh -c`.' },
+  { code: 'guard-error', re: /^guard-production failed/, rule: 'main (fails closed)' },
+]
+
+/** The stable code for one guard reason (its first line). */
+export function reasonCode(reason) {
+  const why = String(reason ?? '').split('\n')[0]
+  const hit = GUARD_REASONS.find((r) => r.re.test(why))
+  if (hit) return hit.code
+  // The rule's own words only: what is in backticks, paths, refs and numbers
+  // change per call, so they are taken out before the hash.
+  const core = why.replace(/`[^`]*`/g, '`x`').replace(/\S*\/\S*/g, 'P').replace(/\b[a-z]{20}\b/g, 'R').replace(/\d+/g, '0').slice(0, 80)
+  return why ? `other-${createHash('sha1').update(core).digest('hex').slice(0, 6)}` : 'none'
+}
+
+// ------------------------------------------------- step-aside and allows
+
+const SESSION_TOOLS = /^(?:Bash|Edit|MultiEdit|Write|NotebookEdit|SendMessage|Agent|Task|mcp__.+)$/
+
+/** The guard-matched tool calls in one transcript's text (hooks.json's matchers), by id. */
+export function toolCalls(text, seen = new Set()) {
+  for (const line of String(text).split('\n')) {
+    if (!line.includes('"tool_use"')) continue
+    let entry
+    try { entry = JSON.parse(line) } catch { continue }
+    const content = entry?.message?.content
+    if (!Array.isArray(content)) continue
+    for (const c of content) {
+      if (c?.type === 'tool_use' && SESSION_TOOLS.test(String(c.name)) && c.id) seen.add(c.id)
+    }
+  }
+  return seen
+}
+
+/** The session's own ask and deny rows in the guard log's text. */
+export function sessionDecisions(logText, sessionId) {
+  const out = { asks: 0, denies: 0 }
+  for (const line of String(logText).split('\n')) {
+    const f = line.split('\t')
+    if (f[5] !== sessionId) continue
+    if (f[7] === 'ask') out.asks++
+    else if (f[7] === 'deny') out.denies++
+  }
+  return out
+}
+
+/** The `allows` row for one finished session. */
+export function allowsLine({ sessionId, calls, asks, denies, mode = '?', now = Date.now() }) {
+  const through = Math.max(0, calls - asks - denies)
+  const counts = JSON.stringify({ calls, asks, denies, through })
+  const why = `${calls} guarded calls: ${through} let through, ${asks} asked, ${denies} denied`
+  return [new Date(now).toISOString(), 'main', 'SessionEnd', counts, flat(mode) || '?', flat(sessionId) || '?', '-', 'allows', why, 'session-allows'].join('\t')
+}
+
+function transcriptsOf(transcript, sessionId) {
+  const files = [transcript]
+  const sub = join(dirname(transcript), String(sessionId), 'subagents')
+  try {
+    for (const f of readdirSync(sub)) if (f.endsWith('.jsonl')) files.push(join(sub, f))
+  } catch { /* no subagents */ }
+  return files
+}
+
+/**
+ * The SessionEnd hook: one `allows` row for the session. Never throws.
+ * A project that owns its guard gets none (the kit's guard decided nothing;
+ * its step-aside row says so).
+ * @param {string} raw  stdin
+ * @param {{ logPath?: string, now?: number, owns?: boolean }} [env]
+ */
+export async function sessionEnd(raw, env = {}) {
+  try {
+    const input = JSON.parse(raw)
+    if (!input?.session_id || !input?.transcript_path) return
+    if (env.owns ?? projectOwns({ kitName: 'guard-entry.mjs', names: ['guard-entry.mjs', 'guard-production.mjs'] })) return
+    const seen = new Set()
+    for (const f of transcriptsOf(input.transcript_path, input.session_id)) toolCalls(readOr(f), seen)
+    const file = env.logPath ?? logPathFor(input, GUARD_LOG)
+    const { asks, denies } = sessionDecisions(readOr(file), input.session_id)
+    mkdirSync(dirname(file), { recursive: true })
+    appendFileSync(file, allowsLine({ sessionId: input.session_id, calls: seen.size, asks, denies, mode: input.permission_mode, now: env.now ?? Date.now() }) + '\n')
+  } catch {
+    // Best effort, as the rest of this file.
+  }
+}
+
+/**
+ * guard-entry.mjs's step-aside: one row per session, the first time the
+ * kit's guard gives way to the project's own. Never throws.
+ * @param {string} raw  stdin
+ * @param {{ logPath?: string, now?: number }} [env]
+ */
+export function stepAsideOnce(raw, env = {}) {
+  try {
+    const input = JSON.parse(raw)
+    const sid = flat(input?.session_id)
+    if (!sid) return
+    const file = env.logPath ?? logPathFor(input, GUARD_LOG)
+    if (readOr(file).split('\n').some((l) => { const f = l.split('\t'); return f[5] === sid && f[7] === 'step-aside' })) return
+    const row = [new Date(env.now ?? Date.now()).toISOString(), flat(input.agent_type) || 'main', flat(input.tool_name) || '?', '-', flat(input.permission_mode) || '?', sid, '-',
+      'step-aside', "the kit's guard stepped aside for the project's own (.claude/hooks/)", 'step-aside']
+    mkdirSync(dirname(file), { recursive: true })
+    appendFileSync(file, row.join('\t') + '\n')
+  } catch {
+    // Best effort: the project's guard decides the call either way.
+  }
 }
 
 /**
