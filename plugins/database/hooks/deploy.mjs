@@ -165,8 +165,9 @@ const HOLD_TAG_RE = /\[(?:secret|password|payment)\]/i
 // page", "the token count" are no secret); a token still holds as an env
 // name (GITHUB_TOKEN), with a kind that makes it a secret (API, access, auth,
 // bearer, bot, deploy, personal access token), or after a verb that hands one
-// over (set, add, paste, rotate, create, generate, copy). Still errs closed.
-const HOLD_WORD_RE = /(?:\b|_)(?:secrets?|passwords?|payments?|api[_\s-]?keys?|credentials?|service[_\s-]?role|secret[_\s-]?keys?)(?:\b|_)|[A-Za-z0-9]_tokens?\b|\btokens?_[A-Za-z0-9]|\b(?:api|access|auth|bearer|bot|deploy|personal[\s-]access)[\s_-]?tokens?\b|\b(?:set|add|paste|rotate|create|generate|copy)\b[^.;]*\btokens?\b/i
+// over (set, add, paste, rotate, create, (re)generate, copy, update, enter,
+// provide, replace, store, save, put, refresh). Still errs closed.
+const HOLD_WORD_RE = /(?:\b|_)(?:secrets?|passwords?|payments?|api[_\s-]?keys?|credentials?|service[_\s-]?role|secret[_\s-]?keys?)(?:\b|_)|[A-Za-z0-9]_tokens?\b|\btokens?_[A-Za-z0-9]|\b(?:api|access|auth|bearer|bot|deploy|personal[\s-]access)[\s_-]?tokens?\b|\b(?:set|add|paste|rotate|create|(?:re)?generate|copy|update|enter|provide|replace|store|save|put|refresh)\b[^.;]*\btokens?\b/i
 
 /**
  * Whether an unticked human step holds the deploy: only a secret, a password
