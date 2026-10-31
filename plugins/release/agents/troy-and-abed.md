@@ -52,6 +52,6 @@ Stop and report instead of guessing when:
 
 Report (at most 25 lines): the commit hash, the files, the checks (with the screenshot paths), what's left open, and the one `Cheaper next time` line below. Keep it short; `captain-call` pays for every line.
 
-The last act of a step is ticking its own box in the draft PR (`gh pr view --json body`, edit the one line, `gh pr edit --body-file`); if you can't, say why in your report.
+Never edit the PR body or tick its boxes: `captain-call` ticks your box with `step-done.mjs` after your report (two lanes editing the same body lost a tick, kit 1.8 M11).
 
 End your report with one line: `Cheaper next time: <one idea>`.
