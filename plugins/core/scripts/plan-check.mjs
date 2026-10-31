@@ -26,9 +26,9 @@
 // Prints one line per failure and exits 1, or `plan-check: ok (<n> steps)`.
 // Read-only: it never edits the plan.
 
-import { readFileSync, readdirSync, existsSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const RANK = { haiku: 1, sonnet: 2, opus: 3, fable: 4 }
 // Rows that size nothing in the code: review, QA, docs, deploy, pages, people.
@@ -112,11 +112,26 @@ const hasReason = (modelCell, rowText, agent) => {
   return rest.split(/\s+/).filter(Boolean).length >= 2 || /\b(because|reason)\b/i.test(rowText)
 }
 
+const UNIT = { k: 1e3, m: 1e6, b: 1e9 }
+
+/**
+ * The plan's headline expected spend in tokens, or null. One parser for this
+ * check and release's step-done.mjs (they read the line two ways before kit
+ * 1.8's review). Reads `**Expected:** ≈ 120M`, `Expected: ~120M`,
+ * `- **Expected real spend ≈ 1.2B**`; the unit (k, M, B, any case) is
+ * required, so a bare number is null rather than silently millions.
+ */
+export function parseExpected(planText) {
+  const re = /^[\s>*-]*Expected(?: real spend)?[\s:*]*[≈~]?[\s*]*(\d+(?:\.\d+)?)\s*([kmb])(?![a-z])/im
+  const m = re.exec(String(planText ?? ''))
+  return m ? Number(m[1]) * UNIT[m[2].toLowerCase()] : null
+}
+
 export function check(text, models = {}) {
   const fails = []
   const tables = stepTables(text)
   if (!tables.length) return { steps: 0, fails: ['no step table: a table with a Step and a Budget column'] }
-  if (!/\bExpected(?: real spend)?\*{0,2}\s*[:≈]\s*\*{0,2}≈?\s*\d/i.test(text)) fails.push('item 2: no `Expected: ≈ <N>M` line (the headline is the expected real spend)')
+  if (parseExpected(text) == null) fails.push('item 2: no `Expected: ≈ <N>M` line (the headline is the expected real spend)')
   let steps = 0
   let opusReviews = 0
   for (const t of tables) {
@@ -151,7 +166,9 @@ export function check(text, models = {}) {
   return { steps, fails }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Node runs the real file, so a spaced or symlinked path compares as its real URL
+// (a raw `file://` + argv[1] missed both: exit 0 with nothing printed).
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const args = process.argv.slice(2)
   const file = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--agents')
   if (!file) {
