@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
+import { lutimesSync, mkdirSync, mkdtempSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -73,6 +73,22 @@ describe('report', () => {
     const out = report(parseArgs(['--transcript', t]), NOW)
     expect(out).toContain("transcript file mtime, not the app's events")
     expect(out).toContain('SILENT session abcd1234: last write 25 min, silent 25 min')
+  })
+
+  it('follows a symlinked transcript to its fresh file, and reads a broken link by its own time', () => {
+    // The app's tasks/<id>.output: an old link pointing at a file written 2 min ago.
+    const real = join(root, 'live-agent.jsonl')
+    writeFileSync(real, '{}\n')
+    utimesSync(real, minAgo(2), minAgo(2))
+    const link = join(root, 'a1b2c3.output')
+    symlinkSync(real, link)
+    lutimesSync(link, minAgo(60), minAgo(60))
+    expect(report(parseArgs(['--transcript', link]), NOW)).toBe('')
+    expect(report(parseArgs(['--transcript', link, '--all']), NOW)).toContain('session a1b2c3.output: last write 2 min')
+    const broken = join(root, 'dead.output')
+    symlinkSync(join(root, 'nowhere.jsonl'), broken)
+    lutimesSync(broken, minAgo(30), minAgo(30))
+    expect(report(parseArgs(['--transcript', broken]), NOW)).toContain('SILENT session dead.output: last write 30 min')
   })
 
   it('calls a lane with nothing to go by silent', () => {

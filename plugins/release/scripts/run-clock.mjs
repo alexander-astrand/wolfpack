@@ -14,7 +14,8 @@
 //   lane's, since a builder writes its scratch before its first commit.
 // --transcript: a logged session's transcript file. A script can't read the
 //   app's events, so the file's mtime stands in for the last event (the
-//   header says so); one row per file.
+//   header says so); one row per file. A symlinked transcript (the app's
+//   `tasks/<id>.output`) is followed to the file it points at.
 // --silent-after: minutes, default 20 (the `[watchdog]` limit).
 // --all: every row, not only the silent ones.
 //
@@ -24,7 +25,7 @@
 // a symlink.
 
 import { execFileSync } from 'node:child_process'
-import { lstatSync, readdirSync, realpathSync } from 'node:fs'
+import { lstatSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -90,10 +91,18 @@ export function laneRow(lane, scratch, now) {
 
 export function transcriptRow(file, now) {
   let t = null
+  // A transcript is named on purpose, and the app's `tasks/<id>.output` is a
+  // link to the real file: lstat read the link's own (old) time, so a live
+  // agent showed as SILENT. Follow it here; a broken link falls back to lstat.
+  // Lanes still never follow links (lastWrite).
   try {
-    t = lstatSync(file).mtimeMs
+    t = statSync(file).mtimeMs
   } catch {
-    // missing file: no sign of life
+    try {
+      t = lstatSync(file).mtimeMs
+    } catch {
+      // missing file: no sign of life
+    }
   }
   return { kind: 'session', name: basename(file).replace(/\.jsonl$/, ''), path: file, commitMin: null, hash: null, writeMin: ago(now, t), silentMin: ago(now, t) }
 }
