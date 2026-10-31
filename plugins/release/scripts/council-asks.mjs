@@ -29,23 +29,44 @@ export function guardReason(cols) {
   return text ? (text.length > 70 ? `${text.slice(0, 67)}...` : text) : '(no reason)'
 }
 
-// Map "agent\tdecision\treason" to count, for rows on or after `from`.
+// The calls an `allows` row let through: column 4 is its JSON counts
+// ({ calls, asks, denies, through }, the guard paste's allowsLine). The same
+// small sum as denied-log.mjs's guardTotals, kept here so this script reads no
+// hook file that may not be pasted yet. A cut row counts 0.
+export function allowsThrough(cols) {
+  try {
+    return Number(JSON.parse(cols[3]).through) || 0
+  } catch {
+    return 0
+  }
+}
+
+// Map "agent\tdecision\treason" to count, for rows on or after `from`. An
+// `allows` row is one per session, so counting rows printed the number of
+// sessions as "allows": it counts the calls let through instead, from the last
+// `allows` row per session id (column 6).
 export function guardReasons(files, from, tally = new Map()) {
+  const allows = new Map()
   for (const file of files) {
     if (!existsSync(file)) continue
     for (const line of readFileSync(file, 'utf8').split('\n')) {
       const cols = line.split('\t')
       if (!line.trim() || Date.parse(cols[0]) < from) continue
       const key = `${cols[1] || '?'}\t${cols[7] || '?'}\t${guardReason(cols)}`
+      if (cols[7] === 'allows') {
+        allows.set(cols[5] || '?', { key, n: allowsThrough(cols) })
+        continue
+      }
       tally.set(key, (tally.get(key) || 0) + 1)
     }
   }
+  for (const { key, n } of allows.values()) tally.set(key, (tally.get(key) || 0) + n)
   return tally
 }
 
 export function guardTable(tally) {
   if (!tally.size) return 'No guard rows in the window (no `.claude/guard-decisions.log`, or none since the start).'
-  const out = ['| Agent | Decision | Reason (code, or the text) | Rows |', '|---|---|---|---|']
+  const out = ['| Agent | Decision | Reason (code, or the text) | Rows (allows: calls let through) |', '|---|---|---|---|']
   for (const [k, n] of [...tally].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
     const [agent, decision, reason] = k.split('\t')
     out.push(`| ${agent} | ${decision} | ${reason.replace(/\|/g, '/')} | ${n} |`)
