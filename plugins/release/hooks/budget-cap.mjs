@@ -30,6 +30,7 @@
 //
 //   - Every Agent spawn, the navigator's too, passes two checks first (kit 1.5,
 //     "spawns" below): none after the draft is done, and none without a name.
+//     A `mosbius-designs` spawn also needs a number in its tag (kit 1.8, H7).
 //
 // Like the Commissioner it never approves anything: it either says nothing,
 // adds a note, or denies. It fails open: any error of its own allows the call
@@ -357,7 +358,10 @@ export function decide(input, env = {}) {
   const fromTable = kit
     ? kit[role] ?? byModel?.budget ?? kit['*'] ?? DEFAULT_BUDGETS[role]
     : byModel?.budget ?? DEFAULT_BUDGETS[role]
-  const budget = state.budget ?? parseBudget(meta.description) ?? fromTable ?? OTHER_BUDGET
+  const tagged = state.budget ?? parseBudget(meta.description)
+  let budget = tagged ?? fromTable ?? OTHER_BUDGET
+  // Budget absent on a role that needs one: never more than 12M (kit 1.8, H7).
+  if (tagged == null && CAP_REQUIRED.has(role)) budget = Math.min(budget, ABSENT_CAP)
 
   const share = used / budget
   const pct = `${Math.round(share * 100)}% (${(used / M).toFixed(1)}M of ${(budget / M).toFixed(1)}M)`
@@ -417,6 +421,15 @@ const SPAWN_TOOLS = new Set(['Agent', 'Task'])
 export const NAMELESS = new Set(['general-purpose', 'Explore', 'Plan', 'claude'])
 export const NAMELESS_REASON =
   'Never general-purpose: a job with no row goes to lorenzo-von-matterhorn (find), c-3po (write, or read and write one file, such as a council\'s skills-lens reader: "c-3po: skills-lens <plugin> [budget 4M]") or the next free builder (oceans-eleven, Routing).'
+// Kit 1.8 (council H7, call 3): roles whose spawn needs a number in its
+// `[budget NM]` tag. Ten Fable designer runs in one window, three with no cap
+// or "[budget lifted]"/"[budget unlimited]", which parse as no tag; an absent
+// tag is refused at the spawn, and a run that gets past it anyway (a failed-open
+// check, an older session) stops at ABSENT_CAP whatever the kit says.
+export const CAP_REQUIRED = new Set(['mosbius-designs'])
+export const ABSENT_CAP = 12 * M
+export const noCapReason = (role) =>
+  `${role} needs a number in its cap: end the description with [budget 5M] (Opus layout, palettes, type pairs, a first look), [budget 4M] (Sonnet, mode: scripted) or [budget 12M] (Fable, drawn things and steps marked important design). An order with no cap, "lifted" or "unlimited" is refused (oceans-eleven, Design).`
 export const draftDoneReason = (followUp) =>
   `The draft is done; this navigator spawns nothing more. Send it to ${followUp || 'the follow-up session'} (the follow-up session).`
 
@@ -500,8 +513,10 @@ export function checkSpawn(input, env = {}) {
     const followUp = draftDoneFor(input.session_id, env.plansDir ?? plansDirFor(input), env.sessionsDir)
     if (followUp !== null) return { decision: 'deny', reason: draftDoneReason(followUp) }
     const type = input.tool_input?.subagent_type
-    if (type && !NAMELESS.has(type)) return null
     const first = /^\s*([a-z0-9:-]+)/i.exec(input.tool_input?.description ?? '')?.[1] ?? ''
+    const named = bareAgentType(type && !NAMELESS.has(type) ? type : first.replace(/:$/, ''))
+    if (CAP_REQUIRED.has(named) && parseBudget(input.tool_input?.description) == null) return { decision: 'deny', reason: noCapReason(named) }
+    if (type && !NAMELESS.has(type)) return null
     // "saul-goodman: step 2" or "release:saul-goodman: step 2": the trailing colon goes first.
     if (agentNames(input, env).has(bareAgentType(first.replace(/:$/, '')))) return null
     return { decision: 'deny', reason: NAMELESS_REASON }
