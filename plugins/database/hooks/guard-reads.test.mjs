@@ -223,6 +223,22 @@ describe('H5 (kit 1.8): a glob under a $var folder judged by its last part', () 
   })
 })
 
+// Kit 1.8 (M1): a refused session is sent to /one-ring, with /skinny-pete
+// named only as the fallback, never the other way round.
+describe('M1 (kit 1.8): refusals name /one-ring first', () => {
+  it.each([
+    'gh pr merge 12 --squash',
+    'supabase db push --project-ref prodrefprodrefprodre',
+    'scripts/prod-db.sh push 1.0 0001',
+    'curl -X PUT https://api.github.com/repos/o/r/pulls/12/merge',
+  ])('%s', (cmd) => {
+    const r = call(cmd)
+    expect(r?.decision).toBe('deny')
+    expect(r.reason).toMatch(/\/one-ring[^]*\/skinny-pete/)
+    expect(r.reason).not.toMatch(/only through \/skinny-pete/i)
+  })
+})
+
 describe('M10: a regex in node code is not a release command', () => {
   it('a `gh (a|b)` group stays refused (zsh globs it), and the deny says to run the code from a file', () => {
     const r = call(`node -e 'const kinds = [/gh (run|pr) list/, /git show/]; console.log(kinds)'`)
