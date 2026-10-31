@@ -159,7 +159,12 @@ const HOLD_TAG_RE = /\[(?:secret|password|payment)\]/i
 // one. A secret is often named by its kind instead ("Set RESEND_API_KEY in
 // Vercel", "Add the service role key"), so those words hold too; `[_\s-]?`
 // lets an env name like API_KEY or SERVICE_ROLE count.
-const HOLD_WORD_RE = /(?:\b|_)(?:secrets?|passwords?|payments?|api[_\s-]?keys?|tokens?|credentials?|service[_\s-]?role|secret[_\s-]?keys?)(?:\b|_)/i
+// Kit 1.8 (L3): a bare "token" no longer holds ("Check the token refresh
+// page", "the token count" are no secret); a token still holds as an env
+// name (GITHUB_TOKEN), with a kind that makes it a secret (API, access, auth,
+// bearer, bot, deploy, personal access token), or after a verb that hands one
+// over (set, add, paste, rotate, create, generate, copy). Still errs closed.
+const HOLD_WORD_RE = /(?:\b|_)(?:secrets?|passwords?|payments?|api[_\s-]?keys?|credentials?|service[_\s-]?role|secret[_\s-]?keys?)(?:\b|_)|[A-Za-z0-9]_tokens?\b|\btokens?_[A-Za-z0-9]|\b(?:api|access|auth|bearer|bot|deploy|personal[\s-]access)[\s_-]?tokens?\b|\b(?:set|add|paste|rotate|create|generate|copy)\b[^.;]*\btokens?\b/i
 
 /**
  * Whether an unticked human step holds the deploy: only a secret, a password

@@ -351,6 +351,23 @@ describe('the helpers', () => {
     expect(holdsDeploy('- [ ] Check the role picker on the start page')).toBe(false)
   })
 
+  // Kit 1.8 (L3): the word "token" alone is no secret; a token handed over still holds.
+  it('holdsDeploy: a bare "token" does not hold; a token as a secret still does', () => {
+    for (const step of [
+      '- [ ] Check the token refresh page',
+      '- [ ] Look at the token count on the usage card',
+      '- [ ] Confirm the design tokens render in dark mode',
+    ]) expect(holdsDeploy(step), step).toBe(false)
+    for (const step of [
+      '- [ ] Set GITHUB_TOKEN in Vercel',
+      '- [ ] Add the bot token to the host',
+      '- [ ] Paste the token into the dashboard',
+      '- [ ] Create a personal access token for the CI',
+      '- [ ] Store the access token',
+      '- [ ] Set TOKEN_SECRET',
+    ]) expect(holdsDeploy(step), step).toBe(true)
+  })
+
   it('alreadyListed: a marked comment that names every step', () => {
     const c = [{ body: leftStepsComment(['- [ ] A', '- [ ] B']) }]
     expect(alreadyListed(c, ['- [ ] A'])).toBe(true)
