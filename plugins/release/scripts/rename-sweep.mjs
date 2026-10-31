@@ -205,4 +205,4 @@ function main() {
   else console.log(renderHits(sweep(o.paths, t.pairs, o), o.live))
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && import.meta.url === pathToFileURL((await import('node:fs')).realpathSync(process.argv[1])).href) main()

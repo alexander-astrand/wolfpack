@@ -14,7 +14,7 @@
 //   +1  it is in the project's file, the more specific of the two
 // A rule needs a tag or a repeat word to count. Prints the top three (or --top n) as file:line, the
 // score's reasons and the rule, so tomas-svensson and the builders check those first. Exit 0 always.
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -96,7 +96,7 @@ export function run(o) {
   return format(repeats(files, o.pages, o.top))
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   let o
   try {
     o = parseArgs(process.argv.slice(2))

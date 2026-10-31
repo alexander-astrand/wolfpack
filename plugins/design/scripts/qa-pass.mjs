@@ -23,7 +23,7 @@
 //     "widths": [375, 1024, 1440], "themes": ["dark", "light"], "themeVia": "param:theme",
 //     "widget": "iframe, .leaflet-container, [data-map]" }      optional; sideways rows are always found
 // The table: page | check | result | finding ("yes", "look" for small targets, blank when clean).
-import { readFileSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { applyTheme, viewportFor } from './qa/batch-shots.mjs'
@@ -244,7 +244,7 @@ export async function run(o, log = console.log) {
   return headless(pass, log)
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   let o
   try {
     o = parseArgs(process.argv.slice(2))

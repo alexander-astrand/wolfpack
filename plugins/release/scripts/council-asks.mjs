@@ -14,7 +14,7 @@
 // can't ask), each tool_use id once. The in-window count is printed beside it.
 //
 // Usage: node council-asks.mjs --since <YYYY-MM-DD> [--dir <transcripts>]… [--guard <guard-decisions.log>]…
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { readEntries } from './usage.mjs'
@@ -113,4 +113,4 @@ function main() {
   console.log(questionsTable(questionTally(dirs, from)))
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) main()

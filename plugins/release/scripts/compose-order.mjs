@@ -28,7 +28,7 @@
 // Check). kit.json `budgets` win over budgets.json, as for Hank; kit.json
 // `database.{test,apply,schema,types}` win over the guessed lane commands.
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -554,4 +554,4 @@ function main() {
   console.log(a.json ? JSON.stringify(o, null, 2) : render(o))
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) main()

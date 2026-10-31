@@ -21,10 +21,10 @@
 //
 // The record block sits between `<!-- leans.mjs -->` and `<!-- /leans.mjs -->` inside the
 // section and is always rewritten whole, never appended.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const DEFAULT_LIBRARY = join(homedir(), '.claude', 'plans', 'design', 'library.md')
 export const DEFAULT_AGENT = join(dirname(dirname(fileURLToPath(import.meta.url))), 'agents', 'heisenberg.md')
@@ -172,7 +172,8 @@ export function run(argv) {
   return `wrote ## Leans in ${o.agent} (${rows.filter((r) => r.kind).length} scored rows${bullets ? `, ${bullets.length} bullets from the notes` : ''})`
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// Node runs the real file, so a relative, spaced or symlinked path compares as its real URL.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   try {
     console.log(run(process.argv.slice(2)))
   } catch (err) {

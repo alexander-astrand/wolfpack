@@ -28,7 +28,7 @@
 //
 // The root is --root, else CLAUDE_PROJECT_DIR, else the current folder.
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -138,7 +138,7 @@ export function write({ root, area }) {
   return { code: 0, lines }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const args = parseArgs(process.argv.slice(2))
   if (args.error) {
     process.stderr.write(`new-suite: ${args.error}\n`)
