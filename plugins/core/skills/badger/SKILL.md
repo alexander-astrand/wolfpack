@@ -8,6 +8,15 @@ effort: low
 
 Add this to the roadmap: $ARGUMENTS
 
+## Status card (one idea onto one release; stop here when it's all you need)
+The common call (kit 1.8, F-4: a single idea onto an existing release read all of this skill and `the-trail` each time):
+1. The record: kit.json `roadmap`. `file`: one line under the release in `<plans>roadmap.md` in its neighbours' shape, ending "(Alexander, 31 Oct)"; then the page as below when `pages.roadmap` is set (a static page, `pages.roadmapSource`: read on). `none`: read on.
+2. Data page: `get` `cards/<anchor>`, add one `<li>` to its "What's in it" list in `body_html` (same ending), `update` `body_html` and `updated_at`.
+3. `str_replace` one dated line in front of `meta/page`'s `revised_html` first words ("31 Oct 2026 (after `/badger`: <idea>); earlier …").
+4. `get` the card back, and the same line into `project_roadmap.md` when the project keeps one. Never write the checkout, run no git.
+5. Reply two lines as `badger` (where it went, why there), then `Next: <the step> (<who>)` or `Next: nothing, done.`
+A new card, a parked idea, a batch, the inbox or a big idea: the full steps below.
+
 Several ideas in one call (`/badger a; b; c`, or a list from `/legendary` or `/memento`): split on `;`, place each as below, but write them as one `batch` and run the check once at the end.
 
 **The ideas inbox** (Dev HQ's "+ Idea", W5 of Burrow's `/legendary`, 27 Oct 2026): with no idea given (`/badger`, or `/badger inbox`), the ideas are the inbox's. Through the Burrow connector (norms.md, "Dev HQ card": its `find_rows` and `change_row`, loaded by ToolSearch `select:`), `find_rows` `kind` `dev_ideas` lists them; take each row with `sorted_at` empty whose `project` is this project's card slug, or empty and plainly about this project. Place them as a batch (above), the asker "Alexander, via Dev HQ" with the row's day, and after the roadmap write mark each one placed: `change_row` `kind` `dev_ideas`, its `id`, `sorted_at` now and `project` the slug. An idea that's another project's or unclear stays in the inbox: name it in the reply. With an idea given, after placing it, one line when the inbox holds unsorted ideas for this project ("2 more wait in Dev HQ's inbox: `/badger inbox`"). No connector or a refused call: say so in one line and go on with the idea given, or stop.

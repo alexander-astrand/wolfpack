@@ -3,6 +3,15 @@ name: the-trail
 description: Edit the shared roadmap page (a claude.ai data artifact) by writing rows - a status, a card, a section or the header is one ArtifactData write, never a republish - or a static roadmap page (kit.json pages.roadmapSource) by editing its source and republishing. Use whenever the roadmap changes in a project with a roadmap page (kit.json pages.roadmap), in the same turn, even with roadmap file, including from /badger, /future-ted, /inception and /captain-call.
 ---
 
+## Status card (the common write; stop here when it's all you need)
+A release's status on a **data page** (kit 1.8, F-4: most calls were this one write, and each read the whole skill):
+1. The page: its id from `pages.roadmap` in `.claude/kit.json` or memory `project_roadmap.md`. A static page (`pages.roadmapSource` set) or `roadmap: file`: read on, this card isn't for you.
+2. `get` `cards/<anchor>` (e.g. `cards/v1-5`) for its badge's PR number.
+3. `update` `cards/<anchor>`: `status` (`shipped | in-progress | in-review | planned | parked`), `badge` ("Shipped · PR #80", "Planned") and `updated_at` (ISO), together.
+4. `str_replace` on `meta/page`'s `revised_html`: one dated line in front of its first words ("31 Oct 2026 (V1.5 shipped); earlier …"), never the field resent.
+5. `get` the card back to check it, and the same change into `project_roadmap.md` when the project keeps one.
+Anything else (a new card, a section, a batch, an `order` move, the header): the full skill below.
+
 **Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · the-trail <subject>` (norms.md).
 
 ## Voice
