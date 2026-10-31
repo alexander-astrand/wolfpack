@@ -194,6 +194,35 @@ describe('H5: the shapes that stay off the list', () => {
   })
 })
 
+// Kit 1.8 (the kit 1.7.1 council's H5): the database lens's seven probe
+// shapes. A `$var` before a known last part (`worktrees`) is not scripts/,
+// so the navigator's read-only loops pass; a last part built at run time,
+// or `scripts` itself, still counts as the arm script's folder.
+describe('H5 (kit 1.8): a glob under a $var folder judged by its last part', () => {
+  const wt = `${root}/.claude/worktrees`
+  it.each([
+    [`ls ${wt}/*/`, 'pass'],
+    [`for d in ${wt}/*/; do ls "$d"; done`, 'pass'],
+    [`r=${root}; ls $r/.claude/worktrees/*/`, 'pass'],
+    [`r=${root}; for d in $r/.claude/worktrees/*/; do wc -l "$d"x; done`, 'pass'],
+    [`r=${root}; for d in $r/.claude/worktrees/*; do ls $d; done`, 'pass'],
+    [`r=${root}; for d in "$r"/.claude/worktrees/*/; do ls "$d"; done`, 'pass'],
+    [`for d in ${wt}/*/; do echo "$d"; done`, 'pass'],
+  ])('probe: %s gets %s', (cmd, verdict) => {
+    expect(d(cmd)).toBe(verdict)
+  })
+
+  it.each([
+    `r=${root}; for f in $r/scripts/*; do bash $f; done`,
+    `for d in ${wt}/*/; do for f in $d/*; do sh $f; done; done`,
+    'for f in ${r:-x/scripts}/*; do bash $f; done',
+    'for f in $r/x/../*; do bash $f; done',
+    'for f in $(echo scripts | tr x y)/*; do bash $f; done',
+  ])('%s stays refused', (cmd) => {
+    expect(d(cmd)).toBe('deny')
+  })
+})
+
 describe('M10: a regex in node code is not a release command', () => {
   it('a `gh (a|b)` group stays refused (zsh globs it), and the deny says to run the code from a file', () => {
     const r = call(`node -e 'const kinds = [/gh (run|pr) list/, /git show/]; console.log(kinds)'`)

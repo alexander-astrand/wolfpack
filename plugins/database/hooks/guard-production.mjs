@@ -2669,8 +2669,20 @@ function scriptGlob(token, where, pattern) {
 
 // A folder is scripts/ when its last part is (or globs to) that name; one
 // built at run time, or relative to a folder that isn't known, may be.
+// Kit 1.8 (H5): only the last part decides. `$r/.claude/worktrees` is not
+// scripts/ whatever $r holds, so a read-only loop over worktrees passes;
+// `$r/scripts` and `$d` (last part built at run time) still may be. A folder
+// with no `/` keeps the old rule: all of it is the last part. The parts
+// before it may hold only plain `$name` or `${name}`: a substitution or
+// `${r:-x/scripts}` can carry a `/` of its own, and a `..` can climb back
+// into $r, so either keeps the old rule too.
 function mayBeScripts(folder, where) {
-  if (/[$`]/.test(folder)) return true
+  if (/[$`]/.test(folder)) {
+    const parts = folder.split('/')
+    const last = parts.pop()
+    const head = parts.join('/').replace(/\$(?:[A-Za-z_]\w*|\{[A-Za-z_]\w*\})/g, '')
+    if (!parts.length || /[$`]/.test(last) || /[$`]/.test(head) || ['', '.', '..'].includes(last) || parts.includes('..')) return true
+  }
   let path = folder.replace(/^~(?=\/|$)/, homedir())
   if (!isAbsolute(path)) {
     if (where?.built) return true
