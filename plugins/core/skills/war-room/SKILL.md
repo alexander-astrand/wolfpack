@@ -4,6 +4,7 @@ description: Retired 26 Oct 2026 - Alexander's old private Projects board (a Cla
 argument-hint: "[plan | show]"
 model: sonnet
 effort: low
+disable-model-invocation: true
 ---
 
 War Room: $ARGUMENTS

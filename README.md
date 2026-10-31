@@ -59,7 +59,7 @@ Source of truth: the kit's `main` on GitHub. Every project loads `<kit>` (`~/wol
 The shared crew and the habits every project follows: planning before a big release, the wrap-up afterwards, web research, docs, the roadmap and the daily routines. `norms.md` (how questions, human steps and session names work) and `lessons.md` (tuning numbers) are read by the skills.
 
 - Agents: `doc-brown`, `dr-house`, `john-hammond`, `lorenzo-von-matterhorn`, `romeo-olsson`
-- Skills: `88-mph`, `badger`, `beam-me-up`, `cloud-city`, `dependabot-report`, `don-draper`, `farbror-vattenmelon`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `mr-miyagi`, `previously-on`, `scrooge`, `tesseract`, `the-trail`, `war-room`, `watson`, `wilson`
+- Skills: `88-mph`, `badger`, `beam-me-up`, `cloud-city`, `dependabot-report`, `don-draper`, `farbror-vattenmelon`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `mr-miyagi`, `previously-on`, `scrooge`, `tesseract`, `the-trail`, `war-room` (retired 26 Oct, read-only), `watson`, `wilson`
 - Scripts (`scripts/`): `week-receipt.mjs`, `lane.mjs`, `wrap-facts.mjs`
 
 ### release
