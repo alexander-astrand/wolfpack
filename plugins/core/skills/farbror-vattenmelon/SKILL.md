@@ -33,5 +33,8 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 5. **Walk his steps one at a time**, as norms.md "A human step" says (`plugins/core/norms.md:7`). Read the tab before the next step; when it shows an error, find the cause and give the fixed step, never the next one. A Skip is noted in the guide as not done.
 6. **Leave the guide**, short enough to follow again without this chat: what it sets up, the steps in order (his marked as his), what a good result looks like, and what to do when it fails. Through `watson`: in the project as `docs/<short-name>.md` (`doc`) when it belongs to the repo, or a Claude Doc (`page`) when it's his own setup outside any repo. Link it in the final message.
 
+## Ceiling
+**About 20M** (a walkthrough ran to 29.0M over 77 minutes with no ceiling). Read it at the start of each step you walk: this session's tokens from the `get_usage` context figure, or `node usage.mjs --timeline <this session's id>` from the `release` plugin's `scripts/` folder (`get_session` on `self` gives the id). Past it, stop: say what has been used, list the steps done and the ones left, and offer a fresh `/farbror-vattenmelon` that starts from that list. Carry on only on his word.
+
 ## Wrap
 The final message: what's set up, what was skipped and why, the guide's link. The last line is the `Next:` line (norms.md "Last line"): `Next: <the step> (<who>)`, or `Next: nothing, done.` When the next step is his, end the turn with no timer (kit 1.5, M9); `/marco-polo` finds sessions waiting on him.
