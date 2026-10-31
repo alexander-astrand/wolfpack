@@ -1,10 +1,12 @@
 // First: the tests' project and its kit.json (the fixture's values).
-import './fixtures/kit-project.mjs'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { KIT_PROJECT } from './fixtures/kit-project.mjs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
-import { DEV_REF, READ_BUDGET_MS, decide, readTimeout } from './guard-production.mjs'
+import { DEV_REF, READ_BUDGET_MS, decide, explain, readTimeout } from './guard-production.mjs'
 
 // Kit 1.7 (the kit 1.6.1 council's H5, H1 and M10): the dev reads the guard
 // now allows, the shapes that still go to the classifier or a person, a
@@ -191,6 +193,94 @@ describe('H5: the shapes that stay off the list', () => {
     expect(d('git push origin main')).toBe('ask')
     expect(d('gh pr merge 12 --squash')).toBe('deny')
     expect(d('supabase db push --project-ref prodrefprodrefprodre')).toBe('deny')
+  })
+})
+
+// Kit 1.8 (the kit 1.7.1 council's H5): the database lens's seven probe
+// shapes. A `$var` before a known last part (`worktrees`) is not scripts/,
+// so the navigator's read-only loops pass; a last part built at run time,
+// or `scripts` itself, still counts as the arm script's folder.
+describe('H5 (kit 1.8): a glob under a $var folder judged by its last part', () => {
+  const wt = `${root}/.claude/worktrees`
+  it.each([
+    [`ls ${wt}/*/`, 'pass'],
+    [`for d in ${wt}/*/; do ls "$d"; done`, 'pass'],
+    [`r=${root}; ls $r/.claude/worktrees/*/`, 'pass'],
+    [`r=${root}; for d in $r/.claude/worktrees/*/; do wc -l "$d"x; done`, 'pass'],
+    [`r=${root}; for d in $r/.claude/worktrees/*; do ls $d; done`, 'pass'],
+    [`r=${root}; for d in "$r"/.claude/worktrees/*/; do ls "$d"; done`, 'pass'],
+    [`for d in ${wt}/*/; do echo "$d"; done`, 'pass'],
+  ])('probe: %s gets %s', (cmd, verdict) => {
+    expect(d(cmd)).toBe(verdict)
+  })
+
+  it.each([
+    `r=${root}; for f in $r/scripts/*; do bash $f; done`,
+    `for d in ${wt}/*/; do for f in $d/*; do sh $f; done; done`,
+    'for f in ${r:-x/scripts}/*; do bash $f; done',
+    'for f in $r/x/../*; do bash $f; done',
+    'for f in $(echo scripts | tr x y)/*; do bash $f; done',
+  ])('%s stays refused', (cmd) => {
+    expect(d(cmd)).toBe('deny')
+  })
+})
+
+// Kit 1.8 (M1): a refused session is sent to /one-ring, with /skinny-pete
+// named only as the fallback, never the other way round.
+describe('M1 (kit 1.8): refusals name /one-ring first', () => {
+  it.each([
+    'gh pr merge 12 --squash',
+    'supabase db push --project-ref prodrefprodrefprodre',
+    'scripts/prod-db.sh push 1.0 0001',
+    'curl -X PUT https://api.github.com/repos/o/r/pulls/12/merge',
+  ])('%s', (cmd) => {
+    const r = call(cmd)
+    expect(r?.decision).toBe('deny')
+    expect(r.reason).toMatch(/\/one-ring[^]*\/skinny-pete/)
+    expect(r.reason).not.toMatch(/only through \/skinny-pete/i)
+  })
+})
+
+// Kit 1.8 (Feature 16): the dry guard prints the verdict and the rule.
+describe('F16 (kit 1.8): guard-production.mjs --explain', () => {
+  it('a refused loop prints deny, its code, the rule and what to do instead', async () => {
+    const text = await explain(`for f in $d/*; do bash $f; done`, { cwd: root }, STUBS)
+    expect(text).toMatch(/^verdict: deny\n/)
+    expect(text).toMatch(/\ncode: arm-script\n/)
+    expect(text).toMatch(/decided by: guard-production\.mjs SCRIPT_DENIED/)
+    expect(text).toMatch(/\ninstead: /)
+  })
+
+  it('a passing read prints pass, and a listed read allow', async () => {
+    expect(await explain(`r=${root}; for d in $r/.claude/worktrees/*/; do wc -l "$d"x; done`, { cwd: root }, STUBS)).toMatch(/^verdict: pass/)
+    expect(await explain('git diff --stat', { cwd: root }, STUBS)).toMatch(/^verdict: allow\n/)
+  })
+
+  // Review round 1, must 1: under a marker a real decision logs the call; a dry one must not.
+  it('under an armed marker it writes no line to full-auto.log or full-auto-chain.log', async () => {
+    const logs = ['full-auto.log', 'full-auto-chain.log'].map((f) => join(KIT_PROJECT, '.claude', f))
+    for (const f of logs) rmSync(f, { force: true })
+    const cmd = 'scripts/prod-db.sh push 0.14.1 0052'
+    const marker = { version: '0.14.1', commands: [cmd], pr: 44, headSha: 'a'.repeat(40), expiresAt: new Date(Date.now() + 3600_000).toISOString() }
+    const { log, chainLog, ...rest } = STUBS
+    const env = { ...rest, marker: () => marker, openPr: () => null }
+    const text = await explain(cmd, { cwd: root, agent: 'ranjit' }, env)
+    expect(text).toMatch(/^verdict: /)
+    for (const f of logs) expect(existsSync(f), f).toBe(false)
+    // The control: the same call decided for real does log, so the check above means something.
+    decide({ tool_name: 'Bash', tool_input: { command: cmd }, cwd: root, permission_mode: 'auto', agent_type: 'ranjit' }, env)
+    expect(logs.some((f) => existsSync(f))).toBe(true)
+    for (const f of logs) rmSync(f, { force: true })
+  })
+
+  it('as a process it prints without running the command, and wants a command', () => {
+    const file = fileURLToPath(new URL('./guard-production.mjs', import.meta.url))
+    const marker = join(root, 'explain-ran')
+    const r = spawnSync(process.execPath, [file, '--explain', `touch ${marker}`, '--cwd', root], { encoding: 'utf8' })
+    expect(r.status).toBe(0)
+    expect(r.stdout).toMatch(/^verdict: /)
+    expect(existsSync(marker)).toBe(false)
+    expect(spawnSync(process.execPath, [file, '--explain']).status).toBe(2)
   })
 })
 

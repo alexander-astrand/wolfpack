@@ -2,12 +2,14 @@
 
 The Supabase pack: the production guard (the Slap Bet Commissioner) in `hooks/`, `the-playbook` and `bro-code`. The deployer agent is the project's own (in its `.claude/agents/`, named by `deployer` in `.claude/kit.json`). `database-artifacts.md` lists what a project using it carries. The guard finds the project through `CLAUDE_PROJECT_DIR` and reads its values from `.claude/kit.json`.
 
-## The scope sheet and the test runner (kit 1.7)
+## The scope sheet, the test runner and their neighbours (kit 1.7, 1.8)
 
-Two read-and-run helpers for database steps, run from the plugin folder (nothing to copy into the project):
+Read-and-run helpers for database steps, run from the plugin folder (nothing to copy into the project):
 
 - `node scripts/scope.mjs <table|function> [--root <project>]` prints the suites under `supabase/tests/` naming it, the pinned lists in `src/`, `scripts/` and `supabase/functions/` (a quoted name on a line), the migrations defining it as a function, and its foreign-key pairs from `supabase/migrations/`. Files only, no database. The navigator pastes its output into every `the-playbook` order, so the builder starts from the list instead of reading suites one by one.
-- `node scripts/run-tests.mjs [prefix] [--root <project>]` runs `supabase/tests/*.sql` the way `bro-code` writes them (no `_` files, `_helpers.sql` pasted at `-- @helpers`, the prefix for one suite) and prints only `FAIL <file>` with its failed checks, then one count line; exit 1 on any FAIL. Dev only: `--local` for a local stack, `--linked` only when the CLI is linked to `refs.dev`; it refuses with exit 2 when it can't tell, or when the project's own test command names the other flag. For a project with no database test command of its own.
+- `node scripts/run-tests.mjs [prefix] [--root <project>]` runs `supabase/tests/*.sql` the way `bro-code` writes them (no `_` files, `_helpers.sql` pasted at `-- @helpers`, the prefix for one suite) and prints only `FAIL <file>` with its failed checks, then one count line; exit 1 on any FAIL. Dev only: `--local` for a local stack, `--linked` only when the CLI is linked to `refs.dev`; it refuses with exit 2 when it can't tell, or when the project's own test command names the other flag. For a project with no database test command of its own. `--mutate <suite>` (kit 1.8) is the proof each check can fail: the suite must PASS, then it runs once per `expect_ok(`/`expect_error(` call with that call flipped, each run must FAIL, and a check that still passes prints `SURVIVED <file>:<line>` (exit 1). It flips only those two helpers in the suite's own text (comments and helper definitions skipped) and counts other checks as not mutated; one run per check, so for access-rule suites.
+- `node scripts/new-suite.mjs <area> [--root <project>]` writes `supabase/tests/<area>.test.sql` in `bro-code`'s shape (kit 1.8): header, one transaction, temp results table, `pg_temp.expect_ok`/`expect_error` helpers, three fixture users with fixed uuids, a checks block, and the closing PASS/FAIL raise; FAIL until it has a check, never over an existing file. When the project keeps `_helpers.sql`, it names the suite to copy the `-- @helpers` placement from.
+- `node scripts/frontend-calls.mjs <migration.sql> [more.sql ...]` prints the "what the frontend will call" paragraph from the migration's text (kit 1.8): per function a `supabase.rpc('name', { arg: type, optional?: type })` line, its return columns (OUT arguments count), the roles granted execute in that file after any revoke, and security definer with or without `search_path`; trigger and dropped functions get one line each. No database. `the-playbook` puts its output in the report and the navigator pastes it verbatim into the next builder's order.
 
 ## The one-word deploy (kit 1.6)
 
@@ -22,6 +24,12 @@ A project's `.claude/agents/ranjit.md` is this plugin's `templates/ranjit.md` (o
 ## What the guard logs and allows (kit 1.7)
 
 Every `ask` and `deny` the guard decides goes to the project's `.claude/guard-decisions.log` with its reason, and every Auto mode refusal to `.claude/permission-denied.log` (`hooks/denied-log.mjs`). Both are tab-separated in the same column order, written in `denied-log.mjs`'s header. `node <plugin>/hooks/denied-log.mjs --summary [--since <YYYY-MM-DD>] [--dir <project>]` groups the repeats from both, marks each `guard` or `classifier`, and prints a `settings.json` allow line for the classifier's dev-only repeats. The guard's read allowlist takes `git show|diff|cat-file|ls-tree|rev-parse|status|log` and `grep`, `rg` and `wc` on the repo's own files (not `.claude/`, `.git/` or `.env*`), so those skip the classifier.
+
+After the guard paste (kit 1.8; `guard-paste/kit-1.8.patch` until a person applies it with `node scripts/guard-paste.mjs`):
+- Column 10 of every guard row is a stable reason code (such as `psql`), so a count groups by rule rather than by wording.
+- Two rows that are totals, not decisions: one `allows` row per session at its end (column 4 holds `{ calls, asks, denies, through }`, reason code `session-allows`), written by the SessionEnd hook `hooks/guard-allows.mjs`; and one `step-aside` row per session when a project's own guard ran in place of the kit's (HutzUp).
+- `denied-log.mjs --summary` adds a reason table: each repeated guard reason by code, the rule in `guard-production.mjs` that decides it, and the line an agent should carry for a habit (psql, `--workdir`, heredoc edits); then the session totals and the ask rate from the `allows` rows.
+- `node <plugin>/hooks/guard-production.mjs --explain '<command>'` (`[--agent <name>] [--cwd <dir>]`) is the dry guard: it prints the verdict, the reason and its code, the rule and what to do instead, never running the command.
 
 ## Install the scripts
 

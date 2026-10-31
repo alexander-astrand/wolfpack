@@ -47,6 +47,42 @@ export function spawnTally(dirs, from) {
   return tally
 }
 
+// One row per spawn (F21, kit 1.7.1 council): the readers asked "which runs
+// were Fable and why", which the tally can't answer; the description can.
+export function spawnRows(dirs, from) {
+  const rows = []
+  const done = new Set()
+  const add = (entries, session) => {
+    for (const e of entries) {
+      if (e?.type !== 'assistant') continue
+      const t = Date.parse(e.timestamp)
+      if (!Number.isNaN(t) && t < from) continue
+      for (const b of Array.isArray(e.message?.content) ? e.message.content : []) {
+        if (b?.type !== 'tool_use' || (b.name !== 'Agent' && b.name !== 'Task') || done.has(b.id)) continue
+        done.add(b.id)
+        rows.push({ session, time: e.timestamp || '', role: spawnRole(b.input), type: b.input?.subagent_type || 'general-purpose', model: b.input?.model || '(frontmatter)', description: String(b.input?.description || '') })
+      }
+    }
+  }
+  for (const dir of dirs) {
+    for (const f of windowFiles(dir, from)) {
+      const id = f.slice(0, -'.jsonl'.length)
+      add(readEntries(join(dir, f)), id.slice(0, 8))
+      const sub = join(dir, id, 'subagents')
+      if (existsSync(sub)) for (const s of readdirSync(sub).filter((x) => x.endsWith('.jsonl'))) add(readEntries(join(sub, s)), `${id.slice(0, 8)} (agent)`)
+    }
+  }
+  return rows.sort((a, b) => a.time.localeCompare(b.time))
+}
+
+const cell = (s, n) => (s.length > n ? `${s.slice(0, n - 3)}...` : s).replace(/\|/g, '/')
+
+export function spawnRowsTable(rows) {
+  const out = ['| Session | Time (UTC) | Role | Agent type | Model asked | Description |', '|---|---|---|---|---|---|']
+  for (const r of rows) out.push(`| ${r.session} | ${r.time.slice(5, 16).replace('T', ' ')} | ${r.role} | ${r.type.replace(/^[\w-]+:/, '')} | ${r.model} | ${cell(r.description, 80)} |`)
+  return out.join('\n')
+}
+
 export function spawnsTable(tally) {
   const out = ['| Role | Model asked | Spawns |', '|---|---|---|']
   for (const [k, n] of [...tally].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {

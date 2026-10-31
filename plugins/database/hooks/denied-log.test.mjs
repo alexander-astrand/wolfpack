@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { deniedLine, guardLine, run, shapeOf, summarize, summaryText } from './denied-log.mjs'
+import { deniedLine, guardLine, guardReasons, guardTotals, reasonCode, run, sessionEnd, shapeOf, stepAsideOnce, summarize, summaryText, toolCalls } from './denied-log.mjs'
 import { GH_PR_READS, GIT_READS, PIPE_FILTERS, TEXT_READS, guardListedHead } from './read-list.mjs'
 
 const HOOK = fileURLToPath(new URL('./denied-log.mjs', import.meta.url))
@@ -56,11 +56,12 @@ describe('denied-log', () => {
     expect(deniedLine({ ...SAMPLE, tool_name: 'NotebookEdit', tool_input: { notebook_path: '/r/n.ipynb' } }, { mask: (s) => s }).split('\t')[6]).toBe('/r/n.ipynb')
   })
 
-  it("the guard's line is the same seven columns, then decision and reason", () => {
+  it("the guard's line is the same seven columns, then decision, reason and reason code", () => {
     const f = guardLine(SAMPLE, { decision: 'ask', reason: 'Ships the release: gh pr merge 1\nmore' }, { mask: (s) => s, now: Date.UTC(2026, 9, 24) }).split('\t')
-    expect(f).toHaveLength(9)
+    expect(f).toHaveLength(10)
     expect(f.slice(0, 3)).toEqual(['2026-10-24T00:00:00.000Z', 'saul-goodman', 'Bash'])
-    expect(f.slice(6)).toEqual(['-', 'ask', 'Ships the release: gh pr merge 1'])
+    expect(f.slice(6, 9)).toEqual(['-', 'ask', 'Ships the release: gh pr merge 1'])
+    expect(f[9]).toMatch(/^other-[0-9a-f]{6}$/)
   })
 
   it('masks a 160k-character input well under a second', async () => {
@@ -213,5 +214,113 @@ describe('denied-log --summary', () => {
     expect(r.stdout).toContain('"Bash(npm run build)"')
     expect(r.stdout).not.toContain('"Bash(git show *)"')
     expect(spawnSync(process.execPath, [HOOK, '--summary', '--since', 'last week', '--dir', project]).status).toBe(1)
+  })
+})
+
+// Kit 1.8 (M12): a stable reason code, a per-session allow count, a step-aside row.
+describe('M12 (kit 1.8): reason codes, allows and the step-aside', () => {
+  it.each([
+    ['The full-auto marker and its log are written only by scripts/full-auto.sh, which a person runs.', 'marker-write'],
+    ['scripts/full-auto.sh arms production, so a call names it only to run it on its own (...)', 'arm-script'],
+    ['`$L` is built at run time and may be gh: ...', 'built-at-runtime'],
+    ['psql can reach any database. Check where it connects.', 'psql'],
+    ['--workdir can point the CLI at another link. Run it from the repo root.', 'workdir'],
+    ['--project-ref abcdefghijklmnopqrst isn\'t dev. Production is reached only through /one-ring.', 'prod-ref'],
+  ])('%s gets the code %s', (reason, code) => {
+    expect(reasonCode(reason)).toBe(code)
+  })
+
+  it('an unlisted reason gets one code whatever its paths and numbers', () => {
+    const a = reasonCode('Writes `/a/b.txt` at /repo/x, line 12')
+    expect(a).toMatch(/^other-[0-9a-f]{6}$/)
+    expect(reasonCode('Writes `/c/d.txt` at /repo/y, line 99')).toBe(a)
+    expect(reasonCode('Something else entirely')).not.toBe(a)
+  })
+
+  const use = (id, name) => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name, input: {} }] } })
+
+  it('counts the guarded tool calls in a transcript once each, skipping Read and Grep', () => {
+    const text = [use('t1', 'Bash'), use('t1', 'Bash'), use('t2', 'Edit'), use('t3', 'Read'), use('t4', 'mcp__x__list'), 'not json "tool_use"'].join('\n')
+    expect(toolCalls(text).size).toBe(3)
+  })
+
+  it('at session end writes one allows row: calls, asks, denies and the rest let through, subagents counted', async () => {
+    const project = mkdtempSync(join(tmpdir(), 'denied-end-'))
+    const transcript = join(project, 's1.jsonl')
+    writeFileSync(transcript, [use('a', 'Bash'), use('b', 'Bash'), use('c', 'Write')].join('\n'))
+    mkdirSync(join(project, 's1', 'subagents'), { recursive: true })
+    writeFileSync(join(project, 's1', 'subagents', 'agent-1.jsonl'), use('d', 'Bash'))
+    const file = join(project, '.claude', 'guard-decisions.log')
+    mkdirSync(join(project, '.claude'))
+    writeFileSync(file, [['t', 'main', 'Bash', '{}', 'auto', 's1', '-', 'deny', 'x', 'psql'], ['t', 'main', 'Bash', '{}', 'auto', 's2', '-', 'ask', 'x', 'psql']].map((r) => r.join('\t')).join('\n') + '\n')
+    await sessionEnd(JSON.stringify({ session_id: 's1', transcript_path: transcript, cwd: project, permission_mode: 'auto' }), { logPath: file, owns: false, now: Date.UTC(2026, 9, 31) })
+    const last = readFileSync(file, 'utf8').trim().split('\n').pop().split('\t')
+    expect(last).toHaveLength(10)
+    expect(last.slice(5, 8)).toEqual(['s1', '-', 'allows'])
+    expect(JSON.parse(last[3])).toEqual({ calls: 4, asks: 0, denies: 1, through: 3 })
+    expect(last[9]).toBe('session-allows')
+  })
+
+  it('writes no allows row where the project owns the guard', async () => {
+    const file = join(dir, '.claude', 'guard-decisions.log')
+    await sessionEnd(JSON.stringify({ session_id: 's1', transcript_path: join(dir, 'none.jsonl') }), { logPath: file, owns: true })
+    expect(existsSync(file)).toBe(false)
+  })
+
+  it('the step-aside leaves one row per session, not one per call', () => {
+    const file = join(dir, '.claude', 'guard-decisions.log')
+    const input = (sid) => JSON.stringify({ session_id: sid, tool_name: 'Bash', permission_mode: 'auto', tool_input: { command: 'ls' } })
+    stepAsideOnce(input('s1'), { logPath: file })
+    stepAsideOnce(input('s1'), { logPath: file })
+    stepAsideOnce(input('s2'), { logPath: file })
+    const rows = readFileSync(file, 'utf8').trim().split('\n').map((l) => l.split('\t'))
+    expect(rows.map((r) => [r[5], r[7], r[9]])).toEqual([['s1', 'step-aside', 'step-aside'], ['s2', 'step-aside', 'step-aside']])
+    expect(rows[0]).toHaveLength(10)
+  })
+
+  // Feature 16: the summary names the rule and the habit, and the ask rate.
+  it('--summary lists repeated guard reasons with the rule and the line to carry, and the session totals', () => {
+    const row = (sid, decision, why, code = '') => ['2026-10-30T10:00:00.000Z', 'database:the-playbook', 'Bash', '{"command":"x"}', 'auto', sid, '-', decision, why, code].join('\t')
+    const guard = [
+      row('s1', 'ask', 'psql can reach any database. Check where it connects.', 'psql'),
+      // an old nine-column row gets its code from the text
+      row('s1', 'ask', 'psql can reach any database. Check where it connects.').replace(/\t$/, ''),
+      row('s2', 'deny', '--workdir can point the CLI at another link. Run it from the repo root.', 'workdir'),
+      row('s1', 'allows', '10 guarded calls', 'session-allows').replace('{"command":"x"}', '{"calls":10,"asks":2,"denies":0,"through":8}'),
+      row('s3', 'step-aside', 'stepped aside', 'step-aside'),
+    ].join('\n')
+    const reasons = guardReasons(guard)
+    expect(reasons.map((r) => [r.code, r.count])).toEqual([['psql', 2], ['workdir', 1]])
+    expect(reasons[0].rule).toMatch(/^guard-production\.mjs segmentRules/)
+    const text = summaryText(summarize({ guard }), { reasons, totals: guardTotals(guard) })
+    expect(text).toMatch(/\n2\tpsql\tguard-production\.mjs segmentRules[^\n]*\tcarry: Read the local schema with `supabase db query --local`/)
+    expect(text).not.toMatch(/\n1\tworkdir\t/)
+    expect(text).toContain('1 sessions counted at their end, 10 guarded calls, 8 let through, 2 asked, 0 denied (asks 20.0 %')
+    expect(text).toContain("1 sessions ran the project's own guard")
+    expect(text).not.toMatch(/SessionEnd/)
+  })
+
+  it('a resumed session that ends twice counts once, by its last allows row', () => {
+    const allows = (sid, c) => ['2026-10-30T10:00:00.000Z', 'main', 'SessionEnd', JSON.stringify(c), 'auto', sid, '-', 'allows', 'x', 'session-allows'].join('\t')
+    const guard = [
+      allows('s1', { calls: 10, asks: 1, denies: 0, through: 9 }),
+      allows('s2', { calls: 5, asks: 0, denies: 1, through: 4 }),
+      allows('s1', { calls: 25, asks: 2, denies: 1, through: 22 }),
+    ].join('\n')
+    expect(guardTotals(guard)).toEqual({ sessions: 2, calls: 30, asks: 2, denies: 2, through: 26, asides: 0 })
+  })
+
+  it('hooks.json runs guard-allows.mjs at SessionEnd, which writes the row as a process', () => {
+    const hooks = JSON.parse(readFileSync(fileURLToPath(new URL('./hooks.json', import.meta.url)), 'utf8'))
+    expect(hooks.hooks.SessionEnd[0].hooks[0].command).toMatch(/hooks\/guard-allows\.mjs"$/)
+    const project = mkdtempSync(join(tmpdir(), 'denied-allows-'))
+    writeFileSync(join(project, 's9.jsonl'), use('a', 'Bash'))
+    const r = spawnSync(process.execPath, [fileURLToPath(new URL('./guard-allows.mjs', import.meta.url))], {
+      input: JSON.stringify({ session_id: 's9', transcript_path: join(project, 's9.jsonl'), cwd: project }),
+      env: { ...process.env, CLAUDE_PROJECT_DIR: project }, encoding: 'utf8',
+    })
+    expect(r.status).toBe(0)
+    expect(r.stdout).toBe('')
+    expect(readFileSync(join(project, '.claude', 'guard-decisions.log'), 'utf8')).toContain('\tallows\t1 guarded calls: 1 let through')
   })
 })

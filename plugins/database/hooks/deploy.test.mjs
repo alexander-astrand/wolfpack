@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { EXIT, alreadyListed, ciState, deploy, holdsDeploy, leftStepsComment, migrationChanges, namesVersion, openHumanSteps, parseGo, pickPr, touchedFunctions, versionOf } from './deploy.mjs'
+import { EXIT, alreadyListed, ciState, costLine, deploy, holdsDeploy, leftStepsComment, migrationChanges, namesVersion, openHumanSteps, parseGo, pickPr, touchedFunctions, versionOf } from './deploy.mjs'
 
 const TMP = mkdtempSync(join(tmpdir(), 'deploy-test-'))
 afterAll(() => rmSync(TMP, { recursive: true, force: true }))
@@ -113,6 +113,14 @@ describe('a deploy that goes through', () => {
     }
     expect(w.lines.at(-1)).toMatch(/^DONE: PR #34 merged \(bbbbbbb\); backup \/b\/2026-10-21-V0\.14\.3\.1; migrations 0100; functions pay-feed; live at https:\/\/app\.example\.com/)
     expect(w.calls.filter((c) => c.startsWith('git worktree remove'))).toHaveLength(1)
+    // Kit 1.8 (Feature 6): the cost line comes just before DONE.
+    expect(w.lines.at(-2)).toMatch(/^COST: \d+\.\d min this run; longest wait \d+\.\d min, until "[^"]+"; baseline 4\.5M tokens \/ 12 min/)
+  })
+
+  it('costLine: the minutes, the step that took longest, and the baseline', () => {
+    const line = costLine(0, 15 * 60_000, [[60_000, 'PR #34 ready'], [11 * 60_000, 'CI green on bbbbbbb.'], [15 * 60_000, 'Smoke: ok']])
+    expect(line).toBe('COST: 15.0 min this run; longest wait 10.0 min, until "CI green on bbbbbbb."; baseline 4.5M tokens / 12 min (no migrations). Tokens: /car-wash or usage.mjs --timeline.')
+    expect(costLine(0, 0, [])).toMatch(/^COST: 0\.0 min this run; baseline/)
   })
 
   it('finds the PR by number too, and uses functions-touched when the project has it', () => {
@@ -349,6 +357,30 @@ describe('the helpers', () => {
     ]) expect(holdsDeploy(step), step).toBe(true)
     expect(holdsDeploy('- [ ] Look at the keyboard shortcuts page')).toBe(false)
     expect(holdsDeploy('- [ ] Check the role picker on the start page')).toBe(false)
+  })
+
+  // Kit 1.8 (L3): the word "token" alone is no secret; a token handed over still holds.
+  it('holdsDeploy: a bare "token" does not hold; a token as a secret still does', () => {
+    for (const step of [
+      '- [ ] Check the token refresh page',
+      '- [ ] Look at the token count on the usage card',
+      '- [ ] Confirm the design tokens render in dark mode',
+    ]) expect(holdsDeploy(step), step).toBe(false)
+    for (const step of [
+      '- [ ] Set GITHUB_TOKEN in Vercel',
+      '- [ ] Add the bot token to the host',
+      '- [ ] Paste the token into the dashboard',
+      '- [ ] Create a personal access token for the CI',
+      '- [ ] Store the access token',
+      '- [ ] Set TOKEN_SECRET',
+      // Review round 1, nit 3: more verbs that hand a token over.
+      '- [ ] Update the token in Vercel',
+      '- [ ] Enter the token',
+      '- [ ] Regenerate the token',
+      '- [ ] Replace the old token on the host',
+      '- [ ] Save the token in the dashboard',
+    ]) expect(holdsDeploy(step), step).toBe(true)
+    expect(holdsDeploy('- [ ] Check the token refresh page'), 'refresh after the token is no hand-over').toBe(false)
   })
 
   it('alreadyListed: a marked comment that names every step', () => {

@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { tallyEntries, totalTokens } from '../scripts/usage.mjs'
 import {
   ABOVE_CEILING,
+  ABSENT_CAP,
+  noCapReason,
   DEFAULT_BUDGETS,
   MODEL_DEFAULTS,
   OTHER_BUDGET,
@@ -378,11 +380,12 @@ describe('the 2.12.2 roster', () => {
     expect(call('m7', 'mosbius-designs', 'mcp__Claude_Browser__computer', shot)).toBe('deny')
   })
 
-  it("gives the QA pool bengt-johansson's 14M and 5 screenshots", () => {
-    for (const name of ['tomas-svensson', 'magnus-wislander', 'staffan-olsson', 'stefan-lovgren']) {
-      withModel(`a-${name}`, name, 'claude-opus-5', 13 * M)
+  // Kit 1.8 (council M7): 6M, near the 3.5M median, so a resume habit shows sooner than at 14M.
+  it("gives the QA pool bengt-johansson's 6M and 5 screenshots", () => {
+    for (const name of ['bengt-johansson', 'tomas-svensson', 'magnus-wislander', 'staffan-olsson']) {
+      withModel(`a-${name}`, name, 'claude-opus-5', 5.9 * M)
       expect(call(`a-${name}`, name)).not.toBe('deny')
-      withModel(`b-${name}`, name, 'claude-opus-5', 14.1 * M)
+      withModel(`b-${name}`, name, 'claude-opus-5', 6.1 * M)
       expect(call(`b-${name}`, name)).toBe('deny')
       withModel(`c-${name}`, name, 'claude-opus-5', 1 * M, 4)
       expect(call(`c-${name}`, name, 'mcp__Claude_Browser__computer', shot)).toBe('allow')
@@ -392,7 +395,7 @@ describe('the 2.12.2 roster', () => {
   })
 
   it('gives the new roles their defaults, also when named by description prefix', () => {
-    for (const [name, budget] of [['daredevil', 3], ['mike-ehrmantraut', 30], ['three-eyed-raven', 8]]) {
+    for (const [name, budget] of [['daredevil', 2], ['mike-ehrmantraut', 30], ['three-eyed-raven', 8]]) {
       agent(`u-${name}`, { type: 'claude', description: `${name}: x`, tokens: (budget - 0.1) * M })
       expect(call(`u-${name}`, 'claude')).not.toBe('deny')
       agent(`o-${name}`, { type: 'claude', description: `${name}: x`, tokens: (budget + 0.1) * M })
@@ -606,6 +609,36 @@ describe('spawns (kit 1.5)', () => {
     expect(spawn({ subagent_type: 'release:c-3po', description: 'write the README' })).toBe('allow')
     expect(spawn({ subagent_type: 'claude-code-guide', description: 'hooks docs' })).toBe('allow')
     expect(spawn({ subagent_type: 'statusline-setup', description: 'line' })).toBe('allow')
+  })
+
+  // Kit 1.8 (council H7): three Fable designer runs went out with no cap or "lifted".
+  it('refuses a mosbius-designs spawn with no number in its cap', () => {
+    for (const description of ['mosbius-designs: Trips A', 'mosbius-designs: Trips A [budget lifted]', 'mosbius-designs: palettes [budget unlimited]']) {
+      expect(spawn({ subagent_type: 'design:mosbius-designs', description }), description).toBe(noCapReason('mosbius-designs'))
+    }
+    // Named by the description on a nameless type too.
+    expect(spawn({ subagent_type: 'general-purpose', description: 'mosbius-designs: Trips' })).toMatch(/needs a number in its cap/)
+    expect(spawn({ subagent_type: 'design:mosbius-designs', description: 'mosbius-designs: Trips, two options [budget 5M]' })).toBe('allow')
+    expect(spawn({ subagent_type: 'general-purpose', description: 'mosbius-designs: icons [budget 12M]' })).toBe('allow')
+    // Other roles keep their default when the tag is absent.
+    expect(spawn({ subagent_type: 'release:saul-goodman', description: 'saul-goodman: step 2' })).toBe('allow')
+  })
+})
+
+describe('budget absent (kit 1.8)', () => {
+  it('stops an untagged mosbius-designs run at 12M even when the kit gives more', () => {
+    mkdirSync(join(root, '.claude'), { recursive: true })
+    writeFileSync(join(root, '.claude', 'kit.json'), JSON.stringify({ budgets: { 'mosbius-designs': '30M' } }))
+    agent('ab1', { type: 'mosbius-designs', description: 'mosbius-designs: x [budget lifted]', tokens: 12.1 * M })
+    expect(call('ab1', 'mosbius-designs')).toBe('deny')
+    agent('ab2', { type: 'mosbius-designs', description: 'mosbius-designs: x', tokens: 9 * M })
+    expect(call('ab2', 'mosbius-designs')).toBe('allow')
+    expect(ABSENT_CAP).toBe(12 * M)
+  })
+
+  it('lets a number in the tag win', () => {
+    agent('ab3', { type: 'mosbius-designs', description: 'mosbius-designs: x [budget 20M]', tokens: 13 * M })
+    expect(call('ab3', 'mosbius-designs')).toBe('allow')
   })
 })
 

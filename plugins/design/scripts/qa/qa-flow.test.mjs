@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -7,6 +7,18 @@ import { compile, pageScript, paneBatches, parseArgs, parseFlow, run, runSteps }
 import { findChrome } from './cdp.mjs'
 
 const flow = (o) => JSON.stringify({ base: 'http://localhost:5174', out: '/s/qa-3', ...o })
+
+// Kit 1.8 (council Feature 17): the sample an order copies must stay a valid steps file.
+describe('steps.sample.json', () => {
+  it('parses, and its --pane form is two batches with one shot', () => {
+    const sample = new URL('./steps.sample.json', import.meta.url)
+    const f = parseFlow(readFileSync(sample, 'utf8'), 'steps.sample.json')
+    expect(f.steps.map((s) => s.kind)).toEqual(['open', 'wait', 'click', 'type', 'click', 'wait', 'read', 'js', 'shot'])
+    const { batches } = paneBatches(f)
+    expect(batches).toHaveLength(1)
+    expect(batches[0].after).toMatch(/save-shot\.mjs \/abs\/scratchpad\/qa-3\/notes-375-dark\.jpg/)
+  })
+})
 
 describe('parseFlow', () => {
   it('names every problem at once', () => {

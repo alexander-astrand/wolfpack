@@ -1,6 +1,6 @@
 ---
 name: mr-miyagi
-description: The repo's wise catch-all (Opus, high effort), Mr Miyagi for this one repo. Use for the bigger questions, for talking a thing through, or when no other skill fits; read-only. When the question is really work, it names the command to type. For a small "where is X" or "which command", use `wilson` (Sonnet, low) instead. Safe beside a running drive or chain.
+description: The repo's wise catch-all (Opus, high effort), Mr Miyagi for this one repo. Use for the bigger questions, for talking a thing through, or when no other skill fits; read-only. When the question is really work, it starts the cheap skill or the session itself (merges and production it leaves to him, naming the command). For a small "where is X" or "which command", use `wilson` (Sonnet, low) instead. Safe beside a running drive or chain.
 argument-hint: <question>
 model: opus
 effort: high
@@ -48,4 +48,4 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 ## A talk, not a watch
 - **When the next step is Alexander's, end the turn with no timer** and no polling (kit 1.5, M9: one session of this skill stayed open 19 h for 46M). `/marco-polo` finds the sessions waiting on him, so nothing is lost.
-- **Ceiling: about 20M** (lens Should 3: one session took 143M over 344 minutes; three sessions passed it at 52.9M, 47.4M and 27.7M because nobody could read it). Read it at the start of each round: this session's tokens from the `get_usage` context figure, or `node usage.mjs --timeline <this session's id>` from the `release` plugin's `scripts/` folder (`get_session` on `self` gives the id). Past it, stop: say what this session has used, give a five-line summary of where the talk stands, and offer a fresh `/mr-miyagi` that starts from it. Carry on only on his word.
+- **Ceiling: about 20M** (lens Should 3: one session took 143M over 344 minutes; three sessions passed it at 52.9M, 47.4M and 27.7M because nobody could read it). Read it at the start of each round: this session's tokens from the `get_usage` context figure, or `node usage.mjs --timeline <this session's id>` from the `release` plugin's `scripts/` folder (`get_session` on `self` gives the id). Past it, stop: say what this session has used, write a five-line summary of where the talk stands to `<plans>talks/<date>-<topic>.md` (`<plans>` is kit.json `plans`, default `~/.claude/plans/`), and offer a fresh `/mr-miyagi` that is given that path, so it reads five lines and not the talk. Carry on only on his word.

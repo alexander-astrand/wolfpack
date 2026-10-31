@@ -4,6 +4,8 @@
 // scout that used to build it has no shell (the 3.3.2 council ran it by hand in
 // one loop). It reuses usage.mjs's parser, so the numbers match Skyler's, and
 // counts each message.id once across every file it reads (readEntries' `seen`).
+// Kit 1.8 (F22): the Card column marks a small skill's session that became a
+// release "session, not the skill", with the command's own first turn beside it.
 //
 // Usage: node council-speed.mjs [--dir <transcripts>] <session-id>…
 //        node council-speed.mjs [--dir <transcripts>] --since <YYYY-MM-DD>
@@ -93,6 +95,34 @@ export function byBirth(dir, files) {
 const fmtM = (n) => `${(n / 1e6).toFixed(1)}M`
 const fmtHm = (min) => `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, '0')}m`
 
+// A prompt a person typed: not a tool result, not the skill body the app
+// injects (isMeta), not a background note or a wake.
+const NOT_TYPED = /^\s*<(task-notification|system-reminder|local-command|command-message)|^Caveat:/
+export function typedPrompt(e) {
+  if (e?.type !== 'user' || e.isMeta) return false
+  const c = e.message?.content
+  const text = typeof c === 'string' ? c : Array.isArray(c) && !c.some((b) => b?.type === 'tool_result') ? c.filter((b) => b?.type === 'text').map((b) => b.text).join('\n') : ''
+  return Boolean(text.trim()) && !NOT_TYPED.test(text)
+}
+
+// When the first command's own turn ended: the second typed prompt, or never.
+export function firstTurnEnd(entries) {
+  let n = 0
+  for (const e of entries) if (typedPrompt(e) && ++n === 2) return Date.parse(e.timestamp) || Infinity
+  return Infinity
+}
+
+// Commands whose job is a whole release, audit or wrap: their session is the skill.
+export const WHOLE_SESSION = new Set(['captain-call', 'cattle-drive', 'night-watch', 'one-ring', 'skinny-pete', 'jedi-council', 'avengers-assemble', 'black-box', 'no-half-measures', 'darth-vader', 'future-ted', 'inception', 'memento', 'life-finds-a-way', 'superlab'])
+export const ARTEFACT_MIN = 20e6
+
+// A card artefact (F22, kit 1.7.1 council): a session opened with a small
+// skill and then used for a release (`/scrooge` 374.1M against 11.5M alone,
+// `/ill-be-back` 824M) put the release's tokens on the skill's card. Flagged
+// when the session is big, the command isn't a whole-session one, and its own
+// first turn holds under a quarter of the tokens.
+export const isArtefact = (s) => Boolean(s.skill) && !WHOLE_SESSION.has(s.skill) && s.tokens >= ARTEFACT_MIN && s.ownTokens != null && s.ownTokens < s.tokens / 4
+
 // One row for a session: its main transcript plus every subagent's. Pass one
 // `seen` set across sessions to count each message once.
 export function sessionRow(baseDir, idPrefix, seen = new Set()) {
@@ -106,6 +136,10 @@ export function sessionRow(baseDir, idPrefix, seen = new Set()) {
   const timed = rows.filter((r) => r.start)
   const first = timed.length ? Math.min(...timed.map((r) => r.start)) : 0
   const last = timed.length ? Math.max(...timed.map((r) => r.end)) : 0
+  // The command's own cost: the navigator up to the second typed prompt, and
+  // the agents started before it. Unknown when nobody typed a second prompt.
+  const end = firstTurnEnd(raw)
+  const ownTokens = end === Infinity ? null : timelineRow(main.filter((e) => !(Date.parse(e.timestamp) >= end)), 'own', 'own', id).tokens + rows.slice(1).filter((r) => r.start && r.start < end).reduce((s, r) => s + r.tokens, 0)
   return {
     id,
     command: label,
@@ -115,6 +149,7 @@ export function sessionRow(baseDir, idPrefix, seen = new Set()) {
     agentMinutes: rows.reduce((s, r) => s + r.minutes, 0),
     calls: rows.reduce((s, r) => s + r.calls, 0),
     tokens: rows.reduce((s, r) => s + r.tokens, 0),
+    ownTokens,
   }
 }
 
@@ -125,7 +160,7 @@ export function tableOf(sessions) {
   ]
   for (const s of sessions) {
     out.push(
-      `| ${s.id.slice(0, 8)} | ${s.command.replace(/\|/g, '/')} | ${s.skill ?? '–'} | ${s.first ? hhmm(s.first) : '–'} | ${fmtHm(s.wall)} | ${s.agentMinutes} | ${s.calls} | ${fmtM(s.tokens)} |`,
+      `| ${s.id.slice(0, 8)} | ${s.command.replace(/\|/g, '/')} | ${s.skill ? (isArtefact(s) ? `${s.skill} (session, not the skill; its own turn ${fmtM(s.ownTokens)})` : s.skill) : '–'} | ${s.first ? hhmm(s.first) : '–'} | ${fmtHm(s.wall)} | ${s.agentMinutes} | ${s.calls} | ${fmtM(s.tokens)} |`,
     )
   }
   return out.join('\n')

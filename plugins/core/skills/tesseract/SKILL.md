@@ -28,9 +28,13 @@ It makes the worktree at `<parent>/<Project>-lanes/<lane>` on a branch named `<l
 - **Push:** `git pull --rebase origin V<x>` first, then `git push origin HEAD:V<x>` (a plain `git push` would try to push `<lane-branch>`, not `V<x>`). Or leave it unpushed when the order says the navigator merges the lane's branch.
 
 `captain-call` merges each lane's branch into the release branch before any step that touches its files.
+- **A lane's shell starts in the navigator's checkout** (`[lane-prefix]`, `core/lessons.md`): every command in the order is `npm --prefix <lane> <script>` or a path under the lane, never a bare `npm`.
+- **Print the lane-safe commands when the lane opens**, right after the `lane <lane>: ...` line and into the order: the project's test and build lines (the scripts in `package.json` that the project's `CLAUDE.md` names; its check script for Python or Other), each spelled with the lane's path (`npm --prefix <lane> run test`, `<lane>/node_modules/.bin/next dev <lane> -p <port>`), one command per call, no `cd <lane> &&`, no `VAR=value` prefix.
 - A worktree lane edits only files under its own worktree root, by relative path (2.12.2: a lane's edits to agent files landed unpushed in the main checkout).
 - A worktree's dev server runs on another port and is not signed in (the login lives on the main dev port's origin), so signed-in browser checks happen there after the lane's push, by QA or the navigator's next builder.
 
 ## Clean-up at a release's end
 `tesseract` owns cleaning lanes up: at the end of the release the navigator runs these steps, and a lane whose branch is merged or whose agent is done is removed.
 After the release's PR merges: `node <kit>/plugins/core/scripts/lane.mjs list` prints each lane with its port, branch and `clean` or `dirty`. For each clean lane whose branch is on origin or was merged (a squash-merged branch is deleted from origin), `node <kit>/plugins/core/scripts/lane.mjs remove <lane>`: it removes the worktree, prunes the records of folders already gone, and removes the `<Project>-lanes/` folder once it's empty. It refuses a lane with changes; list that one in the report. It never deletes a branch. Leftover worktrees cost disk space, and a repo-wide grep walks their copies. A leftover `.claude/worktrees/*` from before kit 1.5 is cleaned by hand: `git worktree remove <path>` when its status is empty, then `git worktree prune`.
+
+The last line of the final message is the `Next:` line (norms.md "Last line"): `Next: <the step> (<who>)`, or `Next: nothing, done.` This skill can be the whole session, and a turn that ends on a tool call without it is sent back once by the Stop hook.

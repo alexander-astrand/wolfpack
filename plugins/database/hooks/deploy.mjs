@@ -22,6 +22,8 @@
 // database changes only after a fresh, complete backup (prod-db.sh push
 // refuses without one). Anything that stops exits with a code below and one
 // `STOP` line saying what to fix; the session fixes it and runs this again.
+// A finished run prints a `COST` line (minutes, the step it waited on, the
+// baseline) just before its `DONE` line (kit 1.8, costLine).
 //
 // Pure helpers are exported for the tests; `deploy` takes its runner (`io`)
 // so a test can play GitHub, git, Docker and the scripts.
@@ -159,7 +161,13 @@ const HOLD_TAG_RE = /\[(?:secret|password|payment)\]/i
 // one. A secret is often named by its kind instead ("Set RESEND_API_KEY in
 // Vercel", "Add the service role key"), so those words hold too; `[_\s-]?`
 // lets an env name like API_KEY or SERVICE_ROLE count.
-const HOLD_WORD_RE = /(?:\b|_)(?:secrets?|passwords?|payments?|api[_\s-]?keys?|tokens?|credentials?|service[_\s-]?role|secret[_\s-]?keys?)(?:\b|_)/i
+// Kit 1.8 (L3): a bare "token" no longer holds ("Check the token refresh
+// page", "the token count" are no secret); a token still holds as an env
+// name (GITHUB_TOKEN), with a kind that makes it a secret (API, access, auth,
+// bearer, bot, deploy, personal access token), or after a verb that hands one
+// over (set, add, paste, rotate, create, (re)generate, copy, update, enter,
+// provide, replace, store, save, put, refresh). Still errs closed.
+const HOLD_WORD_RE = /(?:\b|_)(?:secrets?|passwords?|payments?|api[_\s-]?keys?|credentials?|service[_\s-]?role|secret[_\s-]?keys?)(?:\b|_)|[A-Za-z0-9]_tokens?\b|\btokens?_[A-Za-z0-9]|\b(?:api|access|auth|bearer|bot|deploy|personal[\s-]access)[\s_-]?tokens?\b|\b(?:set|add|paste|rotate|create|(?:re)?generate|copy|update|enter|provide|replace|store|save|put|refresh)\b[^.;]*\btokens?\b/i
 
 /**
  * Whether an unticked human step holds the deploy: only a secret, a password
@@ -231,6 +239,36 @@ export function settingSteps(body, pr) {
     .map((c) => c.split(' ').slice(1))
 }
 
+// ---------------------------------------------------------------- the cost
+
+// Burrow's [deploy-cost] lesson: a no-migration deploy is about 4.5M tokens
+// and 12 minutes. The kit 1.7.1 council (M2, Feature 6) found deploys at 14x
+// that inside heavy sessions, unseen until a hand count.
+export const DEPLOY_BASELINE = '4.5M tokens / 12 min'
+
+/**
+ * The COST line printed just before DONE (kit 1.8, Feature 6): this run's
+ * minutes, the step it waited on (each progress line is said when its step
+ * ends, so the longest gap ends at the line naming that step), and the
+ * baseline beside it. Tokens are the session's, which this script can't see:
+ * /car-wash or usage.mjs --timeline adds them. A re-run after a STOP counts
+ * only its own run.
+ * @param {number} start  ms
+ * @param {number} end  ms
+ * @param {[number, string][]} said  [time, line] in order
+ */
+export function costLine(start, end, said) {
+  const min = (ms) => (ms / 60_000).toFixed(1)
+  let longest = null
+  let prev = start
+  for (const [t, line] of said) {
+    if (!longest || t - prev > longest.ms) longest = { ms: t - prev, line }
+    prev = t
+  }
+  const wait = longest ? `; longest wait ${min(longest.ms)} min, until "${longest.line.slice(0, 60)}"` : ''
+  return `COST: ${min(end - start)} min this run${wait}; baseline ${DEPLOY_BASELINE} (no migrations). Tokens: /car-wash or usage.mjs --timeline.`
+}
+
 // ---------------------------------------------------------------- the run
 
 /**
@@ -240,9 +278,12 @@ export function settingSteps(body, pr) {
  *   fetchOk(url, seconds) → '' or why, root, tmp
  */
 export function deploy(argv, io) {
-  const say = (line) => io.log(line)
+  const started = io.now()
+  const said = []
+  const say = (line) => { said.push([io.now(), line]); io.log(line) }
   try {
     const out = run(argv, io, say)
+    say(costLine(started, io.now(), said))
     say(`DONE: ${out}`)
     return EXIT.DONE
   } catch (err) {

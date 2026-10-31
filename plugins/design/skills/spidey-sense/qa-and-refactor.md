@@ -1,7 +1,7 @@
 Supporting file for the `spidey-sense` skill: the QA seed (for `bengt-johansson`) and the refactor proof.
 
 ## QA seed: test data in one call
-Driving a creation flow (a new-event wizard, say) by hand uses up a capped QA run's whole budget. When the feature under test isn't that flow itself, seed the data with the app's own client instead (its access rules apply; it acts as whoever is signed in, which must be an admin to add other members' rows). The seed is the project's own, since it calls the project's tables and functions: the project's CLAUDE.md says where it lives. What it must do:
+Driving a creation flow (a new-event wizard, say) by hand uses up a capped QA run's whole budget. When the feature under test isn't that flow itself, seed the data with the app's own client instead (its access rules apply; it acts as whoever is signed in, which must be an admin to add other members' rows). The seed is the project's own, since it calls the project's tables and functions: the project's `scripts/qa/README.md` says where it lives and how to run it (read it by section: `grep -n '^## '`, then the range you need), and its `CLAUDE.md` keeps only a short index pointing there (Burrow moved its seeds out of `CLAUDE.md`, kit 1.8). What it must do:
 
 - **One `javascript_tool` call** creates the test data through the same calls the app's own form makes, and returns the ids the pass needs.
 - **Private where the app has a choice,** so nothing it creates notifies the whole group (an email or push to everyone).

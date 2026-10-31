@@ -75,3 +75,6 @@ The roadmap (`/badger`, `the-trail`), the README in a release PR (`c-3po`), code
 ## Commit
 
 Repo files only: `git add <your paths>` (never `-A`), a subject saying what's now on record ("ADR 0041: Pylos things ship from this repo"), then push the branch the doc was written on, which is the session's own branch (the release branch in a release, the side session's worktree branch otherwise). Never push `main`; if the session stands on `main`, stop and say so. Artifacts and Claude Docs need no commit; give their links.
+
+## Close
+The last line of the final message is the `Next:` line (norms.md "Last line"): `Next: <the step> (<who>)`, or `Next: nothing, done.` Typed on its own this skill can be the whole session, and a turn that ends on a tool call without it is sent back once by the Stop hook.

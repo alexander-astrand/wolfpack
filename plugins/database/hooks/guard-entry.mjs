@@ -19,7 +19,9 @@ setTimeout(() => {
 }, 18000).unref()
 // A project that registers its own guard (Hutzup's frozen .claude/hooks/)
 // keeps it, and this copy steps aside: no decision, no output. Any error in
-// that check runs the kit's guard as before, never skips it.
+// that check runs the kit's guard as before, never skips it. Kit 1.8 (M12):
+// the first step-aside of a session leaves one row in guard-decisions.log, so
+// a council can tell which guard ran; a failed log still steps aside.
 let projectGuards = false
 try {
   const { projectOwns } = await import(new URL('./step-aside.mjs', import.meta.url).href)
@@ -27,7 +29,15 @@ try {
 } catch {
   projectGuards = false
 }
-if (projectGuards) process.exit(0)
+if (projectGuards) {
+  try {
+    let raw = ''
+    for await (const chunk of process.stdin) raw += chunk
+    const { stepAsideOnce } = await import(new URL('./denied-log.mjs', import.meta.url).href)
+    stepAsideOnce(raw)
+  } catch { /* no row; the project's guard decides either way */ }
+  process.exit(0)
+}
 try {
   const guard = await import(new URL('./guard-production.mjs', import.meta.url).href)
   await guard.main()

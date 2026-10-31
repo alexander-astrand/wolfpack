@@ -43,7 +43,7 @@ describe('fill', () => {
   })
 })
 
-describe('the four Boys in the plugin', () => {
+describe('the three Boys in the plugin', () => {
   it('match the template (run bengan-boys.mjs after changing it)', () => {
     expect(run({ design, check: true })).toEqual([])
   })

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { anchorsOf, buildFacts, closingTable, gitRange, kitFiles, permissionSection, staleRefs } from './council-facts.mjs'
+import { anchorsOf, buildFacts, closingTable, gitRange, kitFiles, learningChanges, learningSection, permissionSection, staleRefs } from './council-facts.mjs'
 import { projectDirs, transcriptKey } from './council-skills.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
@@ -75,6 +75,13 @@ describe('permissionSection', () => {
     expect(text).toContain('### repo\n')
     expect(text).toContain('| guard | .claude/guard-decisions.log | 1 | Bash 1 |')
   })
+  it('does not count the guard\'s allows and step-aside rows as decisions (kit 1.8)', () => {
+    const f = fixture()
+    const row = (tool, decision) => ['2026-10-17T10:00:00Z', 'main', tool, '{}', 'auto', 's1', '-', decision, 'why', decision].join('\t')
+    put(join(f.repo, '.claude', 'guard-decisions.log'), [row('Bash', 'ask'), row('SessionEnd', 'allows'), row('Bash', 'step-aside')].join('\n') + '\n')
+    const text = permissionSection({ repo: f.repo }, Date.parse('2026-10-10'))
+    expect(text).toContain('| guard | .claude/guard-decisions.log | 1 | Bash 1 |')
+  })
 })
 
 describe('staleRefs', () => {
@@ -91,13 +98,31 @@ describe('staleRefs', () => {
   })
 })
 
+describe('learningChanges (F20)', () => {
+  it('lists each lessons and taste commit on every branch and counts sendbacks once each', () => {
+    const asked = []
+    const run = (args) => {
+      asked.push(args.join(' '))
+      if (args.includes('--numstat')) return '@@abc123|2026-10-30|origin/wrap-1.2|Lessons from 1.2\n\n3\t1\t.claude/lessons.md\n2\t0\t.claude/taste.md\n@@def456|2026-10-31||Taste fix\n\n1\t0\t.claude/taste.md\n'
+      return '+++ b/.claude/taste.md\n+- Buttons stay round (Alexander, 1.2 sendback)\n+- no source here\n+- Buttons stay round (Alexander, 1.2 sendback)\n+- Cards breathe (bengt, 1.2)\n'
+    }
+    const r = learningChanges('/r', '2026-10-10', run)
+    expect(asked[0]).toContain('log --all --since=2026-10-10')
+    expect(r.sendbacks).toBe(2)
+    expect(r.commits[0]).toEqual({ sha: 'abc123', date: '2026-10-30', refs: 'origin/wrap-1.2', subject: 'Lessons from 1.2', files: ['lessons.md +3 -1', 'taste.md +2 -0'] })
+    const s = learningSection({ burrow: '/r' }, '2026-10-10', run)
+    expect(s).toContain('### burrow: 2 commits, 2 sendbacks added to taste')
+    expect(s).toContain('- 2026-10-31 `def456` Taste fix: taste.md +1 -0')
+  })
+})
+
 describe('buildFacts', () => {
   it('writes every section in order and reads the worktree\'s transcripts', () => {
     const f = fixture()
     const o = { since: '2026-10-10', kit: f.kit, transcripts: f.transcripts, projects: { repo: f.repo }, retired: ['special-delivery'], git: null, from: null }
     const { facts, cards } = buildFacts(o)
     const heads = facts.split('\n').filter((l) => l.startsWith('## '))
-    expect(heads).toEqual(['## Git range', '## Speed, per project', '## Roles (runs per model)', '## Closing lines (from the cards)', '## Session starts (start_session by initiation)', '## Agent spawns (role and the model the call asked for)', '## Permission logs, by source', '## Stale references'])
+    expect(heads).toEqual(['## Git range', '## Speed, per project', '## Roles (runs per model)', '## Closing lines (from the cards)', '## Session starts (start_session by initiation)', '## Agent spawns (role and the model the call asked for)', '## Agent spawns, one row each', '## Guard reasons, per agent', '## Questions (AskUserQuestion), per skill and session', '## /one-ring runs', '## Lessons and taste changes', '## Permission logs, by source', '## Stale references'])
     expect(facts).toContain('| s1 | /jedi | jedi |')
     expect(facts).toContain('| s2 | title: kit · lane · b2 |')
     expect(facts).toContain('| c-3po | sonnet | 1 |')
