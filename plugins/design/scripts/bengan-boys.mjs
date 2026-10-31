@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// Writes the four Bengan Boys (tomas-svensson, magnus-wislander, staffan-olsson, stefan-lovgren)
-// from skills/spidey-sense/bengan-boy-template.md, so their shared text can't drift apart.
-// Kit 1.7 (jedi-council M4): the four were rewritten by hand from the template, and kit 1.5 found
-// the template behind the four while spidey-sense said it wasn't.
+// Writes the three Bengan Boys (tomas-svensson, magnus-wislander, staffan-olsson) from
+// skills/spidey-sense/bengan-boy-template.md, so their shared text can't drift apart.
+// Kit 1.7 (jedi-council M4): the Boys were rewritten by hand from the template, and kit 1.5 found
+// the template behind them while spidey-sense said it wasn't. Kit 1.8 (council M7, "fold stefan"):
+// stefan-lovgren's interaction lane became a bullet in bengt-johansson's step 3 and his file retired.
 //
 //   node <design>/scripts/bengan-boys.mjs [--check] [--design <plugin folder>]
 //
@@ -15,7 +16,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-export const BOYS = ['tomas-svensson', 'magnus-wislander', 'staffan-olsson', 'stefan-lovgren']
+export const BOYS = ['tomas-svensson', 'magnus-wislander', 'staffan-olsson']
 
 const here = dirname(fileURLToPath(import.meta.url))
 
@@ -71,7 +72,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       if (drift.length) console.log(`drift from the template: ${drift.join(', ')} (run bengan-boys.mjs to rewrite them)`)
       process.exit(drift.length ? 1 : 0)
     }
-    console.log(drift.length ? `wrote ${drift.join(', ')}` : 'all four already match the template')
+    console.log(drift.length ? `wrote ${drift.join(', ')}` : `all ${BOYS.length} already match the template`)
   } catch (e) {
     console.error(e.message)
     process.exit(1)

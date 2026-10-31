@@ -1,0 +1,18 @@
+{
+  "base": "http://localhost:5174",
+  "out": "/abs/scratchpad/qa-3",
+  "width": 375,
+  "theme": "dark",
+  "themeVia": "param:theme",
+  "steps": [
+    { "open": "/notes" },
+    { "wait": { "text": "Notes" } },
+    { "click": { "text": "Add note" } },
+    { "type": "TEST QA seed qa note", "into": "textarea" },
+    { "click": { "text": "Save" } },
+    { "wait": { "text": "TEST QA seed qa note" }, "timeout": 8000 },
+    { "read": "main" },
+    { "js": "document.activeElement.tagName" },
+    { "shot": "notes-375-dark" }
+  ]
+}

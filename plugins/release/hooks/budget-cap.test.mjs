@@ -380,11 +380,12 @@ describe('the 2.12.2 roster', () => {
     expect(call('m7', 'mosbius-designs', 'mcp__Claude_Browser__computer', shot)).toBe('deny')
   })
 
-  it("gives the QA pool bengt-johansson's 14M and 5 screenshots", () => {
-    for (const name of ['tomas-svensson', 'magnus-wislander', 'staffan-olsson', 'stefan-lovgren']) {
-      withModel(`a-${name}`, name, 'claude-opus-5', 13 * M)
+  // Kit 1.8 (council M7): 6M, near the 3.5M median, so a resume habit shows sooner than at 14M.
+  it("gives the QA pool bengt-johansson's 6M and 5 screenshots", () => {
+    for (const name of ['bengt-johansson', 'tomas-svensson', 'magnus-wislander', 'staffan-olsson']) {
+      withModel(`a-${name}`, name, 'claude-opus-5', 5.9 * M)
       expect(call(`a-${name}`, name)).not.toBe('deny')
-      withModel(`b-${name}`, name, 'claude-opus-5', 14.1 * M)
+      withModel(`b-${name}`, name, 'claude-opus-5', 6.1 * M)
       expect(call(`b-${name}`, name)).toBe('deny')
       withModel(`c-${name}`, name, 'claude-opus-5', 1 * M, 4)
       expect(call(`c-${name}`, name, 'mcp__Claude_Browser__computer', shot)).toBe('allow')
@@ -394,7 +395,7 @@ describe('the 2.12.2 roster', () => {
   })
 
   it('gives the new roles their defaults, also when named by description prefix', () => {
-    for (const [name, budget] of [['daredevil', 3], ['mike-ehrmantraut', 30], ['three-eyed-raven', 8]]) {
+    for (const [name, budget] of [['daredevil', 2], ['mike-ehrmantraut', 30], ['three-eyed-raven', 8]]) {
       agent(`u-${name}`, { type: 'claude', description: `${name}: x`, tokens: (budget - 0.1) * M })
       expect(call(`u-${name}`, 'claude')).not.toBe('deny')
       agent(`o-${name}`, { type: 'claude', description: `${name}: x`, tokens: (budget + 0.1) * M })
