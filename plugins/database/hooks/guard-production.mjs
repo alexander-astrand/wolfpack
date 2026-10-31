@@ -5,13 +5,16 @@
 //
 // Runs before every Bash command, file edit and MCP tool call (see
 // .claude/settings.json). Only the dev project is open to everyone. Any other
-// Supabase project counts as production, and only the `ranjit` agent
-// (started by /skinny-pete) may reach it. Its reads pass (they can't change
+// Supabase project counts as production, reached through /one-ring: the
+// deploy script (hooks/deploy.mjs) run in the session Alexander typed it in.
+// /skinny-pete is the fallback for a manual or broken case; there only the
+// `ranjit` agent may reach production. Its reads pass (they can't change
 // production, and .claude/settings.json allows them), every change asks a
 // human first, and a few paths stay closed even to it, so there is a single
 // write path (scripts/prod-db.sh push/repair/setting and `supabase functions deploy`).
 // Merging a release PR ships it too (Vercel deploys main), so `gh pr merge`
-// and `gh pr ready` are ranjit's alone as well, and a push to main asks.
+// and `gh pr ready` belong to the deploy alone (the /one-ring session's
+// script, or ranjit under /skinny-pete), and a push to main asks.
 //
 // The hook denies or asks. Returning nothing leaves the call to the normal
 // permission rules. It approves ("allow") in one case only: full auto
@@ -223,7 +226,10 @@ const MAX_ARMED_MS = 6 * 3600_000
 // GitHub's merge and ready endpoints, and moving main by hand: `gh api` or
 // curl with a token would otherwise skip `gh pr merge`'s check.
 const HTTP_CLIENTS = new Set(['curl', 'wget', 'http', 'https', 'xh'])
-const MERGE_BY_API = 'Merging goes through `gh pr merge`, which only ranjit runs, through /skinny-pete.'
+// Kit 1.8 (M1): the route every refusal names. /one-ring is the deploy;
+// /skinny-pete only when /one-ring can't (the global list's words).
+const PROD_ROUTE = '/one-ring (or /skinny-pete, the fallback for a manual or broken case)'
+const MERGE_BY_API = `Merging goes through \`gh pr merge\`, which only the deploy runs: ${PROD_ROUTE}.`
 // The PR number may be a $variable (`pulls/$N/merge`), so any path segment.
 const GITHUB_MERGE_RE = /\/pulls\/[^/\s]+\/merge\b|\bmergePullRequest\b|\bmarkPullRequestReadyForReview\b|\benablePullRequestAutoMerge\b|\/git\/refs\/heads\/main\b|\/merges\b/
 // The contents API commits a file, to main unless another branch is named.
@@ -925,7 +931,7 @@ function checkMcp(tool, args, ctx) {
   if (typeof ref !== 'string' || !REF_RE.test(ref) || ref === DEV_REF) return null
   ctx.production = true
   const name = tool.slice(tool.lastIndexOf('__') + 2)
-  if (!ctx.deployer) return deny(`${name} targets Supabase project ${ref}, which isn't dev. Production is reached only through /skinny-pete.`)
+  if (!ctx.deployer) return deny(`${name} targets Supabase project ${ref}, which isn't dev. Production is reached only through ${PROD_ROUTE}.`)
   if (!DEPLOYER_MCP.has(name)) return deny(`The connector is read-only on production. Migrations go through scripts/prod-db.sh and functions through \`supabase functions deploy\`.`)
   return null
 }
@@ -2982,7 +2988,7 @@ function segmentRules(seg, ctx) {
   // command at production. Seen as a prefix, after env, or in export.
   for (const w of seg.words) {
     const id = /^SUPABASE_PROJECT_ID=(\S*)$/.exec(w)
-    if (id && id[1] !== DEV_REF) return prodCall(ctx, deny(`SUPABASE_PROJECT_ID=${id[1]} would point the CLI away from dev. Production is reached only through /skinny-pete.`))
+    if (id && id[1] !== DEV_REF) return prodCall(ctx, deny(`SUPABASE_PROJECT_ID=${id[1]} would point the CLI away from dev. Production is reached only through ${PROD_ROUTE}.`))
     if (/^SUPABASE_WORKDIR=/.test(w)) return deny('SUPABASE_WORKDIR can point the CLI at another link. Run it from the repo root.')
   }
   if (words.length === 0) return null
@@ -3132,7 +3138,7 @@ function segmentRules(seg, ctx) {
   for (const [, ref] of raw.matchAll(SUPABASE_HOST_RE)) {
     if (ref === DEV_REF) continue
     ctx.production = true
-    if (!ctx.deployer) return deny(`${ref} isn't the dev project. Production is reached only through /skinny-pete.`)
+    if (!ctx.deployer) return deny(`${ref} isn't the dev project. Production is reached only through ${PROD_ROUTE}.`)
     return ask(ctx, `Production (${ref}): ${raw}`)
   }
   return null
@@ -3190,7 +3196,7 @@ function checkGh(args, ctx, where) {
     // In code, a regex or a list is the likely source (M10); the way past it
     // is a file, which the guard runs by name without reading.
     const inCode = where?.code ? ' If this is a regex or a string in interpreter code, not a call, put the code in a scratch file and run it by name (`node <file>`).' : ''
-    if (!ctx.deployer) return deny(`${what} ships a release. Only ranjit runs it, through /skinny-pete (or /cattle-drive).${inCode}`)
+    if (!ctx.deployer) return deny(`${what} ships a release. Only the deploy runs it: ${PROD_ROUTE}, or /cattle-drive.${inCode}`)
     return ask(ctx, `Ships the release: gh ${args.join(' ')}`)
   }
   if (sub[0] === 'api') {
@@ -3476,7 +3482,7 @@ function checkProdDb(words, ctx) {
   if (item === `PROD_DB_KEYCHAIN_ITEM=${DEV_KEYCHAIN_ITEM}`) return null
   ctx.production = true
   if (item) return deny('prod-db.sh only accepts the dev test item as an override.')
-  if (!ctx.deployer) return deny('scripts/prod-db.sh reaches production. Only the ranjit agent (the deployer) runs it, through /skinny-pete.')
+  if (!ctx.deployer) return deny(`scripts/prod-db.sh reaches production. Only the deploy runs it: /one-ring's script, or the ranjit agent (the deployer) under /skinny-pete, the fallback for a manual or broken case.`)
   const args = words.slice(words.findIndex((w) => basename(w) === 'prod-db.sh') + 1)
   if (PROD_DB_READ.has(args[0])) return null
   return ask(ctx, `Changes production's database: prod-db.sh ${args.join(' ')}`)
@@ -3506,7 +3512,7 @@ function checkSupabase(args, ctx) {
   if (ref !== undefined) {
     if (ref === DEV_REF) return null
     ctx.production = true
-    if (!ctx.deployer) return deny(`--project-ref ${ref} isn't dev. Production is reached only through /skinny-pete.`)
+    if (!ctx.deployer) return deny(`--project-ref ${ref} isn't dev. Production is reached only through ${PROD_ROUTE}.`)
     const is = (list) => list.some((p) => p.every((w, i) => sub[i] === w))
     if (is(DEPLOYER_CLI_READ)) return null
     if (!is(DEPLOYER_CLI_WRITE)) {

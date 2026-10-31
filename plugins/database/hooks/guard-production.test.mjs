@@ -374,7 +374,7 @@ describe('full auto: the marker', () => {
     expect(fields(armed('scripts/prod-db.sh dry-run'))[0][1]).toBe('pass')
     const refused = fields(armed(PUSH, { agent: 'yoda' }))
     expect(refused).toHaveLength(1)
-    expect(refused[0]).toEqual([expect.any(String), 'deny', PUSH, expect.stringMatching(/Only the ranjit agent/), 'yoda'])
+    expect(refused[0]).toEqual([expect.any(String), 'deny', PUSH, expect.stringMatching(/Only the deploy runs it: \/one-ring's script/), 'yoda'])
     expect(fields(armed(`supabase secrets set X=1 --project-ref ${PROD}`))[0][1]).toBe('deny')
     // One line per call, even when the marker path logged it already.
     expect(armed(PUSH).lines).toHaveLength(1)
