@@ -8,7 +8,8 @@
 //        [--db <url>] [--allow-host <host>] [--dry]
 //
 // Runs <dir>/<name>.up.sql (or .down.sql) with psql, quietly, stopping at the first error. <dir> is
-// scripts/qa/seeds under the current folder. Every {{LANE}} in the SQL becomes the lane name
+// scripts/qa/seeds under the current folder; the project's scripts/qa/README.md lists its seeds
+// (its CLAUDE.md only points there). Every {{LANE}} in the SQL becomes the lane name
 // ("qa" by default), so a seed marks its rows "TEST QA seed {{LANE}}" and its clean-up deletes only
 // that lane's rows (and anything an earlier run of that lane left).
 // seed=shared (the order's flag, lanes side by side): a lane (--lane given) neither seeds nor cleans
