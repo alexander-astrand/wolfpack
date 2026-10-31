@@ -50,6 +50,21 @@ describe('step-aside: the kit guard', () => {
     expect(run.stdout).toBe('')
   })
 
+  // Kit 1.8 (M12): the step-aside is no longer silent in the log.
+  it('stepping aside leaves one row per session in guard-decisions.log, and still decides nothing', () => {
+    const dir = project(HUTZUP, ['guard-entry.mjs'])
+    const env = { ...process.env, CLAUDE_PROJECT_DIR: dir }
+    const input = JSON.stringify({ session_id: 'h1', tool_name: 'Bash', tool_input: { command: 'ls' }, permission_mode: 'auto' })
+    for (let i = 0; i < 2; i++) {
+      const run = spawnSync(process.execPath, [GUARD], { input, env, encoding: 'utf8' })
+      expect(run.status).toBe(0)
+      expect(run.stdout).toBe('')
+    }
+    const rows = readFileSync(join(dir, '.claude', 'guard-decisions.log'), 'utf8').trim().split('\n')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].split('\t').slice(5, 8)).toEqual(['h1', '-', 'step-aside'])
+  })
+
   it('runs when the registration has no file behind it', () => {
     const dir = project(HUTZUP, [])
     expect(guardOwns(dir)).toBe(false)
