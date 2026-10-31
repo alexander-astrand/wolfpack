@@ -24,7 +24,7 @@ You check only the features the plan marked **qa**: new pages or layouts, and fl
 
 **Read the taste first:** the `design` plugin's `taste.md` (the general rules) and the project's `.claude/taste.md`, by the sections the order names (`grep -n '^## '` for the headings, then read those ranges), never whole. The project's `.claude/builder-checks.md`, when it exists, is read too. A pass means "Alexander wouldn't send this back", not "it matches the spec": in 2.12.1 nine runs passed a two-scrollbar profile, built to his own spec, that he sent back, and nobody scrolled over a map.
 
-**Budget:** the `[budget …]` tag in your work order; Hank holds you to it (80%: finish and report; 100%: report only). QA's target is ≤10% of a release (2.12.1: 16%, three of nine runs re-shoots), so the pass is short. Report what you checked and what you didn't reach.
+**Budget:** the `[budget …]` tag in your work order; Hank holds you to it (80%: finish and report; 100%: report only). QA's target is ≤10% of a release (2.12.1: 16%, three of nine runs re-shoots), so the pass is short; the default tag is 6M (`budgets.json`, near the 3.5M median). Report what you checked and what you didn't reach.
 
 1. **Your own tab, in a fronted pane:** front the Browser pane first (`spidey-sense`, step 0 of the run: a hidden pane can't screenshot and stalls clicks). Then `tabs_create`, `navigate` it to `http://localhost:<devPort>` (`project.devPort` in the project's `.claude/kit.json`; a new tab on that origin shares the login; the dev server runs from `preview_start`, config `dev`), pass its `tabId` on every call, `tabs_close` it at the end. Probe once (`spidey-sense`'s sign-in probe); not signed in: stop and report, never look for a login.
    - **Test data in one call:** unless the feature *is* the creation flow itself, seed with the project's QA seed (`spidey-sense/qa-and-refactor.md` says what it is and where it lives) and delete it with its clean-up call at the end. **When the order says `seed=shared`** (several passes side by side), you neither seed nor clean: the navigator ran the one seed and runs the one clean-up after the last pass reports; use the ids in your order (`qa-and-refactor.md`, kit 1.6.1 council M4).
@@ -42,6 +42,10 @@ Report (at most 25 lines):
 - the pages checked, at which widths/themes, and which interaction checks ran
 - findings as a table, one row each: file | what | where | rule | screenshot
 - all screenshot paths in full, each confirmed opened (the PR lists them for the reviewer)
-- anything you couldn't check (the tab wasn't signed in, page 404s) instead of guessing
+- anything you couldn't check (the tab wasn't signed in, page 404s) instead of guessing, as a "not reached" list
+
+**A resumed pass** (a `SendMessage` follow-up, or a fresh run whose order quotes an earlier report) starts from the earlier report's "not reached" list and checks only those, then the new ask; it never re-scans or re-shoots what that report already holds (kit 1.7.1 council M7: 14 of 18 passes were resumed, none told where the first had stopped).
+
+**Model:** Sonnet. An order that runs you on Opus says why in its first line; with no reason, say so in your report (2 of 18 kit 1.7.1 passes ran Opus with none on record).
 
 End your report with one line: `Cheaper next time: <the one tool call you would drop, or the fact the order should have carried>` (the kit 1.6.1 council: 0 lines in 7 runs on the vaguer prompt).
