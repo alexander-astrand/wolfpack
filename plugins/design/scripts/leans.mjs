@@ -73,9 +73,15 @@ export function parseLibrary(text) {
   return rows
 }
 
-const short = (s, n) => {
+// Cut at a word boundary with a plain "...", then close any parenthesis the cut left open: the
+// old "(cut)" tail landed inside one ("lean lost (round 1 s (cut);").
+export const short = (s, n) => {
   const t = String(s ?? '').replace(/\s+/g, ' ').trim()
-  return t.length > n ? `${t.slice(0, n).trimEnd()} (cut)` : t
+  if (t.length <= n) return t
+  const space = t.lastIndexOf(' ', n)
+  const cut = t.slice(0, space > n / 2 ? space : n).replace(/[\s,;:(]+$/, '')
+  const open = (cut.match(/\(/g) ?? []).length - (cut.match(/\)/g) ?? []).length
+  return `${cut}...${')'.repeat(Math.max(0, open))}`
 }
 
 /** The record block's lines, from the scored rows. */

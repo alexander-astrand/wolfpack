@@ -2,7 +2,21 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { CLOSE, OPEN, notesBullets, parseLibrary, recordLines, rewriteLeans, run, scoreKind } from './leans.mjs'
+import { CLOSE, OPEN, notesBullets, parseLibrary, recordLines, rewriteLeans, run, scoreKind, short } from './leans.mjs'
+
+// nit 5 of the kit 1.8 review: "(cut)" landed inside an open parenthesis.
+describe('short', () => {
+  it('keeps short text, cuts long text at a word with a plain "..."', () => {
+    expect(short('lean won', 20)).toBe('lean won')
+    expect(short('the drawing: Mr Squarebottom by the fire', 30)).toBe('the drawing: Mr Squarebottom...')
+  })
+
+  it('closes a parenthesis the cut left open, and never writes "(cut)"', () => {
+    expect(short('lean lost (round 1 sent as drawn)', 20)).toBe('lean lost (round 1...)')
+    expect(short('pick **B** (designer A, medium (late)) over A', 30)).toBe('pick **B** (designer A, medium...)')
+    expect(short('lean lost (round 1 sent as drawn)', 20)).not.toMatch(/\(cut\)/)
+  })
+})
 
 const LIBRARY = `# Design library
 
