@@ -43,7 +43,7 @@ Times are Europe/Stockholm. `<date>` is today as `yyyy-mm-dd`, taken from your c
 - #81 V2.14.6.2 New skills (draft) · CI green
 
 ## Yesterday on main
-- d167454 A docs skill: …
+- d167454 A docs skill
 
 ## Next on the roadmap
 2.14.6.2 New skills → 2.14.7 the kit

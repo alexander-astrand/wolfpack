@@ -27,4 +27,4 @@ For a `the-playbook` step it adds the lane brief (Feature 7): the stack (local o
 
 ## Standing facts
 
-The composer puts the touching lines of `.claude/standing-facts.md` into the order. When the project has none, its note says so: the first preflight copies `templates/standing-facts.md` there. At the wrap you add one line per `order`-tagged cheaper line that holds for any step; nobody else writes it.
+The composer puts the touching lines of `.claude/standing-facts.md` into the order. When the project has none, its note says so: the first preflight copies `templates/standing-facts.md` there. `future-ted`, at the wrap, adds one line per `order`-tagged cheaper line that holds for any step; nobody else writes it.
