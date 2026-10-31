@@ -77,11 +77,13 @@ Briefs, mock-ups and QA for anything the app shows: browser checks at phone and 
 - Scripts: `mock-scaffold.mjs`, `gallery.mjs`, `bengan-boys.mjs` (writes the four Bengan Boys from their template; `--check` finds drift), and in `scripts/qa/` `batch-shots.mjs`, `page-scan.js`, `save-shot.mjs` and `qa-flow.mjs` (a click-through from a steps file, headless or as Browser pane calls)
 
 ### database
-For Supabase projects. The production guard (the Slap Bet Commissioner, `hooks/guard-production.mjs`) refuses any path to production except the deployer's, and asks a person before each change. `the-playbook` writes migrations, policies and functions; the project's own deployer deploys; `bro-code` writes SQL tests. `database-artifacts.md` lists what the pack expects a project to carry.
+For Supabase projects. The production guard (the Slap Bet Commissioner, `hooks/guard-production.mjs`) refuses any path to production except the deployer's, and asks a person before each change. `the-playbook` writes migrations, policies and functions; the project's own deployer deploys; `bro-code` writes SQL tests; `gale` seeds data (below). `database-artifacts.md` lists what the pack expects a project to carry.
 
 - Agents: `the-playbook`
-- Skills: `bro-code`
-- Scripts (`scripts/`): `scope.mjs`, `run-tests.mjs`, `sync-ranjit.mjs`
+- Skills: `bro-code`, `gale`
+- Scripts (`scripts/`): `scope.mjs`, `run-tests.mjs`, `seed.mjs`, `sync-ranjit.mjs`
+
+**Seeding (`/gale <topic or file> [real|qa]`):** `gale` fills a project's tables with rows that fit it, from a topic ("cleaning supplies") or a file he hands it. Two doors: `real` content for the people who use the app goes in through the project's own connector tools (Burrow's `add_to_list`, `add_purchase`, `add_reno_task`, `add_note`, `add_row`), the live app's door with its rules and bin; `qa` fixtures go to the dev database only, as `scripts/qa/seeds/<name>.up.sql` and `.down.sql` run by `scripts/seed.mjs up|down <name>`, every row tagged `TEST QA seed gale:<name>`. Both show the rows first and write nothing before one yes; `/gale undo <slug or name>` takes a batch out again (to the app's bin, or by the down file), `/gale list` shows what is in. Never SQL on production: the guard stays the wall, and the runner refuses any target it can't tell is dev.
 
 A project that registers its own copy of a hook in `.claude/settings.json` keeps it; the kit's copy steps aside (Hutzup 3.3.3). That holds for the guard, Hank and the denied-call log (`hooks/step-aside.mjs`): only when the project's settings register its copy under `.claude/hooks/` for every matcher the kit uses and the file is there; anything else, including a settings file that won't parse, runs the kit's copy.
 
