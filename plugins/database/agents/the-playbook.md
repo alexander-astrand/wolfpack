@@ -57,7 +57,7 @@ Commit and push on the release branch (subject says what the user gets). Report,
 - first, on its own line: `Cheaper next time: <one idea>`, or `Cheaper next time: none` (kit 1.7.1 council, H3: placed last, 3 of 39 runs wrote it)
 - the commit hash and migrations added
 - test results (counts, any FAIL)
-- **what the frontend will call**: each RPC, table and column with its exact shape, so `captain-call` can paste it into the work order for `chris-de-kok` or `jesse-pinkman`
+- **what the frontend will call**: for functions, the output of this plugin's `node scripts/frontend-calls.mjs <each migration you added>` as it prints (RPC name, arguments, return columns, execute grants, security definer), so the shape comes from the SQL; add by hand only new tables and columns. The navigator pastes it verbatim into the work order for `chris-de-kok` or `jesse-pinkman`
 - **production steps** for the PR, in order: backup first whenever the database changes, then migrations, functions, secrets, and whether the frontend must ship at the same time
 - anything that looked risky
 - for the navigator: the dev-tab call above when the step added or changed an invoked function, and the PR box to tick (its line, word for word)

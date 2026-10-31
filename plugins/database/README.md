@@ -2,12 +2,13 @@
 
 The Supabase pack: the production guard (the Slap Bet Commissioner) in `hooks/`, `the-playbook` and `bro-code`. The deployer agent is the project's own (in its `.claude/agents/`, named by `deployer` in `.claude/kit.json`). `database-artifacts.md` lists what a project using it carries. The guard finds the project through `CLAUDE_PROJECT_DIR` and reads its values from `.claude/kit.json`.
 
-## The scope sheet and the test runner (kit 1.7)
+## The scope sheet, the test runner and their neighbours (kit 1.7, 1.8)
 
-Two read-and-run helpers for database steps, run from the plugin folder (nothing to copy into the project):
+Read-and-run helpers for database steps, run from the plugin folder (nothing to copy into the project):
 
 - `node scripts/scope.mjs <table|function> [--root <project>]` prints the suites under `supabase/tests/` naming it, the pinned lists in `src/`, `scripts/` and `supabase/functions/` (a quoted name on a line), the migrations defining it as a function, and its foreign-key pairs from `supabase/migrations/`. Files only, no database. The navigator pastes its output into every `the-playbook` order, so the builder starts from the list instead of reading suites one by one.
 - `node scripts/run-tests.mjs [prefix] [--root <project>]` runs `supabase/tests/*.sql` the way `bro-code` writes them (no `_` files, `_helpers.sql` pasted at `-- @helpers`, the prefix for one suite) and prints only `FAIL <file>` with its failed checks, then one count line; exit 1 on any FAIL. Dev only: `--local` for a local stack, `--linked` only when the CLI is linked to `refs.dev`; it refuses with exit 2 when it can't tell, or when the project's own test command names the other flag. For a project with no database test command of its own.
+- `node scripts/frontend-calls.mjs <migration.sql> [more.sql ...]` prints the "what the frontend will call" paragraph from the migration's text (kit 1.8): per function a `supabase.rpc('name', { arg: type, optional?: type })` line, its return columns (OUT arguments count), the roles granted execute in that file after any revoke, and security definer with or without `search_path`; trigger and dropped functions get one line each. No database. `the-playbook` puts its output in the report and the navigator pastes it verbatim into the next builder's order.
 
 ## The one-word deploy (kit 1.6)
 
