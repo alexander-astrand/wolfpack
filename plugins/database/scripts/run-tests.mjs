@@ -18,8 +18,10 @@
 // passes whatever the rule does. It covers only those two helpers (other
 // checks, such as expect_count, are counted as not mutated), never the
 // pasted helpers, a comment or a line defining a helper, and costs one run
-// per call, so it is for the access-rule steps, one suite at a time. exit 1
-// on any survivor.
+// per call, so it is for the access-rule steps, one suite at a time. A flip
+// counts as failed only when its output says FAIL; a run with no verdict
+// (nothing printed, a CLI error, a dropped connection) prints
+// `ERROR <file>:<line> <detail>`. exit 1 on any survivor or ERROR.
 //
 // What it does, per bro-code: every supabase/tests/*.sql not starting with _
 // (those are pasted, never run alone), sorted; a suite's `-- @helpers` line
@@ -124,7 +126,9 @@ export function verdict(out) {
   const all = out.split('\n').map((l) => l.trim()).filter(Boolean)
   const at = all.findIndex((l) => l.includes('FAIL'))
   const lines = at < 0 ? [] : all.slice(at, at + 20)
-  return { ok, detail: lines.length ? lines : [`printed no PASS: ${all.slice(-1)[0] || '(nothing)'}`] }
+  // `failed` is the suite's own FAIL, as distinct from no verdict at all (an
+  // empty answer, a CLI error, a dropped connection): --mutate needs the two apart.
+  return { ok, failed: at >= 0, detail: lines.length ? lines : [`printed no PASS: ${all.slice(-1)[0] || '(nothing)'}`] }
 }
 
 /** Sends one suite's text (helpers already pasted) and returns its verdict. */
@@ -175,12 +179,23 @@ export function runMutate({ root, prefix, flag, bin = 'supabase' }) {
     if (!base.ok) return { code: 1, lines: [`FAIL ${f} as it is, so nothing to mutate`, ...base.detail.map((d) => `    ${d}`)] }
     if (!list.length) return { code: 1, lines: [`FAIL ${f}: no expect_ok( or expect_error( call to flip (${other} other checks)`] }
     const lines = []
+    let survived = 0
+    let errors = 0
     for (const m of list) {
-      if (send({ root, flag, bin, scratch, name: f, sent: withHelpers(m.src, helpers) }).ok) lines.push(`SURVIVED ${f}:${m.line} ${m.text}`)
+      const r = send({ root, flag, bin, scratch, name: f, sent: withHelpers(m.src, helpers) })
+      if (r.ok) {
+        survived++
+        lines.push(`SURVIVED ${f}:${m.line} ${m.text}`)
+      } else if (!r.failed) {
+        // Killed means the suite said FAIL. No answer is no proof either way:
+        // counting it as killed would let a dropped connection pass the check.
+        errors++
+        lines.push(`ERROR ${f}:${m.line} ${r.detail[0]}`)
+      }
     }
-    const survived = lines.length
-    lines.push(`${list.length} flipped: ${list.length - survived} failed as they should, ${survived} survived; ${other} other checks not mutated`)
-    return { code: survived ? 1 : 0, lines }
+    const killed = list.length - survived - errors
+    lines.push(`${list.length} flipped: ${killed} failed as they should, ${survived} survived${errors ? `, ${errors} gave no verdict` : ''}; ${other} other checks not mutated`)
+    return { code: survived || errors ? 1 : 0, lines }
   } finally {
     rmSync(scratch, { recursive: true, force: true })
   }
