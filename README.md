@@ -60,28 +60,28 @@ The shared crew and the habits every project follows: planning before a big rele
 
 - Agents: `doc-brown`, `dr-house`, `john-hammond`, `lorenzo-von-matterhorn`, `romeo-olsson`
 - Skills: `88-mph`, `badger`, `beam-me-up`, `cloud-city`, `dependabot-report`, `don-draper`, `farbror-vattenmelon`, `future-ted`, `groundhog-day`, `inception`, `legendary`, `leon`, `life-finds-a-way`, `memento`, `mr-miyagi`, `previously-on`, `scrooge`, `tesseract`, `the-trail`, `war-room` (retired 26 Oct, read-only), `watson`, `wilson`
-- Scripts (`scripts/`): `week-receipt.mjs`, `lane.mjs`, `wrap-facts.mjs`
+- Scripts (`scripts/`): `week-receipt.mjs`, `lane.mjs`, `wrap-facts.mjs`, `plan-check.mjs` (`/inception`'s mechanical checks before the stamp); `dev-hq.md` beside `dev-hq.mjs` says how the Dev HQ feed works
 
 ### release
-A release end to end: `/captain-call <version>` (with `fable allowance=high planner=dom-cobb pick=me stars=3` for the big ones) plans it, spawns the builders, reviews, opens the draft PR and pings you. Your merge go is one word, `/one-ring <version or PR number>`, typed in any session of the project: that session merges and deploys it to the end, from any branch, and fixes what stops it on the way (`docs/decisions/0001-one-word-deploy.md`; `/skinny-pete` only for a manual or broken case), and `/cattle-drive` runs release and deploy on one yes. Hank (`hooks/budget-cap.mjs`) holds every agent to the budget in its task description, with the defaults in one file (`plugins/release/budgets.json`, which a project's `kit.json` `budgets` override and `scripts/budgets-derive.mjs` derives from its last releases); Skyler (`scripts/usage.mjs`) counts the tokens and prints the PR's budget table (`--budget-table`). At the wrap, `plugins/core/scripts/wrap-facts.mjs <version>` gathers the PR, budget, rework and usage facts in one call.
+A release end to end: `/captain-call <version>` (with `fable allowance=high planner=dom-cobb pick=me stars=3` for the big ones) plans it, spawns the builders, reviews, opens the draft PR and pings you. Your merge go is one word, `/one-ring <version or PR number>`, typed in any session of the project: that session merges and deploys it to the end, from any branch, and fixes what stops it on the way (`docs/decisions/0001-one-word-deploy.md`; `/skinny-pete` only for a manual or broken case), and `/cattle-drive` runs release and deploy on one yes. Hank (`hooks/budget-cap.mjs`) holds every agent to the budget in its task description (and refuses a `mosbius-designs` spawn without a number in its `[budget NM]` tag; untagged, it stops at 12M), with the defaults in one file (`plugins/release/budgets.json`, which a project's `kit.json` `budgets` override and `scripts/budgets-derive.mjs` derives from its last releases); Skyler (`scripts/usage.mjs`) counts the tokens and prints the PR's budget table (`--budget-table`). At the wrap, `plugins/core/scripts/wrap-facts.mjs <version>` gathers the PR, budget, rework and usage facts in one call.
 
 - Agents: `admiral-ackbar`, `ahmed-och-ahmed`, `barney-stinson`, `c-3po`, `chris-de-kok`, `dom-cobb`, `jeff-winger`, `jesse-pinkman`, `kissochbajslowski`, `mace-windu`, `mike-ehrmantraut`, `r2-d2`, `saul-goodman`, `three-eyed-raven`, `troy-and-abed`
 - Skills: `avengers-assemble`, `black-box`, `captain-call`, `car-wash`, `carousel`, `cattle-drive`, `ill-be-back`, `its-a-trap`, `jedi-council`, `kids-im-home`, `night-watch`, `no-half-measures`, `oceans-eleven`, `one-ring`, `skinny-pete`, `skyler`, `the-tower`, `you-shall-not-pass`
-- Scripts (`scripts/`): `budgets-derive.mjs`, `council-facts.mjs`, `council-starts.mjs`, `council-spawns.mjs`, each with its usage header
+- Scripts (`scripts/`): `budgets-derive.mjs`, `council-facts.mjs`, `council-starts.mjs`, `council-spawns.mjs`, each with its usage header; `compose-order.mjs` (prints a step's fixed order half), `step-done.mjs` (one call after each agent: budget row, cheaper line, tick) and `run-clock.mjs` (which lanes have gone silent)
 
 ### design
 Briefs, mock-ups and QA for anything the app shows: browser checks at phone and desktop widths in both themes, an accessibility review, and a full QA pass. It also carries `voice-card.md` (the shape of every agent's `## Voice` card) and `taste-template.md` (start your project's `.claude/taste.md` from it).
 
 - Agents: `bengt-johansson`, `daredevil`, `heisenberg`, `magnus-wislander`, `mosbius-designs`, `staffan-olsson`, `stefan-lovgren`, `tomas-svensson`
 - Skills: `darth-vader`, `heisenberg`, `spidey-sense`, `superlab`, `web-shooters` (the core of `spidey-sense`: shot counts, the page scan, headless shots and flows; `mosbius-designs` preloads only this one)
-- Scripts: `mock-scaffold.mjs`, `gallery.mjs`, `bengan-boys.mjs` (writes the four Bengan Boys from their template; `--check` finds drift), and in `scripts/qa/` `batch-shots.mjs`, `page-scan.js`, `save-shot.mjs` and `qa-flow.mjs` (a click-through from a steps file, headless or as Browser pane calls)
+- Scripts: `mock-scaffold.mjs`, `gallery.mjs` (`--from-reports` builds the shots file from the designers' reports), `leans.mjs` (rewrites `heisenberg`'s `## Leans` from the library's `Score` column), `mosbius-scripted.md` (the short order for a plain one-page layout), `bengan-boys.mjs` (writes the four Bengan Boys from their template; `--check` finds drift), and in `scripts/qa/` `batch-shots.mjs`, `page-scan.js`, `save-shot.mjs` and `qa-flow.mjs` (a click-through from a steps file, headless or as Browser pane calls)
 
 ### database
 For Supabase projects. The production guard (the Slap Bet Commissioner, `hooks/guard-production.mjs`) refuses any path to production except the deployer's, and asks a person before each change. `the-playbook` writes migrations, policies and functions; the project's own deployer deploys; `bro-code` writes SQL tests. `database-artifacts.md` lists what the pack expects a project to carry.
 
 - Agents: `the-playbook`
 - Skills: `bro-code`
-- Scripts (`scripts/`): `scope.mjs`, `run-tests.mjs`, `sync-ranjit.mjs`
+- Scripts (`scripts/`): `scope.mjs`, `run-tests.mjs` (`--mutate` loosens each rule once to prove a check can fail), `new-suite.mjs` (writes a new SQL test suite skeleton), `frontend-calls.mjs` (prints the "what the frontend will call" paragraph from a migration), `sync-ranjit.mjs`
 
 A project that registers its own copy of a hook in `.claude/settings.json` keeps it; the kit's copy steps aside (Hutzup 3.3.3). That holds for the guard, Hank and the denied-call log (`hooks/step-aside.mjs`): only when the project's settings register its copy under `.claude/hooks/` for every matcher the kit uses and the file is there; anything else, including a settings file that won't parse, runs the kit's copy.
 
