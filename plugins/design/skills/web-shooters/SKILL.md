@@ -39,6 +39,9 @@ const src = await (await fetch('/qa/page-scan.js')).text(); JSON.parse(await eva
 
 `themeVia` is how the app switches theme (the project's CLAUDE.md says): `param:<name>` (`?theme=`), `storage:<localStorage key>` (put back afterwards), `attr:<attribute>` or `class` on `<html>`. Read `.summary` first (one line per width and theme), then only the lists with a count. Over about 30 s of pages (three widths and three themes), add `background: true` and poll `window.__scan.done`: a call times out at 45 s. Cut-off titles, rows without drag, sideways page scroll and low contrast are findings; small targets are worth a look.
 
+## The QA pass as one script (kit 1.8)
+`node <design>/scripts/qa-pass.mjs <pass.json>` runs the page scan at every width and theme, the two-scrollbar and wheel checks (`spidey-sense/qa-and-refactor.md`) and the console errors for a list of pages, and prints one table: page, check, result, finding. Headless with a real wheel for pages with no sign-in; `--pane --tab <tabId>` prints one `browser_batch` list per signed-in page, whose `javascript_tool` result is that page's table (the scan carried inline, so it works with no `public/qa` copy). A pane "catches the wheel" row is a synthetic probe: confirm that one spot with a real `computer` scroll. QA agents and `daredevil` read this table instead of running the snippets one by one. The script's header has the file format.
+
 ## Headless: shots and flows with no pane
 For pages that need no sign-in (mocks, public pages), one headless Chromium does the work and the pane is never involved:
 - **Shots:** `node <design>/scripts/qa/batch-shots.mjs <shots.json> [--scan]` takes a whole list in one call; `--scan` runs the page scan on each shot and writes `scan.json` beside the shots.

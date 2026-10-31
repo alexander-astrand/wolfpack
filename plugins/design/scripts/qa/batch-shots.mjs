@@ -72,7 +72,8 @@ export function parseArgs(argv) {
   return o
 }
 
-async function applyTheme(cdp, via, theme) {
+// Exported for qa-pass.mjs, which scans each width and theme the same way.
+export async function applyTheme(cdp, via, theme) {
   if (!theme) return
   if (via.startsWith('attr:')) await cdp.evaluate(`document.documentElement.setAttribute(${JSON.stringify(via.slice(5))}, ${JSON.stringify(theme)}); true`)
   else if (via === 'class') await cdp.evaluate(`document.documentElement.classList.add(${JSON.stringify(theme)}); true`)

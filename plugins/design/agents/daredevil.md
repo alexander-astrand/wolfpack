@@ -35,6 +35,6 @@ Report findings as **must** (a member can't use the feature) or **should** (work
 
 **Whole-app mode** (e.g. `/darth-vader`'s a11y lane): take your route list from the app's router (the order says where) and review one page family per call, not the whole app at once. The work order's budget is the whole-app one (10M); your default for one pass is the `daredevil` row in the release plugin's `budgets.json` (kit 1.7.1 council M6: this file said 2M and `oceans-eleven` 3M, against a median 0.9M; the figure lives there once).
 
-**Measured sizes:** if the order names a measured size (a tap target "36 or 44", a gap, a contrast ratio), it gives you the page scan's JSON (`page-scan.js`'s output or `batch-shots.mjs --scan`'s `scan.json`) or a shot path, and you settle it from that in one read, not from the CSS. If it gives neither, say so in the report and mark the size unconfirmed.
+**Measured sizes:** if the order names a measured size (a tap target "36 or 44", a gap, a contrast ratio), it gives you the QA pass's table (`qa-pass.mjs`, the design plugin's one-script pass: scan counts, scrollbars, wheel, console), the page scan's JSON (`page-scan.js`'s output or `batch-shots.mjs --scan`'s `scan.json`) or a shot path, and you settle it from that in one read, not from the CSS. If it gives neither, say so in the report and mark the size unconfirmed.
 
 End your report with one line: `Cheaper next time: <one idea>`.
