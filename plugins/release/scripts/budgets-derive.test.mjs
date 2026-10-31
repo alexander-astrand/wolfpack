@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { derive, median, p90, propose, releaseRuns, withBudgets } from './budgets-derive.mjs'
+import { derive, median, p90, propose, releaseRuns, resumesOf, rework, reworkTable, withBudgets } from './budgets-derive.mjs'
 
 const M = 1_000_000
 const script = fileURLToPath(new URL('./budgets-derive.mjs', import.meta.url))
@@ -47,6 +47,25 @@ describe('budgets-derive', () => {
     expect(propose('c-3po', 2 * M)).toBe(3 * M) // below c-3po's 4M default: allowed
     expect(propose('jeff-winger', 14 * M)).toBe(15 * M)
     expect(propose('mike-ehrmantraut', 28 * M)).toBe(37 * M)
+  })
+
+  it('measures rework per builder and model: fix runs and resumes per step (F11)', () => {
+    const run = (role, model, description, resumes = 0, tokens = M) => ({ role, model, description, resumes, tokens })
+    const rows = rework([
+      { runs: [run('jeff-winger', 'opus', 'jeff-winger: step 2'), run('jeff-winger', 'opus', 'jeff-winger: fix the sendback', 0, 3 * M), run('jesse-pinkman', 'sonnet', 'jesse: step 3', 1)] },
+      { runs: [run('jeff-winger', 'opus', 'jeff-winger: step 4', 1), run('c-3po', 'sonnet', 'c-3po: fix the README')] },
+    ])
+    expect(rows).toEqual([
+      { role: 'jeff-winger', model: 'opus', steps: 2, fixRuns: 1, resumes: 1, rate: 1, medianTokens: M },
+      { role: 'jesse-pinkman', model: 'sonnet', steps: 1, fixRuns: 0, resumes: 1, rate: 1, medianTokens: M },
+    ])
+    expect(reworkTable(rows)).toContain('| jeff-winger | opus | 2 | 1 | 1 | 1.00 | 1.0M |')
+    expect(resumesOf([{ type: 'user', message: { content: 'go' } }, { type: 'user', message: { content: [{ type: 'tool_result', content: 'x' }] } }, { type: 'user', isMeta: true, message: { content: 'body' } }, { type: 'user', message: { content: [{ type: 'text', text: 'fix the button' }] } }])).toBe(1)
+  })
+
+  it('records each run\'s model and description from the transcripts', () => {
+    const r = releaseRuns(folder(sessions), 5)
+    expect(r[0].runs[0]).toMatchObject({ role: 'jeff-winger', model: 'opus', description: 'jeff-winger: step', resumes: 0 })
   })
 
   it('reads only release sessions, the last N', () => {

@@ -20,6 +20,16 @@
 // value, so the rest of the file keeps its bytes.
 // A role whose numbers go by model (mosbius-designs) is shown, never written:
 // a kit entry would hide its Opus and Fable split from Hank.
+//
+// Rework per builder (kit 1.8, F11 of the kit 1.7.1 council): Opus against
+// Sonnet was picked by the route row while 87% of builder spend went to Opus
+// and jesse-pinkman ran 8x cheaper a run. The table under the budgets shows,
+// per builder and model, the steps, the fix rounds and the rate, so the pick
+// is measured. How it is measured, from the transcripts alone: a fix round is
+// a run whose description says fix, rework, sendback, redo, again or round N,
+// or a later prompt sent into a run (a SendMessage back to work); a step is
+// any other run. Rate = fix rounds per step. PR bodies are not read: their
+// send-back notes are free text with no agent column to count by.
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -39,6 +49,21 @@ const firstTime = (entries) => {
     if (!Number.isNaN(t)) return t
   }
   return null
+}
+
+const shortModel = (m) => (/(haiku|sonnet|opus|fable)/i.exec(m || '') || ['?'])[0].toLowerCase()
+
+// Prompts a run got after its first: a SendMessage that sent it back to work.
+// Tool results, the app's injected lines and background notes are not prompts.
+export function resumesOf(entries) {
+  let prompts = 0
+  for (const e of entries) {
+    if (e?.type !== 'user' || e.isMeta) continue
+    const c = e.message?.content
+    const text = typeof c === 'string' ? c : Array.isArray(c) && !c.some((b) => b?.type === 'tool_result') ? c.filter((b) => b?.type === 'text').map((b) => b.text).join('\n') : ''
+    if (text.trim() && !/^\s*<(system-reminder|task-notification)/.test(text)) prompts += 1
+  }
+  return Math.max(0, prompts - 1)
 }
 
 /**
@@ -78,9 +103,15 @@ export function releaseRuns(dir, n = 5) {
       }
       const role = agentName({ ...meta, agentType: bare(meta.agentType) })
       if (!role) continue
+      const entries = readEntries(join(subDir, s))
       let tokens = 0
-      for (const b of tallyEntries(readEntries(join(subDir, s))).values()) tokens += totalTokens(b)
-      runs.push({ role, tokens })
+      let model = '?'
+      let most = -1
+      for (const [m, b] of tallyEntries(entries)) {
+        tokens += totalTokens(b)
+        if (totalTokens(b) > most) [most, model] = [totalTokens(b), shortModel(m)]
+      }
+      runs.push({ role, tokens, model, description: String(meta.description || ''), resumes: resumesOf(entries) })
     }
     releases.push({ id, command, start: firstTime(entries) ?? 0, runs })
   }
@@ -130,6 +161,38 @@ export function derive(releases) {
       byModel: Boolean(MODEL_DEFAULTS[role]),
     }))
     .sort((a, b) => a.role.localeCompare(b.role))
+}
+
+// The roles that build a step: the five Opus builders and the Sonnet one.
+export const BUILDERS = new Set(['chris-de-kok', 'ahmed-och-ahmed', 'saul-goodman', 'jeff-winger', 'troy-and-abed', 'jesse-pinkman'])
+export const FIX_RUN = /\b(fix(es|ed)?|rework|send-?back|redo|again|round [2-9])\b/i
+
+/** Per builder and model: { role, model, steps, fixRuns, resumes, rate, medianTokens }; rate is null with no steps. */
+export function rework(releases) {
+  const by = new Map()
+  for (const r of releases) {
+    for (const run of r.runs) {
+      if (!BUILDERS.has(run.role)) continue
+      const key = `${run.role}\t${run.model || '?'}`
+      const row = by.get(key) ?? { role: run.role, model: run.model || '?', steps: 0, fixRuns: 0, resumes: 0, tokens: [] }
+      if (FIX_RUN.test(run.description || '')) row.fixRuns += 1
+      else row.steps += 1
+      row.resumes += run.resumes || 0
+      row.tokens.push(run.tokens)
+      by.set(key, row)
+    }
+  }
+  return [...by.values()]
+    .map(({ tokens, ...row }) => ({ ...row, rate: row.steps ? (row.fixRuns + row.resumes) / row.steps : null, medianTokens: median(tokens) }))
+    .sort((a, b) => a.role.localeCompare(b.role) || a.model.localeCompare(b.model))
+}
+
+export function reworkTable(rows) {
+  if (!rows.length) return 'No builder runs in these releases.'
+  const lines = ['| Builder | Model | Steps | Fix runs | Sent back (resumes) | Rework per step | Median a run |', '|---|---|---|---|---|---|---|']
+  for (const r of rows) lines.push(`| ${r.role} | ${r.model} | ${r.steps} | ${r.fixRuns} | ${r.resumes} | ${r.rate == null ? '–' : r.rate.toFixed(2)} | ${fmt(r.medianTokens)} |`)
+  lines.push('', 'A fix run is one whose description says fix, rework, sendback, redo, again or round N; a resume is a later prompt sent into a run. Rework per step = (fix runs + resumes) / other runs. Transcripts only; PR bodies are not read.')
+  return lines.join('\n')
 }
 
 const writable = (rows) => rows.filter((r) => !r.byModel && r.proposed != null)
@@ -242,7 +305,8 @@ function main() {
     if (!writable(rows).length) throw new Error(`No role has ${MIN_RUNS} or more release runs; kit.json left as it was`)
     writeFileSync(kitPath, withBudgets(readFileSync(kitPath, 'utf8'), rows))
   }
-  console.log(o.json ? JSON.stringify({ releases: releases.map((r) => r.id), rows }, null, 2) : table(rows, releases))
+  const fixes = rework(releases)
+  console.log(o.json ? JSON.stringify({ releases: releases.map((r) => r.id), rows, rework: fixes }, null, 2) : `${table(rows, releases)}\n\n## Rework per builder\n\n${reworkTable(fixes)}`)
   if (o.write && !o.json) console.log(`\nWrote ${writable(rows).length} budgets to ${join(o.project, '.claude', 'kit.json')}.`)
 }
 
