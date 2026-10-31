@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { hitsIn, isHistory, oldNames, renderHits, renderTable, replacementTable, sweep } from './rename-sweep.mjs'
+import { filesUnder, hitsIn, isHistory, oldNames, renderHits, renderTable, replacementTable, sweep } from './rename-sweep.mjs'
 
 // A small map in the real one's shape (pylos/notes/name-map.md).
 const MAP = [
@@ -82,5 +82,13 @@ describe('hitsIn and sweep', () => {
     expect(live.rows).toEqual([{ where: 'notes.md:2', old: '~/dojo', new: '~/pylos' }])
     expect(renderHits(live, true)).toContain('| notes.md:2 | ~/dojo | ~/pylos |')
     expect(isHistory('plugins/core/lessons.md')).toBe(true)
+  })
+
+  it('skips a broken symlink and a link loop instead of dying (review nit 4)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'rename-sweep-links-'))
+    writeFileSync(join(root, 'a.md'), 'x')
+    symlinkSync(join(root, 'gone.md'), join(root, 'broken.md'))
+    symlinkSync(root, join(root, 'loop'))
+    expect(filesUnder(root)).toEqual([join(root, 'a.md')])
   })
 })

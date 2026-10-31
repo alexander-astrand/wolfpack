@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { LOCAL_DB, hostOf, parseArgs, plan, run } from './qa-seed.mjs'
+import { LOCAL_DB, hostOf, parseArgs, plan, run, targetsOf } from './qa-seed.mjs'
 
 const seeds = () => {
   const dir = mkdtempSync(join(tmpdir(), 'qa-seed-'))
@@ -41,6 +41,17 @@ describe('plan', () => {
     expect(() => plan({ ...args(['up', 'night', '--db', 'postgresql://u@db.example.co:5432/postgres']), dir })).toThrow(/needs --allow-host db\.example\.co/)
     expect(plan({ ...args(['up', 'night', '--db', 'postgresql://u@db.example.co:5432/postgres', '--allow-host', 'db.example.co']), dir }).host).toBe('db.example.co')
     expect(() => hostOf('nope')).toThrow(/does not parse/)
+  })
+  it('refuses a local URL whose query sends libpq elsewhere (review MUST 4)', () => {
+    const dir = seeds()
+    const at = (db, ...more) => plan({ ...args(['up', 'night', '--db', db, ...more]), dir })
+    expect(() => at('postgresql://u@localhost:5432/postgres?host=db.example.co')).toThrow(/db\.example\.co is not a local database; .*--allow-host db\.example\.co/)
+    expect(() => at('postgresql://u@127.0.0.1/postgres?hostaddr=127.0.0.1,10.0.0.9')).toThrow(/10\.0\.0\.9 is not a local/)
+    expect(() => at('postgresql://u@localhost/postgres?service=prod')).toThrow(/needs --allow-host service=prod/)
+    expect(at('postgresql://u@localhost/postgres?service=devsvc', '--allow-host', 'service=devsvc').host).toBe('localhost')
+    expect(at('postgresql://u@localhost/postgres?host=db.example.co', '--allow-host', 'db.example.co').host).toBe('localhost')
+    expect(at('postgresql://u@localhost/postgres?host=127.0.0.1&sslmode=disable').host).toBe('localhost')
+    expect(targetsOf('postgresql://u@localhost/db?host=a,b&service=s')).toEqual(['localhost', 'a', 'b', 'service=s'])
   })
   it('names the missing file and where seeds live', () => {
     expect(() => plan({ ...args(['up', 'gone']), dir: seeds() })).toThrow(/gone\.up\.sql.*<name>\.up\.sql/)

@@ -14,9 +14,10 @@
 // seed=shared (the order's flag, lanes side by side): a lane (--lane given) neither seeds nor cleans
 // and says so; the navigator (no --lane) runs the one seed before it spawns the lanes, and the one
 // clean-up after the last lane reports, as lane "shared".
-// Dev only: the database is --db, else QA_SEED_DB_URL, else the local Supabase
-// (postgresql://postgres:postgres@127.0.0.1:54322/postgres). A host other than localhost is refused
-// unless --allow-host names it (a hosted dev project); production is never a QA seed's target.
+// Dev only: the database is --db, else QA_SEED_DB_URL, else the local Supabase (postgresql://
+// postgres:postgres@127.0.0.1:54322/postgres). A host other than localhost, in the URL or its query's
+// ?host=, ?hostaddr= or ?service= (libpq lets them override the URL's host), is refused unless
+// --allow-host names it (a hosted dev project); production is never a QA seed's target.
 // --dry prints the SQL and the host instead of running it.
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -57,11 +58,26 @@ export function hostOf(url) {
   }
 }
 
+// Every server the URL can reach. libpq lets the query override the URL's
+// host: `?host=`, `?hostaddr=` (each may list several, comma-separated) and
+// `?service=` (a pg_service.conf entry, unknown from here), so
+// `postgresql://localhost/db?host=prod.example.co` is a remote database that
+// reads as local by its hostname alone (review MUST 4). A service is named
+// `service=<name>`, so only `--allow-host service=<name>` lets it through.
+export function targetsOf(url) {
+  const host = hostOf(url)
+  const q = new URL(url).searchParams
+  const out = [host]
+  for (const key of ['host', 'hostaddr']) for (const v of q.getAll(key)) out.push(...v.split(','))
+  for (const v of q.getAll('service')) out.push(`service=${v}`)
+  return out.map((h) => h.trim())
+}
+
 // What to do, decided without touching the database, so the rules are tested on their own.
 export function plan(o) {
   if (o.shared && o.lane) return { skip: `seed=shared: the navigator seeds and cleans; lane ${o.lane} does neither. Use the ids in your order.` }
   const host = hostOf(o.db)
-  if (!LOCAL_HOSTS.has(host) && host !== o.allowHost) throw new Error(`${host} is not a local database; a hosted dev database needs --allow-host ${host}`)
+  for (const t of targetsOf(o.db)) if (!LOCAL_HOSTS.has(t) && t !== o.allowHost) throw new Error(`${t} is not a local database; a hosted dev database needs --allow-host ${t}`)
   const file = join(o.dir, `${o.name}.${o.action}.sql`)
   if (!existsSync(file)) throw new Error(`no ${file} (the project keeps its seeds as <name>.up.sql and <name>.down.sql there)`)
   const lane = o.shared ? 'shared' : o.lane || 'qa'

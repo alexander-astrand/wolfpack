@@ -20,7 +20,7 @@
 // fantasy-hq). An old name that is also a current name (`/mr-miyagi` was the
 // dojo's brief skill and is the kit's skill now) is never swept: it is listed
 // as ambiguous for a person to read.
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, join, relative } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -143,9 +143,16 @@ export function filesUnder(path) {
     for (const name of readdirSync(d)) {
       if (name === 'node_modules' || name === '.git' || name === '.venv' || name === 'dist') continue
       const p = join(d, name)
-      const s = statSync(p)
+      // lstat, not stat: a link is skipped, not followed, so a broken one (or
+      // a loop) can't kill the sweep (review nit 4); a file gone mid-walk too.
+      let s
+      try {
+        s = lstatSync(p)
+      } catch {
+        continue
+      }
       if (s.isDirectory()) walk(p)
-      else if (TEXT.test(name) && s.size < 2_000_000) out.push(p)
+      else if (s.isFile() && TEXT.test(name) && s.size < 2_000_000) out.push(p)
     }
   }
   walk(path)
