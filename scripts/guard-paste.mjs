@@ -15,9 +15,9 @@
 // --dry prints the steps and runs none.
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, realpathSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PASTE_DIR = join('plugins', 'database', 'guard-paste')
@@ -44,6 +44,9 @@ export function steps(patch, head) {
   ]
 }
 
+/** What a `git am` that stops (a conflict, a patch that doesn't apply) prints. */
+export const AM_STOPPED = 'git am stopped (a conflict, or the patch does not apply); nothing tested or pushed. git am --abort undoes it.'
+
 /** Why the checkout can't take the paste, or undefined when it can. */
 export function refusal({ branch, dirty, patch }) {
   if (!patch) return `no patch in ${PASTE_DIR}`
@@ -60,7 +63,8 @@ function read(file, args) {
   return execFileSync(file, args, { cwd: ROOT, encoding: 'utf8' }).trim()
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Node runs the real file, so a spaced or symlinked path compares as its real URL.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const dry = process.argv.includes('--dry')
   const given = process.argv.slice(2).find((a) => !a.startsWith('--'))
   const patch = given ? relative(ROOT, resolve(given)) : defaultPatch()
@@ -80,7 +84,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(0)
   }
   const [am, tests, ...land] = plan
-  run(...am)
+  try {
+    run(...am)
+  } catch {
+    // git has printed the conflict itself; a stack trace under it only hid the way out.
+    console.error(`guard-paste: ${AM_STOPPED}`)
+    process.exit(1)
+  }
   try {
     run(...tests)
   } catch {
