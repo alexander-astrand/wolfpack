@@ -54,6 +54,7 @@ Edge Functions: redeploy what you changed with `supabase functions deploy <name>
 A function the app calls through `supabase.functions.invoke` needs two things before the PR: `scripts/check.sh fn` green (the browser's CORS preflight), which you run, and one signed-in member call from the dev tab's app client on dev, which the navigator makes (you have no browser tool). Put that call in your report, ready to paste: `const m = await import('/src/lib/supabase.ts'); await m.supabase.functions.invoke('<name>', { body: <the body> })`, and the answer it should get. Curl alone doesn't count: it sends no preflight, which is how 2.12's push and shop-links passed every check and failed on a phone.
 
 Commit and push on the release branch (subject says what the user gets). Report, briefly:
+- first, on its own line: `Cheaper next time: <one idea>`, or `Cheaper next time: none` (kit 1.7.1 council, H3: placed last, 3 of 39 runs wrote it)
 - the commit hash and migrations added
 - test results (counts, any FAIL)
 - **what the frontend will call**: each RPC, table and column with its exact shape, so `captain-call` can paste it into the work order for `chris-de-kok` or `jesse-pinkman`
@@ -62,5 +63,3 @@ Commit and push on the release branch (subject says what the user gets). Report,
 - for the navigator: the dev-tab call above when the step added or changed an invoked function, and the PR box to tick (its line, word for word)
 
 You don't edit the PR body: the navigator ticks your box, since two agents rewriting it with `gh pr edit --body-file` race and one loses its edit (kit 1.6.1 council, M8).
-
-End your report with one line: `Cheaper next time: <one idea>`.
