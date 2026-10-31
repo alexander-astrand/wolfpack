@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { EXIT, alreadyListed, ciState, deploy, holdsDeploy, leftStepsComment, migrationChanges, namesVersion, openHumanSteps, parseGo, pickPr, touchedFunctions, versionOf } from './deploy.mjs'
+import { EXIT, alreadyListed, ciState, costLine, deploy, holdsDeploy, leftStepsComment, migrationChanges, namesVersion, openHumanSteps, parseGo, pickPr, touchedFunctions, versionOf } from './deploy.mjs'
 
 const TMP = mkdtempSync(join(tmpdir(), 'deploy-test-'))
 afterAll(() => rmSync(TMP, { recursive: true, force: true }))
@@ -113,6 +113,14 @@ describe('a deploy that goes through', () => {
     }
     expect(w.lines.at(-1)).toMatch(/^DONE: PR #34 merged \(bbbbbbb\); backup \/b\/2026-10-21-V0\.14\.3\.1; migrations 0100; functions pay-feed; live at https:\/\/app\.example\.com/)
     expect(w.calls.filter((c) => c.startsWith('git worktree remove'))).toHaveLength(1)
+    // Kit 1.8 (Feature 6): the cost line comes just before DONE.
+    expect(w.lines.at(-2)).toMatch(/^COST: \d+\.\d min this run; longest wait \d+\.\d min, until "[^"]+"; baseline 4\.5M tokens \/ 12 min/)
+  })
+
+  it('costLine: the minutes, the step that took longest, and the baseline', () => {
+    const line = costLine(0, 15 * 60_000, [[60_000, 'PR #34 ready'], [11 * 60_000, 'CI green on bbbbbbb.'], [15 * 60_000, 'Smoke: ok']])
+    expect(line).toBe('COST: 15.0 min this run; longest wait 10.0 min, until "CI green on bbbbbbb."; baseline 4.5M tokens / 12 min (no migrations). Tokens: /car-wash or usage.mjs --timeline.')
+    expect(costLine(0, 0, [])).toMatch(/^COST: 0\.0 min this run; baseline/)
   })
 
   it('finds the PR by number too, and uses functions-touched when the project has it', () => {

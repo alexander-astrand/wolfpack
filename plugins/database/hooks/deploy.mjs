@@ -22,6 +22,8 @@
 // database changes only after a fresh, complete backup (prod-db.sh push
 // refuses without one). Anything that stops exits with a code below and one
 // `STOP` line saying what to fix; the session fixes it and runs this again.
+// A finished run prints a `COST` line (minutes, the step it waited on, the
+// baseline) just before its `DONE` line (kit 1.8, costLine).
 //
 // Pure helpers are exported for the tests; `deploy` takes its runner (`io`)
 // so a test can play GitHub, git, Docker and the scripts.
@@ -236,6 +238,36 @@ export function settingSteps(body, pr) {
     .map((c) => c.split(' ').slice(1))
 }
 
+// ---------------------------------------------------------------- the cost
+
+// Burrow's [deploy-cost] lesson: a no-migration deploy is about 4.5M tokens
+// and 12 minutes. The kit 1.7.1 council (M2, Feature 6) found deploys at 14x
+// that inside heavy sessions, unseen until a hand count.
+export const DEPLOY_BASELINE = '4.5M tokens / 12 min'
+
+/**
+ * The COST line printed just before DONE (kit 1.8, Feature 6): this run's
+ * minutes, the step it waited on (each progress line is said when its step
+ * ends, so the longest gap ends at the line naming that step), and the
+ * baseline beside it. Tokens are the session's, which this script can't see:
+ * /car-wash or usage.mjs --timeline adds them. A re-run after a STOP counts
+ * only its own run.
+ * @param {number} start  ms
+ * @param {number} end  ms
+ * @param {[number, string][]} said  [time, line] in order
+ */
+export function costLine(start, end, said) {
+  const min = (ms) => (ms / 60_000).toFixed(1)
+  let longest = null
+  let prev = start
+  for (const [t, line] of said) {
+    if (!longest || t - prev > longest.ms) longest = { ms: t - prev, line }
+    prev = t
+  }
+  const wait = longest ? `; longest wait ${min(longest.ms)} min, until "${longest.line.slice(0, 60)}"` : ''
+  return `COST: ${min(end - start)} min this run${wait}; baseline ${DEPLOY_BASELINE} (no migrations). Tokens: /car-wash or usage.mjs --timeline.`
+}
+
 // ---------------------------------------------------------------- the run
 
 /**
@@ -245,9 +277,12 @@ export function settingSteps(body, pr) {
  *   fetchOk(url, seconds) → '' or why, root, tmp
  */
 export function deploy(argv, io) {
-  const say = (line) => io.log(line)
+  const started = io.now()
+  const said = []
+  const say = (line) => { said.push([io.now(), line]); io.log(line) }
   try {
     const out = run(argv, io, say)
+    say(costLine(started, io.now(), said))
     say(`DONE: ${out}`)
     return EXIT.DONE
   } catch (err) {
