@@ -8,7 +8,7 @@ A release's status on a **data page** (kit 1.8, F-4: most calls were this one wr
 1. The page: its id from `pages.roadmap` in `.claude/kit.json` or memory `project_roadmap.md`. A static page (`pages.roadmapSource` set) or `roadmap: file`: read on, this card isn't for you.
 2. `get` `cards/<anchor>` (e.g. `cards/v1-5`) for its badge's PR number.
 3. `update` `cards/<anchor>`: `status` (`shipped | in-progress | in-review | planned | parked`), `badge` ("Shipped · PR #80", "Planned") and `updated_at` (ISO), together.
-4. `str_replace` on `meta/page`'s `revised_html`: one dated line in front of its first words ("31 Oct 2026 (V1.5 shipped); earlier …"), never the field resent.
+4. `str_replace` on `meta/page`'s `revised_html`: one dated line in front of its first words ("31 Oct 2026 (V1.5 shipped); earlier <the old first words>"), never the field resent.
 5. `get` the card back to check it, and the same change into `project_roadmap.md` when the project keeps one.
 Anything else (a new card, a section, a batch, an `order` move, the header): the full skill below.
 
