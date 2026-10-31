@@ -16,7 +16,7 @@ car-wash · the usage tally (the Breaking Bad car wash, the front that keeps the
 Give the release PR a "Usage" section so the next release's budgets are set from numbers, not a feeling.
 
 ## Run it
-This session's own transcript is the newest `.jsonl` in the project's transcript directory whose first lines mention this release (or pass `--dir <path>` for a different one). Count the commits on the branch (`git log --oneline main..HEAD | wc -l`), then:
+The order gives the session ids (the navigator's and each lane's or part's, from `get_session` with `"self"` or the start calls): take them from the order. Only when the order names none, fall back to the newest `.jsonl` in the project's transcript directory whose first lines mention this release, and say in the section that the id was guessed that way (or pass `--dir <path>` for a different directory). Count the commits on the branch (`git log --oneline main..HEAD | wc -l`), then:
 
 ```
 node ${CLAUDE_PLUGIN_ROOT}/scripts/usage.mjs --commits <N> <session-id>
