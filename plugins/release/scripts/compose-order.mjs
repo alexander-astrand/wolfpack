@@ -48,7 +48,6 @@ export const ROUTES = {
   'bengt-johansson': { model: 'sonnet', effort: 'medium', kind: 'qa' },
   'magnus-wislander': { model: 'sonnet', effort: 'medium', kind: 'qa' },
   'staffan-olsson': { model: 'sonnet', effort: 'medium', kind: 'qa' },
-  'stefan-lovgren': { model: 'sonnet', effort: 'medium', kind: 'qa' },
   'tomas-svensson': { model: 'sonnet', effort: 'medium', kind: 'qa' },
   kissochbajslowski: { model: 'sonnet', effort: 'high', kind: 'review' },
   daredevil: { model: 'sonnet', effort: 'high', kind: 'review' },
