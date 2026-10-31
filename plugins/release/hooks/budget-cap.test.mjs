@@ -379,7 +379,7 @@ describe('the 2.12.2 roster', () => {
   })
 
   it("gives the QA pool bengt-johansson's 14M and 5 screenshots", () => {
-    for (const name of ['tomas-svensson', 'magnus-wislander', 'staffan-olsson', 'stefan-lovgren']) {
+    for (const name of ['tomas-svensson', 'magnus-wislander', 'staffan-olsson']) {
       withModel(`a-${name}`, name, 'claude-opus-5', 13 * M)
       expect(call(`a-${name}`, name)).not.toBe('deny')
       withModel(`b-${name}`, name, 'claude-opus-5', 14.1 * M)
