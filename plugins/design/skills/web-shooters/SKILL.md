@@ -11,6 +11,8 @@ web-shooters · the kit's shot and scan tools (Spider-Man's wrist gear) · "thwi
 - ping: (silent)
 - wrap: (silent)
 
+**Already loaded, do not call:** an agent that lists `web-shooters` under `skills:` has this text in its prompt now; calling it with the Skill tool loads it twice (three svardsvik agents did, kit 1.7.1 council M6).
+
 **Title:** runs inside another session and keeps its title (norms.md).
 
 Kit 1.7 (jedi-council Feature 11, design lens F4): the core of `spidey-sense`, split out so `mosbius-designs` preloads about a third of the old skill instead of the Browser pane, sign-in and QA sections it never used (24 runs carried all 85 lines). `spidey-sense` keeps the pane run and the QA parts and loads beside this.
@@ -28,7 +30,7 @@ Kit 1.5 (skills lens S2): `darth-vader`, `bengt-johansson` and `oceans-eleven` e
 ## The page scan (before any screenshot)
 `<design>/scripts/qa/page-scan.js` scans one page at every width and theme in one browser call, in same-origin iframes that share the tab's sign-in: the page scrolling sideways, text that's cut off, sideways rows a mouse can't drag (no `data-drag-scroll`), tap targets under 44px, and text under AA contrast on its real background (text over an image or gradient is counted as `contrastUnknown`: look at those). It replaced each project's own `layout-check.js` in kit 1.5 (`[layout-check]`); the plugin's old copy went in kit 1.7.
 
-The project keeps one copy at `public/qa/page-scan.js` (Vite and Next both serve `public/` at the root; it only reads the page); copy it from `<design>` again when `cmp` says it differs. On the page's own tab:
+The project keeps one copy at `public/qa/page-scan.js` (Vite and Next both serve `public/` at the root; it only reads the page). **Who copies it, and when:** the project's setup session (`/farbror-vattenmelon`), and `/life-finds-a-way` in a new project's skeleton; after that the navigator (`captain-call`) at a release's start, as a commit on the release branch, when `cmp <design>/scripts/qa/page-scan.js public/qa/page-scan.js` says it is missing or differs. The copy is `mkdir -p public/qa` then `cp <design>/scripts/qa/page-scan.js public/qa/`. A QA agent has no Write and never copies: with no copy (the `fetch` 404s, as in Burrow, reel-helper and svardsvik at kit 1.7.1), it runs `qa-pass.mjs` (below), which carries the scan itself. On the page's own tab:
 
 ```
 window.__scanArgs = { widths: [375, 1024], themes: ['dark', 'light'], themeVia: 'param:theme' }

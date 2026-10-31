@@ -393,7 +393,7 @@ describe('the 2.12.2 roster', () => {
   })
 
   it('gives the new roles their defaults, also when named by description prefix', () => {
-    for (const [name, budget] of [['daredevil', 3], ['mike-ehrmantraut', 30], ['three-eyed-raven', 8]]) {
+    for (const [name, budget] of [['daredevil', 2], ['mike-ehrmantraut', 30], ['three-eyed-raven', 8]]) {
       agent(`u-${name}`, { type: 'claude', description: `${name}: x`, tokens: (budget - 0.1) * M })
       expect(call(`u-${name}`, 'claude')).not.toBe('deny')
       agent(`o-${name}`, { type: 'claude', description: `${name}: x`, tokens: (budget + 0.1) * M })

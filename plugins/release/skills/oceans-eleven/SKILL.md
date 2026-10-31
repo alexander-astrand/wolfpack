@@ -104,7 +104,7 @@ Every Agent `description` ends with the step's budget, e.g. `[budget 12M]`. **A 
 | `admiral-ackbar` | 10M | |
 | `dom-cobb` | 20M | above the ceiling |
 | `mike-ehrmantraut` | 30M | above the ceiling |
-| `daredevil` | 3M | a whole-app pass (e.g. `/darth-vader`'s a11y lane, one page family per call) is tagged 10M |
+| `daredevil` | 2M | median 0.9M (kit 1.7.1 council M6: one figure, here and in `daredevil.md`); a whole-app pass (e.g. `/darth-vader`'s a11y lane, one page family per call) is tagged 10M |
 | `mosbius-designs` | Opus 5M, Fable 12M | by model; 6 and 10 screenshots |
 | any other role | 15M | `ranjit` is logged only, never stopped |
 
