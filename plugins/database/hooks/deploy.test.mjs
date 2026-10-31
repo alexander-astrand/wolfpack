@@ -373,7 +373,14 @@ describe('the helpers', () => {
       '- [ ] Create a personal access token for the CI',
       '- [ ] Store the access token',
       '- [ ] Set TOKEN_SECRET',
+      // Review round 1, nit 3: more verbs that hand a token over.
+      '- [ ] Update the token in Vercel',
+      '- [ ] Enter the token',
+      '- [ ] Regenerate the token',
+      '- [ ] Replace the old token on the host',
+      '- [ ] Save the token in the dashboard',
     ]) expect(holdsDeploy(step), step).toBe(true)
+    expect(holdsDeploy('- [ ] Check the token refresh page'), 'refresh after the token is no hand-over').toBe(false)
   })
 
   it('alreadyListed: a marked comment that names every step', () => {
