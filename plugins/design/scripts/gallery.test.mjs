@@ -134,6 +134,18 @@ describe('from the reports', () => {
     expect(reportFiles(dir)).not.toContain(join(dir, 'shots.json'))
   })
 
+  it('keeps a hand-curated shots.json as shots.json.bak before writing its own', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gallery-'))
+    for (const f of ['t-a-375.jpg', 't-b-375.jpg']) writeFileSync(join(dir, f), Buffer.from([0xff, 0xd8, 0xff]))
+    writeFileSync(join(dir, 'trips.md'), REPORT_A)
+    writeFileSync(join(dir, 'shots.json'), '{"title": "curated by hand"}\n')
+    writeGallery(parseArgs(['--from-reports', dir]))
+    expect(readFileSync(join(dir, 'shots.json.bak'), 'utf8')).toBe('{"title": "curated by hand"}\n')
+    expect(JSON.parse(readFileSync(join(dir, 'shots.json'), 'utf8')).shots).toHaveLength(2)
+    // The backup is no report either.
+    expect(reportFiles(dir)).toEqual([join(dir, 'trips.md')])
+  })
+
   it('refuses both inputs at once, and needs one', () => {
     expect(() => parseArgs(['s.json', '--from-reports', 'r'])).toThrow(/not both/)
     expect(() => parseArgs([])).toThrow(/--from-reports/)
