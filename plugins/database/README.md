@@ -45,7 +45,7 @@ That is the newest installed copy (the cache keeps a folder per version). Not in
 
 Required for production work:
 
-- `refs.dev`, `refs.prod`: the dev and production Supabase refs.
+- `refs.dev`, `refs.prod`: the dev and production Supabase refs. `refs.dev` may be left out when dev runs only on the local stack: `prod-db.sh` then needs it only for a test run on dev (`PROD_DB_KEYCHAIN_ITEM=<keychain.dev>`), and still refuses a `refs.dev` equal to `refs.prod` when it is set.
 - `keychain.dev`, `keychain.prod`: the Keychain items holding the two database URLs (item names, never values).
 - `deployer`: the deployer agent's name (`ranjit`).
 - `backupRoot`: the folder outside the repo where `prod-db.sh backup` writes dumps.

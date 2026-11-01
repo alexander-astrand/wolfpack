@@ -6,7 +6,9 @@
 # The project's values come from <root>/.claude/kit.json, never from this
 # file, so one copy serves every project:
 #
-#   refs.dev        dev's Supabase project ref        (required)
+#   refs.dev        dev's Supabase project ref        (optional: a project
+#                   whose dev is only the local stack has none; needed
+#                   for a test run on dev)
 #   refs.prod       production's project ref          (required)
 #   keychain.prod   the Keychain item holding prod's database URL (required)
 #   keychain.dev    the same for dev, for a test run  (optional)
@@ -48,8 +50,8 @@ Usage: scripts/prod-db.sh <command>
   setting <key> <value>      upsert one app_settings row (e.g. notify_url);
                              refuses secrets, which a human sets
 
-Values come from .claude/kit.json: refs.dev, refs.prod, keychain.prod,
-backupRoot (required), keychain.dev (for a dev test run).
+Values come from .claude/kit.json: refs.prod, keychain.prod, backupRoot
+(required), refs.dev (when dev is hosted) and keychain.dev (for a dev test run).
 EOF
   exit 2
 }
@@ -111,12 +113,15 @@ else
   node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$KIT" 2>/dev/null || die_setup "$KIT isn't valid JSON"
 fi
 
-DEV_REF=$(kit_need refs.dev)
+# refs.dev may be empty: a project whose dev runs only on the local stack
+# has no hosted dev project. Nothing here needs it but a test run on dev;
+# when it's set, it's checked as strictly as refs.prod.
+DEV_REF=$(kit_get refs.dev) || die_setup "couldn't read refs.dev from $KIT"
 PROD_REF=$(kit_need refs.prod)
 PROD_ITEM=$(kit_need keychain.prod)
 DEV_ITEM=$(kit_get keychain.dev)
 BACKUP_ROOT=$(expand_home "$(kit_need backupRoot)")
-for r in "$DEV_REF" "$PROD_REF"; do
+for r in ${DEV_REF:+"$DEV_REF"} "$PROD_REF"; do
   [[ $r =~ ^[a-z]{20}$ ]] || die_setup "$KIT: a Supabase project ref is 20 lowercase letters, got '$r'"
 done
 [ "$DEV_REF" != "$PROD_REF" ] || die_setup "$KIT: refs.dev and refs.prod are the same project"
@@ -128,6 +133,7 @@ if [ "$ITEM" = "$PROD_ITEM" ]; then
   TARGET=production
 elif [ -n "$DEV_ITEM" ] && [ "$ITEM" = "$DEV_ITEM" ]; then
   TARGET=dev; BACKUP_ROOT="$BACKUP_ROOT-dev"
+  [ -n "$DEV_REF" ] || die_setup "$KIT has no refs.dev. A test run on dev needs the hosted dev project's ref there; a local-only dev has none to test against."
 else
   die "unknown Keychain item $ITEM (kit.json names keychain.prod${DEV_ITEM:+ and keychain.dev})"
 fi
@@ -152,7 +158,7 @@ fi
 if [ "$TARGET" = dev ]; then
   [ "$REF" = "$DEV_REF" ] || die "$ITEM points at $REF, not dev ($DEV_REF)"
 else
-  [ "$REF" != "$DEV_REF" ] || die "$ITEM points at dev, not production"
+  [ -z "$DEV_REF" ] || [ "$REF" != "$DEV_REF" ] || die "$ITEM points at dev, not production"
   [ "$REF" = "$PROD_REF" ] || die "$ITEM points at $REF, not production ($PROD_REF)"
 fi
 case "$URL" in *:6543/*) die "use the session pooler (port 5432), not the transaction pooler (6543)" ;; esac
