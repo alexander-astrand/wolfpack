@@ -7,22 +7,22 @@ import { describe, expect, it } from 'vitest'
 import { lastCommit, lastWrite, parseArgs, report } from './run-clock.mjs'
 
 const NOW = Date.parse('2026-10-31T12:00:00Z')
-const minAgo = (m) => new Date(NOW - m * 60000)
+const minAgo = (m, base = NOW) => new Date(base - m * 60000)
 const root = mkdtempSync(join(tmpdir(), 'run-clock-'))
 
 // A lane: a git repo with one commit `commitMin` ago and its files written `writeMin` ago.
-function lane(name, commitMin, writeMin) {
+function lane(name, commitMin, writeMin, base = NOW) {
   const d = join(root, name)
   mkdirSync(d, { recursive: true })
   const f = join(d, 'a.txt')
   writeFileSync(f, name)
-  const when = minAgo(commitMin).toISOString()
+  const when = minAgo(commitMin, base).toISOString()
   const env = { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when }
   const git = (...args) => execFileSync('git', ['-C', d, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { env, stdio: 'ignore' })
   git('init', '-q')
   git('add', 'a.txt')
   git('commit', '-q', '-m', 'one')
-  utimesSync(f, minAgo(writeMin), minAgo(writeMin))
+  utimesSync(f, minAgo(writeMin, base), minAgo(writeMin, base))
   return d
 }
 
@@ -103,7 +103,8 @@ describe('report', () => {
 
   it('the script prints nothing when all are alive', () => {
     const script = fileURLToPath(new URL('./run-clock.mjs', import.meta.url))
-    const fresh = lane('fresh', 0, 0)
+    // The script reads the real clock, so this lane is fresh against now, not NOW.
+    const fresh = lane('fresh', 0, 0, Date.now())
     expect(execFileSync(process.execPath, [script, '--lanes', fresh], { encoding: 'utf8' })).toBe('')
   })
 })
