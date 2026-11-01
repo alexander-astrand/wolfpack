@@ -3,5 +3,6 @@ node_modules
 # tracked: it says the kit ships nowhere, so /one-ring merges kit PRs.
 .claude/*
 !.claude/kit.json
+!.claude/standing-facts.md
 # A mod's types are written by the engine when it loads the mod.
 plugins/*/mods/*/.claude-plugin/types/
