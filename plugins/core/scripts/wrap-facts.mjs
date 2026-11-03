@@ -20,7 +20,7 @@
 // (plugins/release), or the newest release version in the marketplace cache.
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -238,7 +238,7 @@ function parseArgs(argv) {
   return o
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   try {
     const o = parseArgs(process.argv.slice(2))
     console.log(JSON.stringify(await wrapFacts(o.version, { project: o.project, usage: o.usage }), null, 2))
