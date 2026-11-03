@@ -30,10 +30,13 @@ const SCRIPTS = [
 ]
 
 // Hooks read a payload on stdin; an empty one must exit 0.
-const HOOKS = [
-  'release/hooks/ask-to-start.mjs',
-  'database/hooks/guard-production.mjs',
-  'database/hooks/denied-log.mjs',
+const HOOKS = ['release/hooks/ask-to-start.mjs']
+
+// These two exit 0 on an empty payload, which a skipped main does too, so each gets
+// args that only a running main answers with a non-zero exit and a known message.
+const ARGED_HOOKS = [
+  ['database/hooks/guard-production.mjs', ['--explain'], 2, /usage: node guard-production\.mjs --explain/],
+  ['database/hooks/denied-log.mjs', ['--summary', '--since', 'x'], 1, /--since takes a date/],
 ]
 
 // These two refuse an empty payload (exit 2 with a reason): main ran, which is the point.
@@ -62,6 +65,18 @@ describe('main guards run through a symlink', () => {
       const r = run(link, [], '{}')
       expect(r.error).toBeUndefined()
       expect(r.status).toBe(0)
+    })
+  }
+
+  for (const [path, args, status, message] of ARGED_HOOKS) {
+    it(`${path} answers ${args.join(' ')} with exit ${status} (main ran)`, () => {
+      const dir = mkdtempSync(join(tmpdir(), 'main guard '))
+      const link = join(dir, 'linked.mjs')
+      symlinkSync(join(PLUGINS, path), link)
+      const r = run(link, args, '')
+      expect(r.error).toBeUndefined()
+      expect(r.status).toBe(status)
+      expect(r.stderr).toMatch(message)
     })
   }
 
