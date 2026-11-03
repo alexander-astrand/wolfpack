@@ -68,3 +68,35 @@ describe.skipIf(!findChrome())('the matrix in one call', () => {
     }
   }, 60000)
 })
+
+// The 31 Oct 2026 shape: an empty-state line on the page ground beside a lone card, under a page
+// title and a nav that are allowed there.
+const FLOAT = `<!doctype html><html><head><style>
+  body { margin: 0; background: #f4efe6; font: 16px system-ui }
+  main { background: #f4efe6 }
+  .card { background: #fff; border-radius: 12px; padding: 16px }
+  .ruled { border: 1px solid #ddd }
+</style></head><body>
+<nav>Home Money</nav>
+<main><h1>Wishlist</h1>
+  <div class="card"><h2>Ideas</h2><p>Held by its card</p></div>
+  <div class="ruled"><p>Held by its border</p></div>
+  <section><p>Nothing yet. What you'd like to buy goes here.</p></section>
+  <p data-floating-ok>Allowed on purpose</p>
+</main></body></html>`
+
+describe.skipIf(!findChrome())('floating text', () => {
+  it('lists text on the page ground and leaves out titles, nav and held text', async () => {
+    const server = createServer((req, res) => res.writeHead(200, { 'content-type': 'text/html' }).end(FLOAT))
+    await new Promise((r) => server.listen(0, '127.0.0.1', r))
+    const { cdp, close } = await launch()
+    try {
+      await cdp.goto(`http://127.0.0.1:${server.address().port}/page`)
+      const out = JSON.parse(await cdp.evaluate(`await eval(${JSON.stringify(SRC)})`))
+      expect(out.views[0].floatingText.map((f) => f.text)).toEqual(["Nothing yet. What you'd like to buy goes here."])
+    } finally {
+      await close()
+      server.close()
+    }
+  }, 60000)
+})
