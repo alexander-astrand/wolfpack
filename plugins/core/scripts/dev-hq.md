@@ -13,7 +13,14 @@ The kit card from Burrow's `/legendary` of 27 Oct 2026; Alexander, 28 Oct: "Ther
   - `links`: each publish once, new with its dot; one he deletes stays deleted.
   - `shares`: the week receipt's slice of the meter per project over the meter's own week, Saturday's reset on, as `{ resets_at, list }`; delphi counts its own.
   - `readings`: every seven-day reading in the tower's tick log with the reset it counts toward, so each lands in its meter week.
-  - `tiers`: Pollux only. Each open trial from the trials ledger and one row per service across the projects' `free-tiers.md`, from `scrooge.mjs`, with GitHub Actions minutes from `gh` when its token has the `user` scope.
+  - `tiers`: Pollux only. Each open trial from the trials ledger and one row per service across the projects' `free-tiers.md`, from `scrooge.mjs`, with live numbers from `tier-readers.mjs`, each read at most hourly and carrying its `read_at`:
+    - GitHub Actions: gh's billing usage report (needs gh's `user` scope); private-repo minutes this month.
+    - Vercel: the billing charges API with the CLI's own login (CLI 65's `vercel usage` can't parse them); this month's usage and anything billed.
+    - Supabase: the Management API with the CLI's token; Edge Function calls this month, the largest database, active free projects.
+    - Netlify: the CLI; credits and anything over.
+    - Resend: the quota headers on one API answer, with a key in the Keychain as `dev-hq-resend`.
+    - Cloudflare: today's Workers requests from the GraphQL Analytics API, with a token (Account Analytics read) in the Keychain as `dev-hq-cloudflare`.
+    - CoinGecko: no reader; the Demo plan has no usage API (its `/key` is for paid plans), so the row shows its limit and says so.
 - **By hand:** `node <core>/scripts/dev-hq.mjs push --dry-run` prints the body; `push --backfill` also files the last week's publishes.
 - **Moves** (Burrow V1.9 D6): `dev-hq.mjs moves <input.json>` posts nothing; it prints the connector writes `/inception` (`plan`) and `/future-ted` (`ship`) make so a project's releases sit on their weeks: the release's `dev_bookings` row on the week of its planned start or ship day (a shipped one with that day), the project's later releases pushed on a week apart when it slipped (never pulled back), and the card's `planned_for`.
 - **Where it sends nothing:** a machine without the sender or the key (the cloud).

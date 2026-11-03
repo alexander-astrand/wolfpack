@@ -24,7 +24,7 @@ import {
   withParts,
 } from './dev-hq.mjs'
 import { readFreeTiers } from './scrooge.mjs'
-import { actionsMonth, edgeMonth, netlifyReading, vercelReading } from './tier-readers.mjs'
+import { actionsMonth, cloudflareReading, edgeMonth, netlifyReading, resendReading, vercelCharges, vercelReading } from './tier-readers.mjs'
 import { receipt } from './week-receipt.mjs'
 
 const NOW = Date.parse('2026-10-28T14:00:00Z')
@@ -375,6 +375,18 @@ describe('the week', () => {
       { at: at(1), pct: 42, resets_at: RESET },
     ])
   })
+
+  it('never lets a reading drop below an earlier one in the same week', () => {
+    const root = tmp()
+    const meterNow = join(root, 'meter-now.json')
+    const meterTicks = join(root, 'ticks.log')
+    writeFileSync(meterNow, JSON.stringify({ at: at(1), rate_limits: [{ kind: 'seven_day', percentUsed: 36, resetsAt: RESET }] }))
+    writeFileSync(meterTicks, `2026-10-28T13:00:00.000Z\tseven_day\t36\t37\t${RESET}`)
+    expect(readingsPart({ meterNow, meterTicks, now: NOW })).toEqual([
+      { at: '2026-10-28T13:00:00.000Z', pct: 37, resets_at: RESET },
+      { at: at(1), pct: 37, resets_at: RESET },
+    ])
+  })
 })
 
 describe('free tiers and trials', () => {
@@ -412,8 +424,8 @@ describe('free tiers and trials', () => {
         { kind: 'trial', name: 'Claude Max 20x (renewal)', pct: null, detail: 'Card on file. At the end: renews at Max 20x', ends_on: '2026-11-08' },
         { kind: 'usage', name: 'Supabase (Free plan)', pct: 30, detail: 'Edge Function invocations: 500,000 / month', ends_on: null },
         { kind: 'usage', name: 'GitHub Actions (GitHub Free account)', pct: null, detail: 'Private repos, minutes: 2,000 / month', ends_on: null },
-        { kind: 'usage', name: 'Resend (Free)', pct: null, detail: 'Emails per day: 100. Not read: needs a Resend API key, which only you hold', ends_on: null },
-        { kind: 'usage', name: 'CoinGecko (Demo API, free)', pct: 2.4, detail: 'Monthly calls: about 10 000', ends_on: null },
+        { kind: 'usage', name: 'Resend (Free)', pct: null, detail: 'Emails per day: 100', ends_on: null },
+        { kind: 'usage', name: 'CoinGecko (Demo API, free)', pct: 2.4, detail: "Monthly calls: about 10 000. Not read: the Demo plan has no usage API (CoinGecko's /key is for paid plans); its dashboard shows the calls", ends_on: null },
       ],
     })
     expect(tiersPart(null)).toBe(null)
@@ -479,6 +491,43 @@ describe('free tiers and trials', () => {
     expect(out.since).toBe(null)
     expect(Object.keys(out.store.hours)).toHaveLength(3)
     expect(edgeMonth(null, buckets.slice(1), { a: 'org1', b: 'org1' }, now)).toMatchObject({ invocations: 43, since: '2026-11-02' })
+  })
+
+  it("sums Vercel's charge lines for the month, by each line's own Los Angeles day", () => {
+    const line = (start, ServiceName, ConsumedQuantity, BilledCost = 0) => JSON.stringify({ ChargePeriodStart: start, ServiceName, ConsumedQuantity, BilledCost })
+    const text = [
+      line('2026-10-31T07:00:00.000Z', 'CDN Requests', 500),
+      line('2026-11-01T07:00:00.000Z', 'CDN Requests', 40),
+      line('2026-11-02T08:00:00.000Z', 'CDN Requests', 2),
+      line('2026-11-02T08:00:00.000Z', 'Fast Data Transfer', 0.5),
+      line('2026-11-01T07:00:00.000Z', 'Pro', 0, 0.645),
+      line('2026-11-02T08:00:00.000Z', 'Pro', 0, 0.645),
+      'not json',
+    ].join('\n')
+    expect(vercelCharges(text, '2026-11-01')).toEqual({ metrics: { edgeRequest: 42, fastDataTransfer: 0.5 }, billed: [{ name: 'Pro', cost: 1.29 }], from: '2026-11-01' })
+    expect(vercelCharges('', '2026-11-01')).toBe(null)
+  })
+
+  it('reads Resend from its quota headers and Cloudflare from its analytics, each with the time it was read', () => {
+    expect(resendReading(new Headers({ 'x-resend-daily-quota': '12', 'x-resend-monthly-quota': '340' }))).toEqual({ day: 12, month: 340 })
+    expect(resendReading(new Headers({}))).toBe(null)
+    const cf = cloudflareReading({ data: { viewer: { accounts: [{ workersInvocationsAdaptive: [{ sum: { requests: 900 } }, { sum: { requests: 100 } }] }, { workersInvocationsAdaptive: [] }] } } })
+    expect(cf).toEqual({ requestsToday: 1000, accounts: 2 })
+    const rows = (service, list) => list.map(([limit, value]) => ({ service, limit, value, pct: null }))
+    const scan = {
+      freeTiers: [{ limits: [
+        ...rows('Resend (Free)', [['Emails per day', '100'], ['Emails per month', '3,000']]),
+        ...rows('Cloudflare (Workers and Pages, Free)', [['Workers requests', '100,000 / day']]),
+        ...rows('CoinGecko (Demo API, free)', [['Monthly calls', 'about 10 000']]),
+      ] }],
+    }
+    const readAt = '2026-11-03T22:49:01.642Z'
+    const by = Object.fromEntries(tiersPart(scan, { readings: { resend: { day: 12, month: 340, readAt }, cloudflare: { need: 'cloudflare token', readAt } } }).list.map((t) => [t.name.split(' ')[0], t]))
+    expect(by.Resend).toMatchObject({ pct: 12, detail: '12 of 100 emails today, 340 of 3,000 this month', read_at: readAt })
+    expect(by.Cloudflare.detail).toBe('Workers requests: 100,000 / day. Not read: needs a Cloudflare API token (Account Analytics read) in the Keychain as dev-hq-cloudflare')
+    expect(by.Cloudflare.read_at).toBeUndefined()
+    expect(by.CoinGecko.detail).toMatch(/Not read: the Demo plan has no usage API/)
+    expect(tiersPart(scan, { readings: { cloudflare: { requestsToday: 5000, accounts: 1, readAt } } }).list[1]).toMatchObject({ pct: 5, detail: 'Workers requests 5,000 of 100,000 today (resets 00:00 UTC)' })
   })
 
   it('reads every free-tiers row with its service for the part', () => {

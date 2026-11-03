@@ -517,6 +517,10 @@ export function readingsPart({ meterNow, meterTicks, now = Date.now() }) {
   const ok = all
     .filter((x) => x.kind === 'seven_day' && x.t <= now && x.t <= x.r && x.t > x.r - 7 * DAY && Number.isFinite(x.pct) && x.pct >= 0 && x.pct <= 100)
     .sort((a, b) => a.t - b.t)
+  // the week's meter only climbs, so a reading lower than one before it in the same week (the
+  // tick log's 37 at 22:50, then meter-now.json's 36 at 22:53 on 3 Nov) keeps the higher figure
+  const top = new Map()
+  for (const x of ok) top.set(x.r, (x.pct = Math.max(x.pct, top.get(x.r) ?? 0)))
   const keep = []
   ok.forEach((x, i) => {
     const prev = ok[i - 1]
@@ -544,14 +548,16 @@ function bindingLimit(rows) {
   return r ? { ...r, text: `${r.limit.replace(/\s*\([^)]*\)/g, '')}: ${firstClause(r.value)}` } : null
 }
 
-// What a row needs before it can be read, for a service with no reader: the
-// key or login only Alexander holds (his task, 29 Oct: say what they need).
-const NEEDS = {
-  resend: 'a Resend API key, which only you hold',
-  cloudflare: 'a Cloudflare API token or wrangler login, which only you can do',
-}
+// What a row needs before it can be read: the key or login only Alexander
+// holds (his task, 29 Oct: say what they need). A service whose free plan has
+// no usage API says so instead, and shows its limit alone.
 const NEED_WORDS = {
   "gh's user scope": "gh's user scope (gh auth refresh -h github.com -s user)",
+  'resend key': 'a Resend API key in the Keychain as dev-hq-resend',
+  'cloudflare token': 'a Cloudflare API token (Account Analytics read) in the Keychain as dev-hq-cloudflare',
+}
+const NO_API = {
+  coingecko: "the Demo plan has no usage API (CoinGecko's /key is for paid plans); its dashboard shows the calls",
 }
 
 const num = (n, digits = 0) => Number(n).toLocaleString('en-US', { maximumFractionDigits: digits })
@@ -609,12 +615,24 @@ function actionsRow(r, rows) {
   return { pct: share(r.minutes, cap), detail: `${num(Math.round(r.minutes))} of ${num(cap)} private-repo minutes this month${top}${billed}` }
 }
 
-const READERS = { vercel: vercelRow, supabase: supabaseRow, netlify: netlifyRow, 'github actions': actionsRow }
+function resendRow(r, rows) {
+  const dayCap = capOf(rows, /day/i) || 100
+  const monthCap = capOf(rows, /month/i) || 3000
+  const bits = [r.day != null && `${num(r.day)} of ${num(dayCap)} emails today`, r.month != null && `${num(r.month)} of ${num(monthCap)} this month`].filter(Boolean)
+  return { pct: Math.max(share(r.day ?? 0, dayCap), share(r.month ?? 0, monthCap)), detail: bits.join(', ') }
+}
+
+function cloudflareRow(r, rows) {
+  const cap = capOf(rows, /workers requests/i) || 100_000
+  return { pct: share(r.requestsToday, cap), detail: `Workers requests ${num(r.requestsToday)} of ${num(cap)} today (resets 00:00 UTC)` }
+}
+
+const READERS = { vercel: vercelRow, supabase: supabaseRow, netlify: netlifyRow, 'github actions': actionsRow, resend: resendRow, cloudflare: cloudflareRow }
 
 // Dev HQ's free tiers and trials, from scrooge's scan: each open trial with
 // its end, and one row per service across every project's free-tiers.md (by
 // its heading, the same service once), never one per limit. A service with a
-// reader (tier-readers.mjs: Vercel, Supabase, Netlify, GitHub Actions) takes
+// reader (tier-readers.mjs: Vercel, Supabase, Netlify, GitHub Actions, Resend, Cloudflare) takes
 // its live numbers; one without says what it needs to be read. Otherwise the
 // pct is the highest usage any project recorded, else null (Burrow shows
 // "not reported") (Alexander, 28 Oct: "In usage free tiers and trials are
@@ -646,11 +664,15 @@ export function tiersPart(scan, { actionsMinutes = null, readings = {} } = {}) {
     let pct = used.length ? Math.min(100, Math.max(...used)) : null
     let detail = limit?.text ?? null
     const reading = live[key]
-    const need = reading?.need ?? (reading ? null : NEEDS[key.split(' ')[0]])
+    const need = reading?.need ?? null
     const row = reading && !reading.need && READERS[key] ? READERS[key](reading, s.rows) : null
+    const noApi = NO_API[key.split(' ')[0]]
     if (row) ({ pct, detail } = row)
     else if (need && pct == null) detail = `${detail ? `${detail}. ` : ''}Not read: needs ${NEED_WORDS[need] ?? need}`
-    list.push({ kind: 'usage', name: s.name, pct, detail: detail ? detail.slice(0, 200) : null, ends_on: null })
+    else if (noApi) detail = `${detail ? `${detail}. ` : ''}Not read: ${noApi}`
+    // the reading's own time, so Costs says how old the figure is (3 Nov 2026)
+    const readAt = row && reading.readAt ? { read_at: reading.readAt } : {}
+    list.push({ kind: 'usage', name: s.name, pct, detail: detail ? detail.slice(0, 200) : null, ends_on: null, ...readAt })
   }
   return { full: true, list: list.slice(0, 100) }
 }
