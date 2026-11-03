@@ -1,43 +1,39 @@
 #!/usr/bin/env node
-// The QA seed and its clean-up from the project's SQL files, with the lane and seed=shared rules
-// built in. Kit 1.8 (kit 1.7.1 council Feature 17, design lens Feature 5): each project wrapped its
-// own seed, lanes named their rows by hand, and four Bengan Boys each cleaning deleted each other's
-// rows (kit 1.6.1 council M4); spidey-sense said what a seed must do, but no script did it.
+// The QA seed for a lane: a thin wrapper over the database plugin's seed.mjs (the gale runner),
+// which adds only the lane and seed=shared. Kit 1.8 built this as a second runner; kit 1.9 folded
+// it into seed.mjs after the two drifted (PR #46's notes for review), so the pair check, the
+// dev-only target and the log are seed.mjs's, tested there once.
 //
-//   node <design>/scripts/qa-seed.mjs up|down <name> [--lane <lane>] [seed=shared] [--dir <seeds>]
+//   node <design>/scripts/qa-seed.mjs up|down <name> [--lane <lane>] [seed=shared] [--root <project>]
 //        [--db <url>] [--allow-host <host>] [--dry]
 //
-// Runs <dir>/<name>.up.sql (or .down.sql) with psql, quietly, stopping at the first error. <dir> is
-// scripts/qa/seeds under the current folder; the project's scripts/qa/README.md lists its seeds
-// (its CLAUDE.md only points there). Every {{LANE}} in the SQL becomes the lane name
-// ("qa" by default), so a seed marks its rows "TEST QA seed {{LANE}}" and its clean-up deletes only
-// that lane's rows (and anything an earlier run of that lane left).
+// Runs <root>/scripts/qa/seeds/<name>.up.sql (or .down.sql) as one `supabase db query`, through
+// seed.mjs: an up never runs without its down, and both name the same tag. Every {{LANE}} in the
+// SQL becomes the lane name ("qa" by default), so a seed marks its rows "TEST QA seed {{LANE}}"
+// and its clean-up deletes only that lane's rows (and anything an earlier run of that lane left).
 // seed=shared (the order's flag, lanes side by side): a lane (--lane given) neither seeds nor cleans
 // and says so; the navigator (no --lane) runs the one seed before it spawns the lanes, and the one
 // clean-up after the last lane reports, as lane "shared".
-// Dev only: the database is --db, else QA_SEED_DB_URL, else the local Supabase (postgresql://
-// postgres:postgres@127.0.0.1:54322/postgres). A host other than localhost, in the URL or its query's
-// ?host=, ?hostaddr= or ?service= (libpq lets them override the URL's host), is refused unless
-// --allow-host names it (a hosted dev project); production is never a QA seed's target.
-// --dry prints the SQL and the host instead of running it.
-import { existsSync, readFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
-import { spawnSync } from 'node:child_process'
+// Dev only, seed.mjs's devTarget(): without --db (or QA_SEED_DB_URL) dev is picked the way
+// run-tests.mjs does (a local stack, or the CLI linked to refs.dev). A URL whose host, or whose
+// ?host=, ?hostaddr= or ?service=, is not local is refused unless --allow-host names it.
+// --dry prints the target and the SQL and runs nothing.
+import { readFileSync, realpathSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-
-export const LOCAL_DB = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1'])
+// The repo keeps the plugins side by side (as dev-hq.mjs imports release's usage.mjs).
+import { devTarget, run as seedRun } from '../../database/scripts/seed.mjs'
 
 export function parseArgs(argv, env = process.env, cwd = process.cwd()) {
-  const o = { action: null, name: null, lane: null, shared: false, dir: join(cwd, 'scripts', 'qa', 'seeds'), db: env.QA_SEED_DB_URL || LOCAL_DB, allowHost: null, dry: false }
+  const o = { action: null, name: null, lane: null, shared: false, root: resolve(cwd, env.CLAUDE_PROJECT_DIR || '.'), db: env.QA_SEED_DB_URL || null, allowHost: null, dry: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--lane') o.lane = argv[++i]
     else if (a === 'seed=shared' || a === '--shared') o.shared = true
-    else if (a === '--dir') o.dir = resolve(cwd, argv[++i])
+    else if (a === '--root') o.root = resolve(cwd, argv[++i] ?? '')
     else if (a === '--db') o.db = argv[++i]
     else if (a === '--allow-host') o.allowHost = argv[++i]
-    else if (a === '--dry') o.dry = true
+    else if (a === '--dry' || a === '--dry-run') o.dry = true
     else if (a === '--help' || a === '-h') o.help = true
     else if (a.startsWith('-')) throw new Error(`unknown argument ${a}`)
     else if (!o.action) o.action = a
@@ -46,71 +42,38 @@ export function parseArgs(argv, env = process.env, cwd = process.cwd()) {
   }
   if (o.help) return o
   if (!['up', 'down'].includes(o.action)) throw new Error('first argument is up or down')
-  if (!o.name || !/^[\w-]+$/.test(o.name)) throw new Error('the seed name is letters, digits, _ and -')
+  if (!o.name || !/^[a-z0-9][a-z0-9-]{0,40}$/.test(o.name)) throw new Error('the seed name is lower-case letters, digits and dashes')
   if (o.lane !== null && !/^[\w-]+$/.test(o.lane ?? '')) throw new Error('--lane is letters, digits, _ and -')
   return o
 }
 
-export function hostOf(url) {
-  try {
-    return new URL(url).hostname
-  } catch {
-    throw new Error('the database URL does not parse')
-  }
-}
-
-// Every server the URL can reach. libpq lets the query override the URL's
-// host: `?host=`, `?hostaddr=` (each may list several, comma-separated) and
-// `?service=` (a pg_service.conf entry, unknown from here), so
-// `postgresql://localhost/db?host=prod.example.co` is a remote database that
-// reads as local by its hostname alone (review MUST 4). A service is named
-// `service=<name>`, so only `--allow-host service=<name>` lets it through.
-export function targetsOf(url) {
-  const host = hostOf(url)
-  const q = new URL(url).searchParams
-  const out = [host]
-  for (const key of ['host', 'hostaddr']) for (const v of q.getAll(key)) out.push(...v.split(','))
-  for (const v of q.getAll('service')) out.push(`service=${v}`)
-  return out.map((h) => h.trim())
-}
-
-// What to do, decided without touching the database, so the rules are tested on their own.
-export function plan(o) {
+// The lane rules alone, decided before anything touches the database.
+export function laneOf(o) {
   if (o.shared && o.lane) return { skip: `seed=shared: the navigator seeds and cleans; lane ${o.lane} does neither. Use the ids in your order.` }
-  const host = hostOf(o.db)
-  for (const t of targetsOf(o.db)) if (!LOCAL_HOSTS.has(t) && t !== o.allowHost) throw new Error(`${t} is not a local database; a hosted dev database needs --allow-host ${t}`)
-  const file = join(o.dir, `${o.name}.${o.action}.sql`)
-  if (!existsSync(file)) throw new Error(`no ${file} (the project keeps its seeds as <name>.up.sql and <name>.down.sql there)`)
-  const lane = o.shared ? 'shared' : o.lane || 'qa'
-  return { file, host, lane, sql: readFileSync(file, 'utf8').replaceAll('{{LANE}}', lane) }
+  return { lane: o.shared ? 'shared' : o.lane || 'qa' }
 }
 
-export function run(o, log = console.log, exec = spawnSync) {
-  const p = plan(o)
-  if (p.skip) {
-    log(p.skip)
+export function run(o, log = console.log, { exec, bin = process.env.RUN_TESTS_SUPABASE || 'supabase', pick } = {}) {
+  const l = laneOf(o)
+  if (l.skip) {
+    log(l.skip)
     return 0
   }
-  if (o.dry) {
-    log(`-- ${o.action} ${o.name}, lane ${p.lane}, on ${p.host}\n${p.sql}`)
-    return 0
+  const t = devTarget(o.root, { db: o.db, allowHost: o.allowHost, ...(pick ? { pick } : {}) })
+  if (t.error) {
+    log(`seed: refused, nothing ran: ${t.error}`)
+    return 2
   }
-  const r = exec('psql', [o.db, '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-f', '-'], { input: p.sql, encoding: 'utf8' })
-  if (r.error) throw new Error(r.error.code === 'ENOENT' ? 'psql not found: install the Postgres client' : r.error.message)
-  if (r.stdout?.trim()) log(r.stdout.trim())
-  if (r.status !== 0) {
-    log(`${o.action} ${o.name} failed (lane ${p.lane}): ${(r.stderr ?? '').trim()}`)
-    return 1
-  }
-  log(`${o.action} ${o.name}: done, lane ${p.lane}`)
-  return 0
+  const out = seedRun({ root: o.root, cmd: o.action, name: o.name, dryRun: o.dry, target: t, lane: l.lane, bin, ...(exec ? { exec } : {}) })
+  for (const line of out.lines) log(line)
+  return out.code
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL((await import('node:fs')).realpathSync(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   try {
     const o = parseArgs(process.argv.slice(2))
     if (o.help) {
-      console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 21).join('\n'))
+      console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 20).join('\n'))
       process.exit(0)
     }
     process.exit(run(o))

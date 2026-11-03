@@ -1,21 +1,34 @@
-import { describe, it, expect } from 'vitest'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+// The wrapper's own rules only: the lane, seed=shared and the arguments. The pair check and the
+// dev-only target (the ?host= case included) are seed.mjs's, tested once in seed.test.mjs.
+import { afterEach, beforeEach, describe, it, expect } from 'vitest'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { LOCAL_DB, hostOf, parseArgs, plan, run, targetsOf } from './qa-seed.mjs'
+import { laneOf, parseArgs, run } from './qa-seed.mjs'
 
-const seeds = () => {
-  const dir = mkdtempSync(join(tmpdir(), 'qa-seed-'))
-  writeFileSync(join(dir, 'night.up.sql'), "insert into events (title) values ('TEST QA seed {{LANE}}') returning id;")
-  writeFileSync(join(dir, 'night.down.sql'), "delete from events where title = 'TEST QA seed {{LANE}}';")
-  return dir
+let root
+beforeEach(() => {
+  root = mkdtempSync(join(tmpdir(), 'qa-seed-'))
+  mkdirSync(join(root, 'scripts', 'qa', 'seeds'), { recursive: true })
+  writeFileSync(join(root, 'scripts', 'qa', 'seeds', 'night.up.sql'), "insert into events (title) values ('TEST QA seed {{LANE}}') returning id;")
+  writeFileSync(join(root, 'scripts', 'qa', 'seeds', 'night.down.sql'), "delete from events where title = 'TEST QA seed {{LANE}}';")
+  process.env.GALE_STATE_DIR = join(root, 'state')
+})
+afterEach(() => {
+  delete process.env.GALE_STATE_DIR
+  rmSync(root, { recursive: true, force: true })
+})
+
+const args = (list, env = {}) => ({ ...parseArgs(list, env, '/proj'), root })
+const local = () => ({ flag: '--local' })
+const never = () => {
+  throw new Error('ran the CLI')
 }
-const args = (list, env = {}) => parseArgs(list, env, '/proj')
 
 describe('parseArgs', () => {
   it('reads the action, name, lane and shared flag, with the defaults', () => {
-    expect(args(['up', 'night'])).toMatchObject({ action: 'up', name: 'night', lane: null, shared: false, dir: '/proj/scripts/qa/seeds', db: LOCAL_DB })
-    expect(args(['down', 'night', '--lane', 'magnus', 'seed=shared'], { QA_SEED_DB_URL: 'postgresql://u@localhost:5432/d' })).toMatchObject({ lane: 'magnus', shared: true, db: 'postgresql://u@localhost:5432/d' })
+    expect(parseArgs(['up', 'night'], {}, '/proj')).toMatchObject({ action: 'up', name: 'night', lane: null, shared: false, root: '/proj', db: null })
+    expect(parseArgs(['down', 'night', '--lane', 'magnus', 'seed=shared', '--root', 'app'], { QA_SEED_DB_URL: 'postgresql://u@localhost:5432/d' }, '/proj')).toMatchObject({ lane: 'magnus', shared: true, root: '/proj/app', db: 'postgresql://u@localhost:5432/d' })
   })
   it('refuses a bad action, name or lane', () => {
     expect(() => args(['seed', 'night'])).toThrow(/up or down/)
@@ -25,61 +38,37 @@ describe('parseArgs', () => {
   })
 })
 
-describe('plan', () => {
-  it('fills the lane into the SQL, "qa" by default', () => {
-    const dir = seeds()
-    expect(plan({ ...args(['up', 'night']), dir }).sql).toContain("'TEST QA seed qa'")
-    expect(plan({ ...args(['down', 'night', '--lane', 'staffan']), dir }).sql).toBe("delete from events where title = 'TEST QA seed staffan';")
-  })
-  it('under seed=shared a lane does nothing and the navigator runs as "shared"', () => {
-    const dir = seeds()
-    expect(plan({ ...args(['up', 'night', '--lane', 'tomas', 'seed=shared']), dir }).skip).toMatch(/lane tomas does neither/)
-    expect(plan({ ...args(['up', 'night', 'seed=shared']), dir }).lane).toBe('shared')
-  })
-  it('refuses a database that is not local unless its host is allowed', () => {
-    const dir = seeds()
-    expect(() => plan({ ...args(['up', 'night', '--db', 'postgresql://u@db.example.co:5432/postgres']), dir })).toThrow(/needs --allow-host db\.example\.co/)
-    expect(plan({ ...args(['up', 'night', '--db', 'postgresql://u@db.example.co:5432/postgres', '--allow-host', 'db.example.co']), dir }).host).toBe('db.example.co')
-    expect(() => hostOf('nope')).toThrow(/does not parse/)
-  })
-  it('refuses a local URL whose query sends libpq elsewhere (review MUST 4)', () => {
-    const dir = seeds()
-    const at = (db, ...more) => plan({ ...args(['up', 'night', '--db', db, ...more]), dir })
-    expect(() => at('postgresql://u@localhost:5432/postgres?host=db.example.co')).toThrow(/db\.example\.co is not a local database; .*--allow-host db\.example\.co/)
-    expect(() => at('postgresql://u@127.0.0.1/postgres?hostaddr=127.0.0.1,10.0.0.9')).toThrow(/10\.0\.0\.9 is not a local/)
-    expect(() => at('postgresql://u@localhost/postgres?service=prod')).toThrow(/needs --allow-host service=prod/)
-    expect(at('postgresql://u@localhost/postgres?service=devsvc', '--allow-host', 'service=devsvc').host).toBe('localhost')
-    expect(at('postgresql://u@localhost/postgres?host=db.example.co', '--allow-host', 'db.example.co').host).toBe('localhost')
-    expect(at('postgresql://u@localhost/postgres?host=127.0.0.1&sslmode=disable').host).toBe('localhost')
-    expect(targetsOf('postgresql://u@localhost/db?host=a,b&service=s')).toEqual(['localhost', 'a', 'b', 'service=s'])
-  })
-  it('names the missing file and where seeds live', () => {
-    expect(() => plan({ ...args(['up', 'gone']), dir: seeds() })).toThrow(/gone\.up\.sql.*<name>\.up\.sql/)
+describe('the lane', () => {
+  it('is "qa" by default, the lane given, or "shared" for the navigator under seed=shared', () => {
+    expect(laneOf(args(['up', 'night']))).toEqual({ lane: 'qa' })
+    expect(laneOf(args(['up', 'night', '--lane', 'staffan']))).toEqual({ lane: 'staffan' })
+    expect(laneOf(args(['up', 'night', 'seed=shared']))).toEqual({ lane: 'shared' })
+    expect(laneOf(args(['up', 'night', '--lane', 'tomas', 'seed=shared'])).skip).toMatch(/lane tomas does neither/)
   })
 })
 
-describe('run', () => {
-  it('pipes the SQL to psql quietly, stopping on the first error', () => {
-    const dir = seeds()
+describe('run, through seed.mjs', () => {
+  it('fills the lane into the SQL and sends it as one supabase db query on dev', () => {
     const calls = []
     const lines = []
-    const exec = (cmd, a, opts) => (calls.push({ cmd, a, opts }), { status: 0, stdout: ' 42\n' })
-    expect(run({ ...args(['up', 'night', '--lane', 'magnus']), dir }, (l) => lines.push(l), exec)).toBe(0)
-    expect(calls[0].cmd).toBe('psql')
-    expect(calls[0].a).toEqual([LOCAL_DB, '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-f', '-'])
-    expect(calls[0].opts.input).toContain('TEST QA seed magnus')
-    expect(lines).toEqual(['42', 'up night: done, lane magnus'])
+    const exec = (bin, a) => (calls.push({ bin, a, sent: readFileSync(a.at(-1), 'utf8') }), { status: 0, stdout: ' 42\n' })
+    expect(run(args(['up', 'night', '--lane', 'magnus']), (l) => lines.push(l), { exec, bin: 'supabase', pick: local })).toBe(0)
+    expect(calls[0].a.slice(0, 3)).toEqual(['db', 'query', '--local'])
+    expect(calls[0].sent).toContain("'TEST QA seed magnus'")
+    expect(lines).toEqual(['42', 'seed: up night done on dev (--local), lane magnus; undo with qa-seed.mjs down night --lane magnus'])
+  })
+  it('passes --db through the shared check: a remote ?host= is refused before anything runs', () => {
+    const lines = []
+    expect(run(args(['up', 'night', '--db', 'postgresql://u@localhost/postgres?host=db.example.co']), (l) => lines.push(l), { exec: never, pick: never })).toBe(2)
+    expect(lines[0]).toMatch(/refused, nothing ran: db\.example\.co is not a local database/)
   })
   it('reports a failure, and runs nothing for a shared lane or a dry run', () => {
-    const dir = seeds()
     const lines = []
-    expect(run({ ...args(['down', 'night']), dir }, (l) => lines.push(l), () => ({ status: 3, stderr: 'ERROR: no table' }))).toBe(1)
-    expect(lines.at(-1)).toMatch(/down night failed \(lane qa\): ERROR: no table/)
-    const never = () => {
-      throw new Error('ran psql')
-    }
-    expect(run({ ...args(['up', 'night', '--lane', 'x', 'seed=shared']), dir }, () => {}, never)).toBe(0)
-    expect(run({ ...args(['up', 'night', '--dry']), dir }, (l) => lines.push(l), never)).toBe(0)
-    expect(lines.at(-1)).toMatch(/^-- up night, lane qa, on 127\.0\.0\.1\ninsert/)
+    expect(run(args(['down', 'night']), (l) => lines.push(l), { exec: () => ({ status: 3, stderr: 'ERROR: no table' }), pick: local })).toBe(1)
+    expect(lines.at(-1)).toBe('seed: down night failed on dev (--local), lane qa')
+    expect(lines).toContain('ERROR: no table')
+    expect(run(args(['up', 'night', '--lane', 'x', 'seed=shared']), () => {}, { exec: never, pick: never })).toBe(0)
+    expect(run(args(['up', 'night', '--dry']), (l) => lines.push(l), { exec: never, pick: local })).toBe(0)
+    expect(lines).toContain("insert into events (title) values ('TEST QA seed qa') returning id;")
   })
 })

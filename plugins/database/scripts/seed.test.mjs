@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { pair, parseArgs, tagFor } from './seed.mjs'
+import { LANE_TAG, devTarget, hostOf, pair, parseArgs, run as seedRun, tagFor, targetsOf } from './seed.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const RUN = join(HERE, 'seed.mjs')
@@ -138,6 +138,56 @@ describe('running', () => {
     expect(r.code).toBe(2)
     expect(r.err).toMatch(/unlinked/)
     expect(calls()).toEqual([])
+  })
+})
+
+// The one dev-only target check, for seed.mjs and the design plugin's qa-seed.mjs alike.
+describe('devTarget', () => {
+  const never = () => {
+    throw new Error('picked the CLI target for a URL')
+  }
+  it('without a URL is run-tests target(): its flag, or its refusal', () => {
+    expect(devTarget(root)).toEqual({ args: ['--local'], label: '--local' })
+    expect(devTarget(root, { pick: () => ({ error: 'the CLI is linked to production; refused' }) })).toEqual({ error: 'the CLI is linked to production; refused' })
+  })
+  it('passes a local URL as --db-url and refuses a hosted one unless allowed', () => {
+    expect(devTarget(root, { db: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres', pick: never })).toEqual({ args: ['--db-url', 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'], label: 'db-url:127.0.0.1' })
+    expect(devTarget(root, { db: 'postgresql://u@db.example.co:5432/postgres', pick: never }).error).toMatch(/needs --allow-host db\.example\.co/)
+    expect(devTarget(root, { db: 'postgresql://u@db.example.co:5432/postgres', allowHost: 'db.example.co' }).label).toBe('db-url:db.example.co')
+    expect(devTarget(root, { db: 'nope' }).error).toMatch(/does not parse/)
+    expect(() => hostOf('nope')).toThrow(/does not parse/)
+  })
+  it('refuses a local URL whose query sends libpq elsewhere (kit 1.8 review MUST 4)', () => {
+    const at = (db, allowHost = null) => devTarget(root, { db, allowHost, pick: never })
+    expect(at('postgresql://u@localhost:5432/postgres?host=db.example.co').error).toMatch(/db\.example\.co is not a local database; .*--allow-host db\.example\.co/)
+    expect(at('postgresql://u@127.0.0.1/postgres?hostaddr=127.0.0.1,10.0.0.9').error).toMatch(/10\.0\.0\.9 is not a local/)
+    expect(at('postgresql://u@localhost/postgres?service=prod').error).toMatch(/needs --allow-host service=prod/)
+    expect(at('postgresql://u@localhost/postgres?service=devsvc', 'service=devsvc').label).toBe('db-url:localhost')
+    expect(at('postgresql://u@localhost/postgres?host=db.example.co', 'db.example.co').label).toBe('db-url:localhost')
+    expect(at('postgresql://u@localhost/postgres?host=127.0.0.1&sslmode=disable').label).toBe('db-url:localhost')
+    expect(targetsOf('postgresql://u@localhost/db?host=a,b&service=s')).toEqual(['localhost', 'a', 'b', 'service=s'])
+  })
+})
+
+describe('a lane seed', () => {
+  const LUP = `insert into events (title) values ('${LANE_TAG}');\n`
+  const LDOWN = `delete from events where title = '${LANE_TAG}';\n`
+  it('accepts the {{LANE}} tag, fills the lane (qa by default) and passes the target args', () => {
+    seedFile('night.up.sql', LUP)
+    seedFile('night.down.sql', LDOWN)
+    process.env.GALE_STATE_DIR = state
+    const calls = []
+    const exec = (b, a) => (calls.push({ a, sent: readFileSync(a.at(-1), 'utf8') }), { status: 0, stdout: '' })
+    const target = { args: ['--db-url', 'postgresql://u@localhost/d'], label: 'db-url:localhost' }
+    let r = seedRun({ root, cmd: 'up', name: 'night', target, lane: 'magnus', exec })
+    expect(r.code).toBe(0)
+    expect(calls[0].a.slice(0, 4)).toEqual(['db', 'query', '--db-url', 'postgresql://u@localhost/d'])
+    expect(calls[0].sent).toContain("'TEST QA seed magnus'")
+    expect(r.lines.at(-1)).toBe('seed: up night done on dev (db-url:localhost), lane magnus; undo with qa-seed.mjs down night --lane magnus')
+    r = seedRun({ root, cmd: 'down', name: 'night', flag: '--local', exec })
+    expect(calls[1].sent).toBe("delete from events where title = 'TEST QA seed qa';\n")
+    expect(readFileSync(join(state, 'fixture', 'qa.log'), 'utf8')).toMatch(/ up night db-url:localhost ok\n.* down night --local ok\n$/)
+    delete process.env.GALE_STATE_DIR
   })
 })
 
