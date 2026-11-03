@@ -9,11 +9,12 @@ The kit card from Burrow's `/legendary` of 27 Oct 2026; Alexander, 28 Oct: "Ther
 - **The push:** the machine's own Dev HQ report (`pollux-send.sh --dry-run`, `delphi-send --dry-run` on delphi) with the kit's parts added, POSTed to `dev-in`.
 - **The parts:**
   - `sessions`: the desktop app's list with its titles. Running while a turn runs; waiting only when the latest turn's wrap-up asked him something, the app stopped a turn for him, or the Pylos roll call says waiting about the same activity; any other open session is done as of its last activity, and a terminal or delphi session six hours quiet is done. A full list, so a closed one leaves Running.
-  - `team`: each kit agent's and skill's runs, cost a run and last use over 30 days, counted at most hourly; a skill by its slash, `/captain-call`.
+  - `team`: each kit agent's and skill's runs, cost a run and last use over 30 days, counted at most hourly; a skill by its slash, `/captain-call`; `by_project` its runs per project (`{ "burrow": 14, "pylos": 2 }`, by the session's cwd, else its transcript folder), which `dev-in` keeps as `dev_team.by_project` from Burrow V1.9.
   - `links`: each publish once, new with its dot; one he deletes stays deleted.
   - `shares`: the week receipt's slice of the meter per project over the meter's own week, Saturday's reset on, as `{ resets_at, list }`; delphi counts its own.
   - `readings`: every seven-day reading in the tower's tick log with the reset it counts toward, so each lands in its meter week.
   - `tiers`: Pollux only. Each open trial from the trials ledger and one row per service across the projects' `free-tiers.md`, from `scrooge.mjs`, with GitHub Actions minutes from `gh` when its token has the `user` scope.
 - **By hand:** `node <core>/scripts/dev-hq.mjs push --dry-run` prints the body; `push --backfill` also files the last week's publishes.
+- **Moves** (Burrow V1.9 D6): `dev-hq.mjs moves <input.json>` posts nothing; it prints the connector writes `/inception` (`plan`) and `/future-ted` (`ship`) make so a project's releases sit on their weeks: the release's `dev_bookings` row on the week of its planned start or ship day (a shipped one with that day), the project's later releases pushed on a week apart when it slipped (never pulled back), and the card's `planned_for`.
 - **Where it sends nothing:** a machine without the sender or the key (the cloud).
 - **Its end:** once Burrow's sender reads the spool itself (its script names `burrow-dev/kit`), the hooks stop pushing.

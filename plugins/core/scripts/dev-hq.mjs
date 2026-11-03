@@ -12,6 +12,8 @@
 //   node dev-hq.mjs push [--dry-run] [--backfill] [--wait <s>]
 //                                    the sender's own body (its --dry-run) with
 //                                    the parts added, POSTed to dev-in
+//   node dev-hq.mjs moves <input.json>  the connector writes that move a project's
+//                                    releases to their weeks (/inception, /future-ted)
 //
 // Why the sender's body: `dev-in` wants a device report in every POST and
 // writes a reading from it, so the kit never makes one up. Until Burrow's
@@ -35,7 +37,7 @@ import { fileURLToPath } from 'node:url'
 import { agentName, dropCounted, parseEntries, sessionCommand, tallyEntries, totalTokens } from '../../release/scripts/usage.mjs'
 import { firstNumber, scan as scrooge } from './scrooge.mjs'
 import { readings as tierReadings } from './tier-readers.mjs'
-import { cachedReceipt, projectKey, projectOfCwd } from './week-receipt.mjs'
+import { cachedReceipt, isoWeek, projectKey, projectOfCwd, projectOfFolder } from './week-receipt.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const KIT = join(HERE, '..', '..', '..')
@@ -275,7 +277,7 @@ function readCounted(file, seen) {
   return { entries, head }
 }
 
-function addRun(by, name, entries) {
+function addRun(by, name, entries, project) {
   const tally = tallyEntries(entries)
   let tokens = 0
   const models = new Map()
@@ -287,8 +289,9 @@ function addRun(by, name, entries) {
   }
   if (tokens === 0) return
   const last = Math.max(...entries.map((e) => Date.parse(e.timestamp)).filter(Number.isFinite))
-  const r = by.get(name) || { runs: 0, tokens: 0, models: new Map(), last: 0 }
+  const r = by.get(name) || { runs: 0, tokens: 0, models: new Map(), last: 0, projects: new Map() }
   r.runs += 1
+  if (project) r.projects.set(project, (r.projects.get(project) || 0) + 1)
   r.tokens += tokens
   for (const [f, t] of models) r.models.set(f, (r.models.get(f) || 0) + t)
   if (Number.isFinite(last)) r.last = Math.max(r.last, last)
@@ -298,7 +301,10 @@ function addRun(by, name, entries) {
 // Every kit agent and skill run in the last `days`: an agent's run is one
 // subagent transcript, a skill's is the session it started (with its agents).
 // Skills go by their slash ("/captain-call"), so heisenberg the agent and
-// /heisenberg the skill stay two rows. Newest first, at most 100.
+// /heisenberg the skill stay two rows. Newest first, at most 100. Each row's
+// by_project counts its runs per project ({ burrow: 14, pylos: 2 }), the
+// project read as the week receipt reads it: the session's cwd, else its
+// transcript folder's name (Burrow V1.9 D5: Team grouped by project).
 export function teamPart({ projects, kit = KIT, now = Date.now(), days = 30 }) {
   const { agents, skills } = kitNames(kit)
   const since = now - days * DAY
@@ -340,19 +346,23 @@ export function teamPart({ projects, kit = KIT, now = Date.now(), days = 30 }) {
       // only a session the command started (a skill run midway, in brackets, is the session's, not the skill's)
       const skill = /^\/(?:[\w-]+:)?([\w-]+)$/.exec(sessionCommand(own.head))?.[1]
       const all = [...own.entries]
+      const runs = []
       for (const s of subs) {
         const { entries } = readCounted(join(subDir, s), seen)
         all.push(...entries)
         // "release:chris-de-kok" is the plugin's chris-de-kok
         const meta = readJson(join(subDir, s.replace(/\.jsonl$/, '.meta.json')), {})
         const name = agentName({ ...meta, agentType: typeof meta.agentType === 'string' ? meta.agentType.replace(/^[\w-]+:/, '') : meta.agentType })
-        if (name && agents.has(name)) addRun(by, name, entries)
+        if (name && agents.has(name)) runs.push([name, entries])
       }
+      const cwd = [...own.head, ...all].find((e) => typeof e?.cwd === 'string')?.cwd
+      const project = projectKey(cwd ? projectOfCwd(cwd) : projectOfFolder(folder)).slice(0, 60) || null
+      for (const [name, entries] of runs) addRun(by, name, entries, project)
       // a forked copy carries the same command line (its uuid), so it's one run
       const start = own.head.find((e) => e.type === 'user')?.uuid
       if (skill && skills.has(skill) && !(start && started.has(start))) {
         if (start) started.add(start)
-        addRun(by, '/' + skill, all)
+        addRun(by, '/' + skill, all, project)
       }
     }
   }
@@ -365,6 +375,7 @@ export function teamPart({ projects, kit = KIT, now = Date.now(), days = 30 }) {
       cost_per_run: Math.round((r.tokens / r.runs / 1e6) * 10) / 10,
       runs: r.runs,
       last_used_at: iso(r.last),
+      by_project: Object.fromEntries([...r.projects].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))),
     }))
 }
 
@@ -644,6 +655,81 @@ export function tiersPart(scan, { actionsMinutes = null, readings = {} } = {}) {
   return { full: true, list: list.slice(0, 100) }
 }
 
+// --- moves: releases to their week (Burrow V1.9 D6) ---------------------------------------
+
+// Alexander, 2 Nov 2026: "projects don't stay updated, can we have every
+// inception and future ted update and move releases and projects etc to the
+// right date, week etc." The skills write Dev HQ through the Burrow connector,
+// which only a session reaches, so this works out the writes and the session
+// makes them: /inception with `plan`, /future-ted with `ship`.
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
+const dayMs = (day) => Date.parse(`${day}T12:00:00Z`)
+const dayOf = (ms) => new Date(ms).toISOString().slice(0, 10)
+/** The Monday of a day's ISO week, as yyyy-mm-dd (a booking's `week`). */
+export const mondayOf = (day) => dayOf(dayMs(day) - ((new Date(dayMs(day)).getUTCDay() + 6) % 7) * DAY)
+/** A day's ISO week key, yyyy-Www (a card's `planned_for`). */
+export const weekKeyOf = (day) => {
+  const [y, m, d] = day.split('-').map(Number)
+  return isoWeek(new Date(y, m - 1, d))
+}
+// "V1.10" after "V1.9": the release's numbers, or null for a label with none
+const versionOf = (release) => (/v?(\d+(?:\.\d+)*)/i.exec(String(release ?? ''))?.[1] ?? null)?.split('.').map(Number) ?? null
+function compareVersions(a, b) {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const d = (a[i] ?? 0) - (b[i] ?? 0)
+    if (d) return d
+  }
+  return 0
+}
+const sameRelease = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase()
+
+// The writes that put a project's releases on their weeks, as connector calls
+// (`dev_bookings` rows and the card's `planned_for`):
+// - plan: the release's booking goes to the week of `on` (the planned start);
+// - ship: it goes to the week of `on` (the day it shipped), with that day set,
+//   the date Dev HQ shows it Done on;
+// - the project's later releases (by version) keep their order, each at least
+//   a week after the one before, so a release that slips pushes the rest on.
+//   A later one is never pulled earlier: an early ship leaves the plan to him.
+// The card: `plan` puts it on the release's week; `ship` on `next` (the week he
+// named at the wrap) when given, else the next later booking's week, else null.
+export function releaseMoves({ mode, project_id, release, on, next = undefined, bookings = [] }) {
+  if (mode !== 'plan' && mode !== 'ship') throw new Error('mode is plan or ship')
+  if (!project_id) throw new Error('project_id: the card id from find_rows dev_projects')
+  if (!versionOf(release)) throw new Error(`release "${release}" has no version number`)
+  if (!DAY_RE.test(on || '')) throw new Error(`on wants yyyy-mm-dd, got "${on}"`)
+  const mine = bookings.filter((b) => b && b.project_id === project_id)
+  const version = versionOf(release)
+  const week = mondayOf(on)
+  const writes = []
+  const self = mine.find((b) => sameRelease(b.release, release))
+  const fields = { week, on_date: mode === 'ship' ? on : self?.on_date && mondayOf(self.on_date) === week ? self.on_date : null }
+  if (!self) writes.push({ tool: 'add_row', kind: 'dev_bookings', fields: { project_id, release: String(release).trim(), ...fields } })
+  else if (self.week !== fields.week || (self.on_date ?? null) !== fields.on_date) writes.push({ tool: 'change_row', kind: 'dev_bookings', id: self.id, fields })
+  // the later releases, in version order, each a week after the one before at least
+  const later = mine
+    .filter((b) => b !== self && versionOf(b.release) && compareVersions(versionOf(b.release), version) > 0)
+    .sort((a, b) => compareVersions(versionOf(a.release), versionOf(b.release)))
+  let floor = week
+  const placed = []
+  for (const b of later) {
+    const earliest = dayOf(dayMs(floor) + 7 * DAY)
+    const to = b.week < earliest ? earliest : b.week
+    // a moved booking keeps its weekday, when it had one
+    const onDate = b.on_date && to !== b.week ? dayOf(dayMs(b.on_date) + (dayMs(to) - dayMs(b.week))) : (b.on_date ?? null)
+    if (to !== b.week) writes.push({ tool: 'change_row', kind: 'dev_bookings', id: b.id, fields: { week: to, on_date: onDate } })
+    placed.push(to)
+    floor = to
+  }
+  let planned_for
+  if (mode === 'plan') planned_for = weekKeyOf(week)
+  else if (next !== undefined) planned_for = next
+  else planned_for = placed.length ? weekKeyOf(placed[0]) : null
+  writes.push({ tool: 'change_row', kind: 'dev_projects', id: project_id, fields: { planned_for } })
+  return writes
+}
+
 // --- the POST ----------------------------------------------------------------------------
 
 export function senderPath(home = homedir(), host = hostname()) {
@@ -770,6 +856,12 @@ async function main(argv) {
     console.log(JSON.stringify(parts(p, { backfill: flag('--backfill') }), null, 2))
     return
   }
+  if (cmd === 'moves') {
+    // the input is a file the skill wrote (its bookings from find_rows), never a shell argument
+    if (!rest[0]) throw new Error('Usage: node dev-hq.mjs moves <input.json>')
+    console.log(JSON.stringify(releaseMoves(JSON.parse(readFileSync(rest[0], 'utf8'))), null, 2))
+    return
+  }
   if (cmd === 'push') {
     const i = rest.indexOf('--wait')
     if (i >= 0) {
@@ -787,7 +879,7 @@ async function main(argv) {
     }
     return
   }
-  throw new Error('Usage: node dev-hq.mjs hook | parts [--backfill] | push [--dry-run] [--backfill] [--wait <s>]')
+  throw new Error('Usage: node dev-hq.mjs hook | parts [--backfill] | push [--dry-run] [--backfill] [--wait <s>] | moves <input.json>')
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

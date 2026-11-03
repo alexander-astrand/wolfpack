@@ -8,16 +8,19 @@ import {
   linkName,
   linksPart,
   meterWeek,
+  mondayOf,
   noteHook,
   publishedUrl,
   publishesIn,
   pushDelay,
   readingsPart,
+  releaseMoves,
   senderFoldsSpool,
   sessionsPart,
   sharesPart,
   teamPart,
   tiersPart,
+  weekKeyOf,
   withParts,
 } from './dev-hq.mjs'
 import { readFreeTiers } from './scrooge.mjs'
@@ -179,9 +182,88 @@ describe('the team', () => {
     const team = teamPart({ projects, kit, now: NOW })
     const by = Object.fromEntries(team.map((t) => [t.name, t]))
     expect(Object.keys(by).sort()).toEqual(['/captain-call', 'chris-de-kok'])
-    expect(by['/captain-call']).toEqual({ name: '/captain-call', model: 'opus', cost_per_run: 15, runs: 1, last_used_at: at(20) })
-    expect(by['chris-de-kok']).toEqual({ name: 'chris-de-kok', model: 'opus', cost_per_run: 2.5, runs: 2, last_used_at: at(20) })
+    expect(by['/captain-call']).toEqual({ name: '/captain-call', model: 'opus', cost_per_run: 15, runs: 1, last_used_at: at(20), by_project: { burrow: 1 } })
+    expect(by['chris-de-kok']).toEqual({ name: 'chris-de-kok', model: 'opus', cost_per_run: 2.5, runs: 2, last_used_at: at(20), by_project: { burrow: 2 } })
     expect(team[0].last_used_at >= team[1].last_used_at).toBe(true)
+  })
+
+  it('counts runs per project, by the session cwd before the folder name', () => {
+    const root = tmp()
+    const kit = join(root, 'kit')
+    mkdirSync(join(kit, 'plugins', 'release', 'agents'), { recursive: true })
+    writeFileSync(join(kit, 'plugins', 'release', 'agents', 'chris-de-kok.md'), '')
+    const pylos = project(root, 'Pylos')
+    const projects = join(root, 'projects')
+    const agent = (folder, session, id, cwd) => {
+      const dir = join(projects, folder, session, 'subagents')
+      mkdirSync(dir, { recursive: true })
+      const line = JSON.parse(usageLine(id, 'claude-opus-5-5', at(30), 1e6))
+      writeFileSync(join(dir, 'agent-a.jsonl'), JSON.stringify(cwd ? { ...line, cwd } : line))
+      writeFileSync(join(dir, 'agent-a.meta.json'), JSON.stringify({ agentType: 'release:chris-de-kok' }))
+      writeFileSync(join(projects, folder, `${session}.jsonl`), '')
+    }
+    agent('-Users-a-Desktop-Burrow', 's1', 'm1')
+    agent('-Users-a-Desktop-Burrow', 's2', 'm2')
+    // a worktree's folder, but its cwd says Pylos (kit.json's name, lower-cased)
+    agent('-Users-a-Desktop-Burrow--claude-worktrees-x', 's3', 'm3', join(pylos, 'bot'))
+    const [row] = teamPart({ projects, kit, now: NOW })
+    expect(row.runs).toBe(3)
+    expect(row.by_project).toEqual({ burrow: 2, pylos: 1 })
+  })
+})
+
+describe('moves', () => {
+  const card = 'p-burrow'
+  const booking = (id, release, week, on_date = null, project_id = card) => ({ id, project_id, release, week, on_date })
+
+  it('books a planned release on its week and puts the card there', () => {
+    const writes = releaseMoves({ mode: 'plan', project_id: card, release: 'V1.9', on: '2026-11-04', bookings: [] })
+    expect(writes).toEqual([
+      { tool: 'add_row', kind: 'dev_bookings', fields: { project_id: card, release: 'V1.9', week: '2026-11-02', on_date: null } },
+      { tool: 'change_row', kind: 'dev_projects', id: card, fields: { planned_for: '2026-W45' } },
+    ])
+  })
+
+  it('moves a slipped release and pushes the later ones on, in version order, never pulling one back', () => {
+    const bookings = [
+      booking('b9', 'V1.9', '2026-10-26'),
+      booking('b11', 'V1.11', '2026-11-16'),
+      booking('b10', 'v1.10', '2026-11-02', '2026-11-04'),
+      booking('b8', 'V1.8', '2026-10-19'),
+      booking('other', 'V2.0', '2026-11-02', null, 'p-pylos'),
+    ]
+    const writes = releaseMoves({ mode: 'plan', project_id: card, release: 'V1.9', on: '2026-11-03', bookings })
+    expect(writes).toEqual([
+      { tool: 'change_row', kind: 'dev_bookings', id: 'b9', fields: { week: '2026-11-02', on_date: null } },
+      // a week on, keeping its Wednesday
+      { tool: 'change_row', kind: 'dev_bookings', id: 'b10', fields: { week: '2026-11-09', on_date: '2026-11-11' } },
+      // V1.11 already sits after it: left alone
+      { tool: 'change_row', kind: 'dev_projects', id: card, fields: { planned_for: '2026-W45' } },
+    ])
+  })
+
+  it('marks a shipped release with its day and moves the card to the next booking', () => {
+    const bookings = [booking('b9', 'V1.9', '2026-11-02'), booking('b10', 'V1.10', '2026-11-23')]
+    const writes = releaseMoves({ mode: 'ship', project_id: card, release: 'V1.9', on: '2026-11-10', bookings })
+    expect(writes).toEqual([
+      { tool: 'change_row', kind: 'dev_bookings', id: 'b9', fields: { week: '2026-11-09', on_date: '2026-11-10' } },
+      { tool: 'change_row', kind: 'dev_projects', id: card, fields: { planned_for: '2026-W48' } },
+    ])
+    // the week he named at the wrap wins, and null is a real answer
+    expect(releaseMoves({ mode: 'ship', project_id: card, release: 'V1.9', on: '2026-11-10', next: null, bookings }).at(-1).fields).toEqual({ planned_for: null })
+  })
+
+  it('writes nothing for a booking already right, and refuses a bad input', () => {
+    const writes = releaseMoves({ mode: 'ship', project_id: card, release: 'V1.9', on: '2026-11-10', bookings: [booking('b9', 'V1.9', '2026-11-09', '2026-11-10')] })
+    expect(writes).toEqual([{ tool: 'change_row', kind: 'dev_projects', id: card, fields: { planned_for: null } }])
+    expect(() => releaseMoves({ mode: 'wrap', project_id: card, release: 'V1.9', on: '2026-11-10' })).toThrow(/plan or ship/)
+    expect(() => releaseMoves({ mode: 'plan', project_id: card, release: 'V1.9', on: '10 Nov' })).toThrow(/yyyy-mm-dd/)
+  })
+
+  it('reads the ISO week across a new year', () => {
+    expect(mondayOf('2027-01-01')).toBe('2026-12-28')
+    expect(weekKeyOf('2027-01-01')).toBe('2026-W53')
+    expect(weekKeyOf('2027-01-04')).toBe('2027-W01')
   })
 })
 

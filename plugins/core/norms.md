@@ -51,8 +51,8 @@ A line without the mark is an open note. Notes are never deleted, reordered or r
 Every project has a card on Dev HQ, Alexander's private page in Burrow (since Burrow V0.16, 25 Oct 2026; it replaced the `/war-room` board). The hourly sync from Pollux fills each card's `plans`; the hand-set fields are written by the skills at the moment they change (his pick, 26 Oct 2026: "Releases write it"), never by a scheduled task:
 | When | Who | Writes |
 |---|---|---|
-| a plan gets its "Ready to build" stamp | `/inception` | `next_step`, `planned_for`, `status` `active`; the week's `dev_meter` row |
-| the wrap | `/future-ted` | `next_step`, `planned_for` |
+| a plan gets its "Ready to build" stamp | `/inception` | `next_step`, `planned_for`, `status` `active`; the week's `dev_meter` row; its `dev_bookings` (`dev-hq.mjs moves`) |
+| the wrap | `/future-ted` | `next_step`, `planned_for`; its `dev_bookings` (`dev-hq.mjs moves`) |
 | Sunday's recap | `/previously-on` | `next_step`, `planned_for` (drafts) |
 | the gallery ping and the close | `/superlab` (on its own) | `next_step` |
 | a new project's hand-off | `/life-finds-a-way` | the new card, with `park_when` |
