@@ -140,6 +140,8 @@ import { READ_BUDGET_MS, readTimeout, startReads, stopReads } from './read-clock
 import { CHAIN_USAGE, FROZEN, FROZEN_RE, RELEASE_PR_FIELDS, chainArgs, chainWhyNot, frozenOnDisk, oneTapDecision, oneTapVerdict, projectRoot } from './chain-arm.mjs'
 import { GO_HOURS, TRANSCRIPT_RE, goArg, readHumanGo } from './one-ring-go.mjs'
 import { GH_PR_READS, GIT_READS, PIPE_FILTERS, TEXT_READS } from './read-list.mjs'
+import { VERCEL_TOOLS, settingsFiles, vercelCall as vercelDecide, vercelUuids } from './guard-vercel.mjs'
+export { VERCEL_TOOLS }
 
 // The project's values come from its .claude/kit.json (production-steps.mjs
 // reads it; a missing key fails closed): DEV_REF, DEPLOYER, PROD_URL (the one
@@ -299,6 +301,9 @@ function decideCall(input, env) {
     // Alexander's typed `/one-ring <go>` in this session, read only at a
     // deploy call (one-ring-go.mjs).
     humanGo: env.humanGo ?? (() => readHumanGo({ transcriptPath: input.transcript_path, sessionId: input.session_id, now: Date.now() })),
+    // The uuids the settings rules mark as the Vercel connector's, read only
+    // at a uuid call to an unknown tool (guard-vercel.mjs, R1-1).
+    vercelUuids: env.vercelUuids ?? (() => vercelUuids(settingsFiles(CLAUDE_DIR))),
     // Set by the checks when a call reaches production; logged while armed.
     production: false,
     logged: false,
@@ -928,12 +933,18 @@ function deployCall(args, ctx) {
 
 function checkMcp(tool, args, ctx) {
   const ref = args.project_id ?? args.project_ref
-  if (typeof ref !== 'string' || !REF_RE.test(ref) || ref === DEV_REF) return null
+  if (typeof ref !== 'string' || !REF_RE.test(ref) || ref === DEV_REF) return vercelCall(tool, args, ctx)
   ctx.production = true
   const name = tool.slice(tool.lastIndexOf('__') + 2)
   if (!ctx.deployer) return deny(`${name} targets Supabase project ${ref}, which isn't dev. Production is reached only through ${PROD_ROUTE}.`)
   if (!DEPLOYER_MCP.has(name)) return deny(`The connector is read-only on production. Migrations go through scripts/prod-db.sh and functions through \`supabase functions deploy\`.`)
   return null
+}
+
+// Kit 1.9 (D1): the Vercel connector's rules live in guard-vercel.mjs (R1-3);
+// they get the guard's own helpers, so a decision logs like any other.
+function vercelCall(tool, args, ctx) {
+  return vercelDecide(tool, args, ctx, { record, logLine, prodCall, deny, refRe: REF_RE })
 }
 
 // ---------------------------------------------------------------- the read allowlist
@@ -3960,7 +3971,7 @@ export async function explain(command, { cwd = process.cwd(), agent, mode = 'aut
   return lines.join('\n') + '\n'
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const argv = process.argv.slice(2)
   if (argv[0] === '--explain') {
     const at = (flag) => { const i = argv.indexOf(flag); return i > 0 ? argv[i + 1] : undefined }

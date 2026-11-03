@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
@@ -63,6 +63,11 @@ beforeAll(() => {
   w('node_modules/x/lib/places.test.ts', "import './places'\n")
   w('package.json', JSON.stringify({ scripts: { 'test:db': 'node t.mjs', types: 'supabase gen types' } }))
   w('.claude/kit.json', JSON.stringify({ refs: { dev: 'localstacknotahosted' }, budgets: { 'jesse-pinkman': '6M' } }))
+  // A planted directions.md, so a designer order deals from the project's own list (kit 1.9, C2).
+  w(
+    '.claude/directions.md',
+    ['Paper ledger', 'Night tram', 'Seed catalogue', 'Ski map'].map((n) => `### ${n}\n- Feel: ${n.toLowerCase()} feel.\n- Type: Serif / Inter\n- Palette: warm\n- Reference: one\n`).join('\n'),
+  )
   w(
     '.claude/standing-facts.md',
     [
@@ -190,7 +195,9 @@ describe('the project reads', () => {
 })
 
 describe('compose', () => {
-  const run = (step) => compose({ planText: PLAN, stepId: step, root, budgets })
+  // The deal reads and writes only inside the temp project, never the real ~/.claude.
+  const dealArgs = () => ['--library', join(root, 'no-library.md'), '--log-dir', join(root, 'deal-logs'), '--seed', '1']
+  const run = (step, log = false) => compose({ planText: PLAN, stepId: step, root, budgets, deal: { log, args: dealArgs() } })
 
   it('builds a builder order with files, tests, facts, shell and the last-line ask', () => {
     const o = run('B4')
@@ -225,6 +232,24 @@ describe('compose', () => {
     expect(run('D2')).toMatchObject({ model: 'fable', mode: 'drawn-things', budget: '[budget 12M]' })
     expect(run('D3')).toMatchObject({ model: 'opus', budget: '[budget 5M]' })
   })
+  it("deals a designer order from the project's directions.md: two for a layout, three for a drawn thing", () => {
+    const layout = run('D3')
+    expect(layout.deal).toMatchObject({ kind: 'layout', starter: false, log: null })
+    expect(layout.deal.names).toHaveLength(2)
+    expect(run('D2').deal.names).toHaveLength(3)
+    const text = render(layout)
+    expect(text).toMatch(/\nDealt directions:\nBrief: dealt 2 directions for a layout from directions\.md: \*\*/)
+    expect(text).toMatch(/A dry deal, not logged/)
+    expect(run('B4').deal).toBeUndefined()
+  })
+  it('logs the deal of record when asked, and the next order gets another pair', () => {
+    const a = run('D3', true)
+    expect(a.deal.log).toBe(join(root, 'deal-logs', basename(root), 'deals.log'))
+    expect(readFileSync(a.deal.log, 'utf8').trim().split('\n')).toHaveLength(1)
+    expect(render(a)).toMatch(/This deal is logged/)
+    const b = run('D3', true)
+    expect([...b.deal.names].sort()).not.toEqual([...a.deal.names].sort())
+  })
   it('keeps the reviewer on Sonnet when the plan names Opus with no reason', () => {
     const o = run('R1')
     expect(o.model).toBe('sonnet')
@@ -256,6 +281,7 @@ describe('arguments', () => {
   it('needs --plan and --step', () => {
     expect(parseArgs(['--plan', 'p.md']).error).toMatch(/usage/)
     expect(parseArgs(['--plan', 'p.md', '--step', 'B4', '--json'])).toMatchObject({ plan: 'p.md', step: 'B4', json: true })
+    expect(parseArgs(['--plan', 'p.md', '--step', 'D3', '--dry'])).toMatchObject({ dry: true })
     expect(parseArgs(['--nope']).error).toMatch(/unknown/)
   })
 })

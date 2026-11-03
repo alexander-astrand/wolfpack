@@ -4,7 +4,7 @@
 // lens Feature 3): bengt-johansson resumed 14 of 18 passes while running qa-and-refactor.md's
 // snippets one call at a time, so the Bengan Boys and daredevil now read a table instead.
 //
-//   node <design>/scripts/qa-pass.mjs <pass.json> [--pane [--tab <tabId>]] [--dry]
+//   node <design>/scripts/qa-pass.mjs <pass.json> [--pane [--tab <tabId>]] [--dry] [--taste <taste.md>]
 //
 // Headless (the default): one headless Chromium (qa/cdp.mjs) loads each page at each width and
 // theme, runs qa/page-scan.js there, then at 1024 lists every scrolling element and every widget,
@@ -21,9 +21,12 @@
 // pass.json:
 //   { "base": "http://localhost:5174", "pages": ["/notes", "/trips/1"],
 //     "widths": [375, 1024, 1440], "themes": ["dark", "light"], "themeVia": "param:theme",
-//     "widget": "iframe, .leaflet-container, [data-map]" }      optional; sideways rows are always found
+//     "widget": "iframe, .leaflet-container, [data-map]",       optional; sideways rows are always found
+//     "tellsOff": ["gradient-text"] }                            optional; .claude/taste.md's `tells: off` lines add to it
 // The table: page | check | result | finding ("yes", "look" for small targets, blank when clean).
-import { readFileSync, realpathSync } from 'node:fs'
+// nonText (field edges and focus rings under 3:1) is a "yes" like lowContrast; a `tells` row lists
+// the scan's advisory tells and is never a finding.
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { applyTheme, viewportFor } from './qa/batch-shots.mjs'
@@ -51,8 +54,18 @@ export function parsePass(text, file = 'pass.json') {
   if (!Array.isArray(themes) || themes.some((t) => typeof t !== 'string')) errors.push('"themes" is not a list of names')
   const themeVia = p.themeVia ?? 'param:theme'
   if (!THEME_VIA.test(themeVia)) errors.push(`themeVia "${themeVia}" is not param:<name>, storage:<key>, attr:<name> or class`)
+  const tellsOff = p.tellsOff ?? []
+  if (!Array.isArray(tellsOff) || tellsOff.some((t) => typeof t !== 'string')) errors.push('"tellsOff" is not a list of tell ids')
   if (errors.length) throw new Error(`${file}: ${errors.join('; ')}`)
-  return { base: p.base, pages: p.pages, widths, themes, themeVia, widget: p.widget || DEFAULT_WIDGET }
+  return { base: p.base, pages: p.pages, widths, themes, themeVia, widget: p.widget || DEFAULT_WIDGET, tellsOff }
+}
+
+// The tells a project's taste.md turns off, from lines such as `tells: off gradient-text, glow-shadow`
+// (a bullet or backticks around it are fine). A brief or a taste may want a tell, so it can opt out.
+export function tellsOffFrom(text) {
+  const ids = []
+  for (const m of String(text).matchAll(/^[\s>*-]*`?tells:\s*off\s+([a-z0-9 ,-]+)/gim)) ids.push(...m[1].split(/[\s,]+/).filter(Boolean))
+  return [...new Set(ids)]
 }
 
 export function pageUrl(pass, path, theme) {
@@ -99,11 +112,15 @@ export function probe(widget) {
 // Stands alone too (the pane builds the table in the page): scan views, scrollbars, wheel, console.
 export function rowsFor(page, views, pr, wheel, consoleErrors) {
   const rows = []
-  const MUST = ['overflow', 'cutOff', 'rowsWithoutDrag', 'lowContrast']
+  const MUST = ['overflow', 'cutOff', 'rowsWithoutDrag', 'lowContrast', 'nonText']
   for (const v of views) {
     const hits = Object.entries(v.counts).filter(([, n]) => n > 0)
     const finding = hits.some(([k]) => MUST.includes(k)) ? 'yes' : hits.length ? 'look' : ''
-    rows.push({ page, check: `scan ${v.width}${v.theme ? ` ${v.theme}` : ''}`, result: hits.length ? hits.map(([k, n]) => `${k} ${n}`).join(', ') : 'clean', finding })
+    const at = `${v.width}${v.theme ? ` ${v.theme}` : ''}`
+    rows.push({ page, check: `scan ${at}`, result: hits.length ? hits.map(([k, n]) => `${k} ${n}`).join(', ') : 'clean', finding })
+    // Tells are advisory (the scan's header): a row to read, never a finding.
+    const tells = Object.entries(v.tells ?? {})
+    if (tells.length) rows.push({ page, check: `tells ${at}`, result: tells.map(([k, t]) => `${k} ${t.count}`).join(', '), finding: '' })
   }
   if (pr) {
     const showing = (pr.pageScrolls ? ['page'] : []).concat(pr.bars.filter((b) => b.shows).map((b) => b.sel))
@@ -125,7 +142,7 @@ export function table(rows) {
 
 // The in-page program for the pane: the scan's iframe matrix, the probe, and the table as text.
 export function paneScript(pass, path) {
-  const args = { widths: pass.widths, themeVia: pass.themeVia, ...(pass.themes.length ? { themes: pass.themes } : {}) }
+  const args = { widths: pass.widths, themeVia: pass.themeVia, ...(pass.themes.length ? { themes: pass.themes } : {}), ...(pass.tellsOff?.length ? { tellsOff: pass.tellsOff } : {}) }
   return [
     `window.__scanArgs = ${JSON.stringify(args)}`,
     `const scan = JSON.parse(await eval(${JSON.stringify(SCAN_SRC())}))`,
@@ -155,6 +172,7 @@ export function parseArgs(argv) {
     const a = argv[i]
     if (a === '--pane') o.pane = true
     else if (a === '--tab') o.tab = argv[++i]
+    else if (a === '--taste') o.taste = argv[++i]
     else if (a === '--dry') o.dry = true
     else if (a === '--help' || a === '-h') o.help = true
     else if (!o.file) o.file = a
@@ -212,7 +230,7 @@ async function headless(pass, log) {
       for (const width of pass.widths) {
         for (const theme of pass.themes.length ? pass.themes : [null]) {
           await load(cdp, pass, path, width, theme)
-          const scan = JSON.parse(await cdp.evaluate(`window.__scanArgs = {}; await eval(${JSON.stringify(src)})`))
+          const scan = JSON.parse(await cdp.evaluate(`window.__scanArgs = ${JSON.stringify({ tellsOff: pass.tellsOff ?? [] })}; await eval(${JSON.stringify(src)})`))
           views.push({ ...scan.views[0], width, theme })
           for (const e of errorsIn(cdp.events)) errors.add(e)
         }
@@ -233,6 +251,9 @@ async function headless(pass, log) {
 
 export async function run(o, log = console.log) {
   const pass = parsePass(readFileSync(resolve(o.file), 'utf8'), o.file)
+  // The project's taste.md (run from the project's root) can turn tells off for every pass.
+  const taste = resolve(o.taste ?? '.claude/taste.md')
+  if (existsSync(taste)) pass.tellsOff = [...new Set([...pass.tellsOff, ...tellsOffFrom(readFileSync(taste, 'utf8'))])]
   if (o.pane) {
     log(JSON.stringify(paneBatches(pass, { tab: o.tab }), null, 2))
     return 0
@@ -253,7 +274,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
     process.exit(2)
   }
   if (o.help || !o.file) {
-    console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 26).join('\n'))
+    console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 30).join('\n'))
     process.exit(o.file || o.help ? 0 : 2)
   }
   run(o).then(

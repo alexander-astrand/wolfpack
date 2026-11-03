@@ -12,7 +12,7 @@
 // {{LANE}} (the text under `## Your lane`). Everything else comes from the template. To change a
 // Boy's lane or voice, edit his file there; to change the rest, edit the template; then run this.
 // --check writes nothing and exits 1 naming each Boy whose file differs (the kit's tests run it).
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -59,7 +59,7 @@ export function run({ design = resolve(here, '..'), check = false } = {}) {
   return drift
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const args = process.argv.slice(2)
   if (args.includes('--help') || args.includes('-h')) {
     console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 14).join('\n'))

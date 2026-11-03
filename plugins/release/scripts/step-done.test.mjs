@@ -218,6 +218,17 @@ describe('run', () => {
     expect(out.join('\n')).toContain('Spent: 9.1M of 10.0M expected (91 %)')
   })
 
+  it('--log appends the stamped line to the build log; --log --dry prints it instead', () => {
+    const logPlan = join(dir, 'V7.md')
+    writeFileSync(logPlan, 'Expected: ≈ 10M\n')
+    const out = []
+    run(opts(['--step', 'step 3', '--budget', '12M', '--plan', logPlan, '--log', '--dry']), { budgets, now, log: (s) => out.push(s) })
+    expect(out.join('\n')).toContain('- 12:00Z jeff-winger: step 3, 7.0M of 12.0M.')
+    expect(() => readFileSync(join(dir, 'V7-build.md'))).toThrow()
+    run(opts(['--step', 'step 3', '--budget', '12M', '--plan', logPlan, '--log', '--cheaper', 'a line', '--tag', 'order']), { budgets, now, log: quiet })
+    expect(readFileSync(join(dir, 'V7-build.md'), 'utf8')).toBe('- 12:00Z jeff-winger: step 3, 7.0M of 12.0M. Cheaper next time (order): a line\n')
+  })
+
   it('appends no steps row when the PR edit fails, so the rerun adds it once', () => {
     const failPlan = join(dir, 'V8.md')
     writeFileSync(failPlan, 'Expected: ≈ 10M\n')

@@ -25,6 +25,14 @@
 //   floatingText   text lying bare on the page ground, with no card or section surface under it
 //                  (the kit's taste, "No floating text"); the page title (h1), the nav, header,
 //                  footer, tab bars, dialogs, controls and anything under [data-floating-ok] are left out
+//   nonText        field and toggle edges, and focus rings, under 3:1 against what is around them
+//                  (WCAG 1.4.11); args.focusRings: false skips the focus probe
+// And `tells` (kit 1.9): advisory counts of the shapes generated pages repeat, each with at most
+// three examples and only when found. Never a finding on their own: a brief or a project's taste
+// may want one, and args.tellsOff (from taste.md's `tells: off <id> ...`) drops them by id:
+//   gradient-text purple-gradient cyan-on-dark glow-shadow side-stripe nested-cards eyebrow-label
+//   icon-tile overused-font bounce-easing flat-type-scale
+// Our own code; the list of shapes draws on impeccable (Apache-2.0) and hallmark (MIT).
 ;(async () => {
   const args = (typeof window !== 'undefined' && window.__scanArgs) || {}
   const MIN_TARGET = 44
@@ -59,7 +67,35 @@
     return (hi + 0.05) / (lo + 0.05)
   }
   const isLarge = (px, weight) => px >= 24 || (px >= 18.66 && weight >= 700)
-  if (args.helpers) return { parseColor, over, luminance, ratio, isLarge }
+  // Every colour named inside a computed value (a gradient, a shadow list), as sRGB.
+  const colourTokens = (str) => (str && str !== 'none' ? (str.match(/(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\([^()]*\)|#[0-9a-f]{3,8}\b/gi) || []).map(parseColor).filter(Boolean) : [])
+  // Hue in degrees and chroma 0..1: enough to tell violet, cyan and grey apart.
+  const hueChroma = ([r, g, b]) => {
+    const mx = Math.max(r, g, b)
+    const c = mx - Math.min(r, g, b)
+    if (!c) return [0, 0]
+    const h = mx === r ? ((g - b) / c) % 6 : mx === g ? (b - r) / c + 2 : (r - g) / c + 4
+    return [(h * 60 + 360) % 360, c / 255]
+  }
+  const vivid = (c) => c[3] > 0.15 && hueChroma(c)[1] > 0.25
+  const inHue = (c, lo, hi) => vivid(c) && hueChroma(c)[0] >= lo && hueChroma(c)[0] <= hi
+  const violet = (c) => inHue(c, 250, 320)
+  const cyan = (c) => inHue(c, 170, 200)
+  // An easing that overshoots (a y control point outside 0..1) or a keyframe named for a bounce.
+  const bouncy = (timing, name) => /bounce|elastic|wobble|jello|rubber/i.test(name || '') || [...(timing || '').matchAll(/cubic-bezier\(([^)]*)\)/g)].some((m) => {
+    const [, y1, , y2] = m[1].split(',').map(parseFloat)
+    return y1 < 0 || y1 > 1 || y2 < 0 || y2 > 1
+  })
+  // The six fonts every generated page reaches for; Next's `__Inter_abc123` and `InterVariable` count.
+  const OVERUSED = /^(inter|roboto|fraunces|geist|plus jakarta sans|space grotesk)(\b|variable)/i
+  const overusedFont = (family) => {
+    const first = (family || '').split(',')[0].replace(/["']/g, '').replace(/_/g, ' ').trim()
+    const m = OVERUSED.exec(first)
+    return m ? m[1].replace(/\b\w/g, (x) => x.toUpperCase()) : null
+  }
+  // The tells' stable ids: a project's taste.md turns one off by name (`tells: off gradient-text`).
+  const TELLS = ['gradient-text', 'purple-gradient', 'cyan-on-dark', 'glow-shadow', 'side-stripe', 'nested-cards', 'eyebrow-label', 'icon-tile', 'overused-font', 'bounce-easing', 'flat-type-scale']
+  if (args.helpers) return { parseColor, over, luminance, ratio, isLarge, colourTokens, hueChroma, violet, cyan, bouncy, overusedFont, TELLS }
 
   const scanDoc = (doc, win) => {
     const cs = (el) => win.getComputedStyle(el)
@@ -77,6 +113,15 @@
     }
     const text = (el) => (el.innerText || el.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 60)
     const width = win.innerWidth
+    // Tells are advisory: a count and at most three examples each, never a finding on their own.
+    const off = new Set(args.tellsOff || [])
+    const tellLists = {}
+    const tell = (id, el, note) => {
+      if (off.has(id)) return
+      const t = (tellLists[id] ??= { count: 0, examples: [] })
+      t.count++
+      if (t.examples.length < 3) t.examples.push(note ? `${describe(el)} (${note})` : `${describe(el)}${text(el) ? ` "${text(el).slice(0, 30)}"` : ''}`)
+    }
 
     const root = doc.documentElement
     const overflow = []
@@ -152,6 +197,7 @@
       const fgRaw = parseColor(s.color)
       if (!fgRaw) continue
       const fg = over(fgRaw, bg)
+      if (cyan(fgRaw) && luminance(bg) < 0.05) tell('cyan-on-dark', el)
       const r = ratio(fg, bg)
       const px = parseFloat(s.fontSize)
       const need = isLarge(px, parseInt(s.fontWeight, 10) || 400) ? 3 : 4.5
@@ -194,12 +240,125 @@
       if (!held) floatingText.push({ selector: describe(el), text: n.textContent.trim().replace(/\s+/g, ' ').slice(0, 60) })
     }
 
-    const lists = { overflow, cutOff, rowsWithoutDrag, smallTargets, lowContrast, floatingText }
+    // Non-text contrast (WCAG 1.4.11, 3:1): a field's or a toggle's edge against what is around it,
+    // and a focus ring against what is under it. The edge is the best of its borders, a ring drawn as
+    // a box-shadow (Tailwind's ring-*) and its own fill, since any one of them shows where it is.
+    // The visibility test here is its own: `visible` leaves out switches and peer inputs on purpose.
+    const shown = (el) => {
+      const r = el.getBoundingClientRect()
+      const s = cs(el)
+      return r.width > 4 && r.height > 4 && s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0' && !el.closest('.sr-only')
+    }
+    const sideColours = (s) => ['Top', 'Right', 'Bottom', 'Left'].filter((d) => parseFloat(s[`border${d}Width`]) > 0 && s[`border${d}Style`] !== 'none').map((d) => parseColor(s[`border${d}Color`])).filter((c) => c && c[3] > 0)
+    const around = (el) => (el.parentElement ? backdrop(el.parentElement) : canvas)
+    const against = (cols, bg) => Math.max(1, ...cols.map((c) => ratio(over(c, bg), bg)))
+    const label = (el) => (el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.getAttribute('name') || text(el)).slice(0, 40)
+    const nonText = []
+    const fields = 'input:not([type="hidden"], [type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="submit"], [type="button"], [type="reset"], [type="image"]), select, textarea, [role="switch"], [role="checkbox"], input[type="checkbox"], input[type="radio"]'
+    for (const el of doc.querySelectorAll(fields)) {
+      if (!shown(el) || el.closest(':disabled, [aria-disabled="true"]')) continue
+      const s = cs(el)
+      // A native checkbox or radio paints itself, so its computed border says nothing.
+      if (el.matches('input[type="checkbox"], input[type="radio"]') && s.appearance !== 'none') continue
+      const bg = around(el)
+      if (!bg) continue
+      const fill = parseColor(s.backgroundColor)
+      const r = against([...sideColours(s), ...colourTokens(s.boxShadow), ...(fill && s.backgroundImage === 'none' ? [fill] : [])], bg)
+      if (r < 3) nonText.push({ selector: describe(el), text: label(el), part: 'edge', ratio: Math.round(r * 100) / 100, need: 3 })
+    }
+    // Focus rings: focus the first few controls without scrolling, read what focus adds (an outline,
+    // or a box-shadow that wasn't there at rest), then put focus back. Popup openers are left alone.
+    if (args.focusRings !== false) {
+      const before = doc.activeElement
+      let probed = 0
+      for (const el of doc.querySelectorAll('a[href], button, input, select, textarea, [role="switch"], [tabindex="0"]')) {
+        if (probed >= 8) break
+        if (!shown(el) || el.disabled || el.matches('[aria-haspopup], [role="combobox"], input[type="hidden"]')) continue
+        probed++
+        const rest = cs(el).boxShadow
+        el.focus({ preventScroll: true, focusVisible: true })
+        if (doc.activeElement !== el) continue
+        const s = cs(el)
+        const ring = [...(s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0 ? [parseColor(s.outlineColor)] : []), ...(s.boxShadow !== rest ? colourTokens(s.boxShadow) : [])].filter((c) => c && c[3] > 0)
+        el.blur()
+        const bg = around(el)
+        if (!ring.length || !bg) continue
+        const r = against(ring, bg)
+        if (r < 3) nonText.push({ selector: describe(el), text: label(el), part: 'focus ring', ratio: Math.round(r * 100) / 100, need: 3 })
+      }
+      if (before && before !== doc.body && before.focus) before.focus({ preventScroll: true })
+    }
+    nonText.sort((a, b) => a.ratio - b.ratio)
+
+    // The tells walk: one pass over the page for the element tells, then the headings for the rest.
+    const cards = new Set()
+    const notCard = 'button, a, input, select, textarea, img, svg, li, td, th, label, [role="button"]'
+    for (const el of doc.querySelectorAll('body *')) {
+      if (el.namespaceURI !== 'http://www.w3.org/1999/xhtml' || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName) || !visible(el)) continue
+      const s = cs(el)
+      const img = s.backgroundImage
+      if (/gradient/.test(img)) {
+        if (s.backgroundClip === 'text' || s.getPropertyValue('-webkit-background-clip') === 'text') tell('gradient-text', el)
+        if (colourTokens(img).some(violet)) tell('purple-gradient', el)
+      }
+      const glow = [s.boxShadow, s.textShadow].filter((v) => v && v !== 'none').flatMap((v) => v.split(/,(?![^(]*\))/)).find((part) => {
+        if (/inset/.test(part)) return false
+        const c = colourTokens(part)[0]
+        const blur = parseFloat((part.replace(/(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\([^()]*\)/gi, '').match(/-?[\d.]+px/g) || [])[2])
+        return c && vivid(c) && blur >= 8
+      })
+      if (glow) tell('glow-shadow', el)
+      // A thick coloured stripe down one side, the rest of the box bare: the generated callout card.
+      const w = (d) => (s[`border${d}Style`] === 'none' ? 0 : parseFloat(s[`border${d}Width`]) || 0)
+      const stripe = ['Left', 'Right'].find((d) => w(d) >= 3 && ['Top', 'Bottom', d === 'Left' ? 'Right' : 'Left'].every((o) => w(o) <= 1))
+      if (stripe && vivid(parseColor(s[`border${stripe}Color`]) || [0, 0, 0, 0]) && !el.closest('nav, [role="tablist"]')) tell('side-stripe', el)
+      if (bouncy(`${s.transitionTimingFunction},${s.animationTimingFunction}`, s.animationName)) tell('bounce-easing', el)
+      // A card: a rounded box of some size that paints itself. querySelectorAll walks in document
+      // order, so every outer card is in the set before its inner ones are met.
+      const r = el.getBoundingClientRect()
+      if (!el.matches(notCard) && r.width >= 100 && r.height >= 48 && parseFloat(s.borderTopLeftRadius) >= 6 && (s.boxShadow !== 'none' || sideColours(s).length === 4 || parseColor(s.backgroundColor)?.[3] > 0.05)) {
+        for (let p = el.parentElement; p; p = p.parentElement) {
+          if (cards.has(p)) {
+            tell('nested-cards', el)
+            break
+          }
+        }
+        cards.add(el)
+      }
+    }
+    const px = (el) => parseFloat(cs(el).fontSize)
+    const sizes = {}
+    for (const p of doc.querySelectorAll('p')) if (visible(p) && text(p)) sizes[px(p)] = (sizes[px(p)] || 0) + 1
+    const bodyPx = +(Object.entries(sizes).sort((a, b) => b[1] - a[1])[0]?.[0] ?? px(doc.body))
+    for (const h of doc.querySelectorAll('h1, h2, h3, h4')) {
+      if (!visible(h)) continue
+      if (/^H[12]$/.test(h.tagName) && px(h) < bodyPx * 1.25) tell('flat-type-scale', h, `${px(h)}px over body ${bodyPx}px`)
+      const prev = h.previousElementSibling
+      if (!prev || !visible(prev)) continue
+      const ps = cs(prev)
+      const t = text(prev)
+      const caps = ps.textTransform === 'uppercase' || (/[A-Z]/.test(t) && t === t.toUpperCase())
+      if (t && t.length <= 40 && px(prev) <= 14 && caps && parseFloat(ps.letterSpacing) / px(prev) >= 0.04) tell('eyebrow-label', prev)
+      const pr = prev.getBoundingClientRect()
+      const painted = (parseColor(ps.backgroundColor)?.[3] > 0.05) || ps.backgroundImage !== 'none' || sideColours(ps).length === 4
+      if (painted && pr.width >= 24 && pr.width <= 96 && Math.abs(pr.width - pr.height) <= 4 && (prev.querySelector('svg, img') || (t && [...t].length <= 2))) tell('icon-tile', prev)
+    }
+    const fontSeen = new Set()
+    for (const el of [doc.body, doc.querySelector('h1'), doc.querySelector('h2'), doc.querySelector('button')]) {
+      const f = el && overusedFont(cs(el).fontFamily)
+      if (f && !fontSeen.has(f)) {
+        fontSeen.add(f)
+        tell('overused-font', el, f)
+      }
+    }
+    const tells = Object.fromEntries(TELLS.filter((id) => tellLists[id]).map((id) => [id, tellLists[id]]))
+
+    const lists = { overflow, cutOff, rowsWithoutDrag, smallTargets, lowContrast, nonText, floatingText }
     const counts = Object.fromEntries(Object.entries(lists).map(([k, v]) => [k, v.length]))
     counts.contrastUnknown = contrastUnknown
     if (pageScrolls && !overflow.length) counts.overflow = 1
     const capped = Object.fromEntries(Object.entries(lists).map(([k, v]) => [k, v.slice(0, MAX)]))
-    return { url: win.location.pathname + win.location.search, width, counts, ...capped }
+    return { url: win.location.pathname + win.location.search, width, counts, ...capped, tells }
   }
 
   if (!args.widths) return JSON.stringify({ views: [scanDoc(document, window)] })
@@ -242,7 +401,8 @@
     } finally {
       if (storageKey) saved === null ? localStorage.removeItem(storageKey) : localStorage.setItem(storageKey, saved)
     }
-    const summary = views.map((v) => `${v.width} ${v.theme ?? ''}: ${Object.entries(v.counts).map(([k, n]) => `${k} ${n}`).join(', ')}`)
+    const tellLine = (v) => (Object.keys(v.tells).length ? `; tells ${Object.entries(v.tells).map(([k, t]) => `${k} ${t.count}`).join(', ')}` : '')
+    const summary = views.map((v) => `${v.width} ${v.theme ?? ''}: ${Object.entries(v.counts).map(([k, n]) => `${k} ${n}`).join(', ')}${tellLine(v)}`)
     return JSON.stringify({ path, summary, views })
   }
   if (args.background) {

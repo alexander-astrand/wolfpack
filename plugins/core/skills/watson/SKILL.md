@@ -62,7 +62,7 @@ Plain Markdown in `docs/`, one subject per file: what it's for in one line, then
 
 Both are the kit's own private claude.ai artifacts, one pair for every wolfpack project (kit 1.5, Alexander, 17 Oct 2026: "general command deck and agent team for the wolfpack kit"). They are refreshed from the kit's skills and agents (frontmatter and opening lines) at each kit release's wrap-up, with the safe republish below, and nowhere else. Descriptions only: what each command, agent and hook is and how to use it; never history ("Built x.y"), dates, version stamps, token figures, a project's names or paths, or the roadmap. Each command and agent links to its file in the kit on GitHub.
 
-**Safe republish (Command Deck, team page):** read the page in full with the Artifact tool (the publish tool refuses an unread version), copy the saved file into the scratchpad, edit the copy with exact string replacements (never rewrite the page from memory), then publish to the **same URL** with a short label, never a fresh URL. Never use it for the roadmap page: that is rows, written via `the-trail`.
+**Safe republish (Command Deck, team page):** fetch the page with the Artifact tool (the publish tool refuses an unread version) and copy the saved file into the scratchpad. Then grep that copy for the changed terms (the renamed agent, the new skill) and read only the sections that hit, not both pages in full (the Agent Team v49 refresh read both whole). Edit the copy with exact string replacements (never rewrite the page from memory), then publish to the **same URL** with a short label, never a fresh URL. Never use it for the roadmap page: that is rows, written via `the-trail`.
 
 ## page: Claude Docs
 

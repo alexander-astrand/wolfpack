@@ -31,7 +31,7 @@
 //   node daily-budget.mjs --tower    stdin {rate_limits}; writes meter-now.json, prints "day 5.2/14%"
 //   node daily-budget.mjs --status [--active]   dry run: today's numbers and what would be denied
 
-import { closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, writeFileSync } from 'node:fs'
+import { closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -423,4 +423,4 @@ async function main() {
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', ...out } }))
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) main()

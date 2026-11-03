@@ -19,8 +19,16 @@
 // - every row an up writes carries the tag `TEST QA seed gale:<name>` in its
 //   label, and the down file deletes by that same tag: both files must name
 //   it, or nothing runs. The down may delete nothing else.
-// - dev only: the flag comes from run-tests.mjs's target(), which refuses a
-//   CLI linked to production or an unknown target.
+// - dev only, one check for both runners (devTarget below): the flag comes
+//   from run-tests.mjs's target(), which refuses a CLI linked to production
+//   or an unknown target. A database URL (only the design plugin's
+//   qa-seed.mjs passes one, from --db or QA_SEED_DB_URL) goes to the CLI as
+//   --db-url, and only when every host it can reach is local or allowed,
+//   no user or host names kit.json's refs.prod, and a Supavisor host
+//   (*.pooler.supabase.com) has the user postgres.<refs.dev>.
+// The design plugin's qa-seed.mjs is a thin wrapper over run(): it adds the
+// lane ({{LANE}} in the SQL) and seed=shared. Kit 1.9 folded the two runners
+// into this one after they drifted (PR #46's notes for review).
 // Each up and down is logged to <state>/<project>/qa.log, one line each, so
 // `list` can say what is still up. <state> is GALE_STATE_DIR, else
 // ~/.local/state/wolfpack/gale. The project is kit.json project.name, else
@@ -28,7 +36,7 @@
 // RUN_TESTS_SUPABASE names the CLI binary (the tests point it at a fake).
 
 import { spawnSync } from 'node:child_process'
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -39,6 +47,87 @@ const SEEDS = join('scripts', 'qa', 'seeds')
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,40}$/
 
 export const tagFor = (name) => `TEST QA seed gale:${name}`
+// A lane seed's tag: qa-seed.mjs fills {{LANE}} with the lane's name, so each
+// lane's down deletes only that lane's rows (kit 1.6.1 council M4).
+export const LANE_TAG = 'TEST QA seed {{LANE}}'
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1'])
+
+export function hostOf(url) {
+  try {
+    return new URL(url).hostname
+  } catch {
+    throw new Error('the database URL does not parse')
+  }
+}
+
+// Every server the URL can reach. libpq lets the query override the URL's
+// host: `?host=`, `?hostaddr=` (each may list several, comma-separated) and
+// `?service=` (a pg_service.conf entry, unknown from here), so
+// `postgresql://localhost/db?host=prod.example.co` is a remote database that
+// reads as local by its hostname alone (kit 1.8 review MUST 4). A service is
+// named `service=<name>`, so only `allowHost: 'service=<name>'` lets it through.
+export function targetsOf(url) {
+  const host = hostOf(url)
+  const q = new URL(url).searchParams
+  const out = [host]
+  for (const key of ['host', 'hostaddr']) for (const v of q.getAll(key)) out.push(...v.split(','))
+  for (const v of q.getAll('service')) out.push(`service=${v}`)
+  return out.map((h) => h.trim())
+}
+
+// Supavisor's hosts (aws-0-<region>.pooler.supabase.com) serve every project in
+// a region, production too: only the user, postgres.<ref>, says which one.
+const POOLER_RE = /\.pooler\.supabase\.com$/i
+
+/** kit.json's refs.dev and refs.prod, lower-cased; either is null when unset. */
+export function refsOf(root) {
+  let refs = null
+  try {
+    refs = JSON.parse(read(join(root, '.claude', 'kit.json')) || 'null')?.refs
+  } catch {}
+  const one = (v) => (typeof v === 'string' && v.trim() ? v.trim().toLowerCase() : null)
+  return { dev: one(refs?.dev), prod: one(refs?.prod) }
+}
+
+/** The URL's user name and any `?user=` (libpq lets the query override it too). */
+export function usersOf(url) {
+  const u = new URL(url)
+  return [decodeURIComponent(u.username), ...u.searchParams.getAll('user')].map((s) => s.trim().toLowerCase()).filter(Boolean)
+}
+
+/**
+ * The one dev-only check for both runners: `{ args, label }` for the CLI, or
+ * `{ error }`. Without a URL it is run-tests.mjs's target(); with one, every
+ * host the URL can reach must be local or the one `allowHost` names (a hosted
+ * dev project). `label` is one word with no password in it, for the log.
+ * --allow-host alone can't tell dev from production on a shared pooler host
+ * (kit 1.9 review R1-6), so with a URL two more refusals come first, and no
+ * --allow-host lifts them: a user or host naming kit.json's refs.prod, and a
+ * *.pooler.supabase.com host whose user is not postgres.<refs.dev>.
+ */
+export function devTarget(root, { db = null, allowHost = null, pick = target } = {}) {
+  if (!db) {
+    const t = pick(root)
+    return t.error ? t : { args: [t.flag], label: t.flag }
+  }
+  let hosts, users
+  try {
+    hosts = targetsOf(db)
+    users = usersOf(db)
+  } catch (e) {
+    return { error: e.message }
+  }
+  const refs = refsOf(root)
+  if (refs.prod) for (const s of [...users, ...hosts.map((h) => h.toLowerCase())]) if (s.includes(refs.prod)) return { error: `${s} names the production project (kit.json refs.prod); seeds run on dev only` }
+  if (hosts.some((h) => POOLER_RE.test(h))) {
+    if (!refs.dev) return { error: 'a pooler.supabase.com host is shared with production, and kit.json has no refs.dev to check the user against' }
+    const want = `postgres.${refs.dev}`
+    const wrong = users.length ? users.find((u) => u !== want) : '(none)'
+    if (wrong) return { error: `on a pooler.supabase.com host the user must be ${want} (kit.json refs.dev), not ${wrong}` }
+  }
+  for (const h of hosts) if (!LOCAL_HOSTS.has(h) && h !== allowHost) return { error: `${h} is not a local database; a hosted dev database needs --allow-host ${h}` }
+  return { args: ['--db-url', db], label: `db-url:${hosts[0]}` }
+}
 
 export function parseArgs(argv) {
   let root = process.env.CLAUDE_PROJECT_DIR || process.cwd()
@@ -80,8 +169,9 @@ export function pair(root, name) {
   if (!existsSync(downPath)) return { error: `no ${SEEDS}/${name}.down.sql: an up never runs without its down` }
   const up = readFileSync(upPath, 'utf8')
   const down = readFileSync(downPath, 'utf8')
-  const tag = tagFor(name)
-  if (!up.includes(tag)) return { error: `${name}.up.sql never writes the tag "${tag}", so the down could not find its rows` }
+  // gale's own tag, or a lane seed's: whichever the up writes, the down must name.
+  const tag = [tagFor(name), LANE_TAG].find((t) => up.includes(t)) ?? tagFor(name)
+  if (!up.includes(tag)) return { error: `${name}.up.sql never writes the tag "${tag}" (or "${LANE_TAG}"), so the down could not find its rows` }
   if (!down.includes(tag)) return { error: `${name}.down.sql never names the tag "${tag}", so it would not delete this seed's rows` }
   if (/\b(drop|truncate|alter)\b/i.test(down)) return { error: `${name}.down.sql drops, truncates or alters: a down only deletes the tagged rows` }
   if (/\b(delete|drop|truncate|alter)\b/i.test(up)) return { error: `${name}.up.sql deletes, drops, truncates or alters: an up only adds` }
@@ -94,23 +184,30 @@ function logLine(root, line) {
   appendFileSync(join(dir, 'qa.log'), line + '\n')
 }
 
-/** Runs one side of the pair; the CLI's text is the result, as run-tests reads it. */
-export function run({ root, cmd, name, dryRun, flag, bin = 'supabase' }) {
+/**
+ * Runs one side of the pair; the CLI's text is the result, as run-tests reads it.
+ * `target` is devTarget()'s answer (`flag` alone still works for one CLI flag).
+ * `lane` fills {{LANE}} (qa-seed.mjs; "qa" when the SQL has one and no lane is
+ * given). `exec` is spawnSync, swapped in tests.
+ */
+export function run({ root, cmd, name, dryRun, flag, target: t = { args: [flag], label: flag }, lane = null, bin = 'supabase', exec = spawnSync }) {
   const p = pair(root, name)
   if (p.error) return { code: 2, lines: [`seed: refused, nothing ran: ${p.error}`] }
-  const sql = cmd === 'up' ? p.up : p.down
-  if (dryRun) return { code: 0, lines: [`seed: ${cmd} ${name} would run on dev (${flag}) as one supabase db query; the SQL:`, '', sql.trimEnd()] }
+  const sql = (cmd === 'up' ? p.up : p.down).replaceAll('{{LANE}}', lane || 'qa')
+  const at = `on dev (${t.label})${lane ? `, lane ${lane}` : ''}`
+  const undo = lane ? `qa-seed.mjs down ${name} --lane ${lane}` : `seed.mjs down ${name}`
+  if (dryRun) return { code: 0, lines: [`seed: ${cmd} ${name} would run ${at} as one supabase db query; the SQL:`, '', sql.trimEnd()] }
   const scratch = mkdtempSync(join(tmpdir(), 'gale-seed-'))
   try {
     const copy = join(scratch, `${name}.${cmd}.sql`)
     writeFileSync(copy, sql)
-    const r = spawnSync(bin, ['db', 'query', flag, '-f', copy], { cwd: root, encoding: 'utf8' })
+    const r = exec(bin, ['db', 'query', ...t.args, '-f', copy], { cwd: root, encoding: 'utf8' })
     if (r.error) return { code: 1, lines: [`seed: could not start ${bin}: ${r.error.code || r.error.message}`] }
     const out = ((r.stdout || '') + (r.stderr || '')).trim()
     const failed = r.status !== 0 || /\bERROR\b/.test(out)
-    logLine(root, `${new Date().toISOString()} ${cmd} ${name} ${flag} ${failed ? 'failed' : 'ok'}`)
+    logLine(root, `${new Date().toISOString()} ${cmd} ${name} ${t.label} ${failed ? 'failed' : 'ok'}`)
     const lines = out ? out.split('\n') : []
-    lines.push(failed ? `seed: ${cmd} ${name} failed on dev (${flag})` : `seed: ${cmd} ${name} done on dev (${flag}); undo with seed.mjs down ${name}`)
+    lines.push(failed ? `seed: ${cmd} ${name} failed ${at}` : `seed: ${cmd} ${name} done ${at}; undo with ${undo}`)
     return { code: failed ? 1 : 0, lines }
   } finally {
     rmSync(scratch, { recursive: true, force: true })
@@ -150,7 +247,7 @@ export function list(root) {
   return { code: 0, lines }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const args = parseArgs(process.argv.slice(2))
   if (args.error) {
     process.stderr.write(`seed: ${args.error}\n`)
@@ -159,12 +256,12 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   let out
   if (args.cmd === 'list') out = list(args.root)
   else {
-    const t = target(args.root)
+    const t = devTarget(args.root)
     if (t.error) {
       process.stderr.write(`seed: refused, nothing ran: ${t.error}\n`)
       process.exit(2)
     }
-    out = run({ ...args, flag: t.flag, bin: process.env.RUN_TESTS_SUPABASE || 'supabase' })
+    out = run({ ...args, target: t, bin: process.env.RUN_TESTS_SUPABASE || 'supabase' })
   }
   console.log(out.lines.join('\n'))
   process.exit(out.code)

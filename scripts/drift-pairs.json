@@ -8,6 +8,7 @@
     { "hutzup": ".claude/hooks/read-clock.mjs", "kit": "plugins/database/hooks/read-clock.mjs" },
     { "hutzup": ".claude/hooks/read-list.mjs", "kit": "plugins/database/hooks/read-list.mjs" },
     { "hutzup": ".claude/hooks/one-ring-go.mjs", "kit": "plugins/database/hooks/one-ring-go.mjs" },
+    { "hutzup": ".claude/hooks/guard-vercel.mjs", "kit": "plugins/database/hooks/guard-vercel.mjs" },
     { "hutzup": ".claude/hooks/denied-log.mjs", "kit": "plugins/database/hooks/denied-log.mjs" }
   ],
   "kitOnly": [

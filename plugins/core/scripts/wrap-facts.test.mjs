@@ -113,6 +113,23 @@ describe('wrap-facts', () => {
     expect(locate([SID], '/Users/a/Desktop/Burrow', root).found).toHaveLength(1)
   })
 
+  it('finds PR #46 "Kit 1.8: ..." by title and reads session ids from the build log (kit 1.8)', async () => {
+    const { project, projects } = fixture()
+    const plans = join(project, '..', 'plans')
+    const BUILD = 'cccc0000-1111-4222-8333-944455556666'
+    writeFileSync(join(plans, 'kit-1.8.md'), '# Kit 1.8\n')
+    writeFileSync(join(plans, 'kit-1.8-build.md'), `- 10:02 builder ${BUILD}\n`)
+    const fake = (args) => {
+      if (args[1] === 'list') return JSON.stringify([{ number: 46, title: 'Kit 1.8: lessons that stick', state: 'OPEN', isDraft: true, mergeCommit: null, createdAt: '2026-11-01T07:00:00Z', url: 'u46' }])
+      return JSON.stringify({ body: '', comments: [], commits: [] })
+    }
+    for (const name of ['1.8', 'Kit 1.8', 'kit-1.8']) {
+      const out = await wrapFacts(name, { project, gh: fake, projectsDir: projects, resolveLocal: (id) => id })
+      expect(out.prs.map((p) => p.number)).toEqual([46])
+      expect(out.sessions.missing).toEqual([BUILD])
+    }
+  })
+
   it('says what is missing when gh fails, instead of failing', async () => {
     const { project, projects } = fixture()
     const out = await wrapFacts('1.7', { project, projectsDir: projects, gh: () => { throw new Error('not logged in') } })
