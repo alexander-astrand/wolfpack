@@ -16,7 +16,8 @@
 // clean-up after the last lane reports, as lane "shared".
 // Dev only, seed.mjs's devTarget(): without --db (or QA_SEED_DB_URL) dev is picked the way
 // run-tests.mjs does (a local stack, or the CLI linked to refs.dev). A URL whose host, or whose
-// ?host=, ?hostaddr= or ?service=, is not local is refused unless --allow-host names it.
+// ?host=, ?hostaddr= or ?service=, is not local is refused unless --allow-host names it; one naming
+// refs.prod, or a *.pooler.supabase.com one whose user isn't postgres.<refs.dev>, always is.
 // --dry prints the target and the SQL and runs nothing.
 import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -100,7 +101,9 @@ if (isMain) {
   try {
     const o = parseArgs(process.argv.slice(2))
     if (o.help) {
-      console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 20).join('\n'))
+      // The header comment, however long it grows.
+      const lines = readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1)
+      console.log(lines.slice(0, lines.findIndex((l) => !l.startsWith('//'))).join('\n'))
       process.exit(0)
     }
     process.exit(run(o))

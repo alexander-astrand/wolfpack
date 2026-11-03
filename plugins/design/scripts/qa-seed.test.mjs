@@ -46,7 +46,7 @@ describe('finding the database plugin', () => {
     const r = help(join(tmp, 'plugins', 'design', 'scripts'))
     expect(r.stderr).toBe('')
     expect(r.status).toBe(0)
-    expect(r.stdout).toMatch(/QA seed for a lane/)
+    expect(r.stdout).toMatch(/QA seed for a lane[\s\S]*--dry prints the target and the SQL and runs nothing\.\n$/)
   })
   it('runs --help from a marketplace cache, and picks the highest database version', () => {
     const design = join(tmp, 'cache', 'wolfpack', 'design', '1.9.0', 'scripts')

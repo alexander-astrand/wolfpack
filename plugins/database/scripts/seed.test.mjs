@@ -167,6 +167,33 @@ describe('devTarget', () => {
     expect(at('postgresql://u@localhost/postgres?host=127.0.0.1&sslmode=disable').label).toBe('db-url:localhost')
     expect(targetsOf('postgresql://u@localhost/db?host=a,b&service=s')).toEqual(['localhost', 'a', 'b', 'service=s'])
   })
+  // A Supavisor host serves production too; only the user postgres.<ref> tells them apart (kit 1.9 review R1-6).
+  // The fixture kit.json (beforeEach) has refs.dev localstackplaceholder and refs.prod bbbbbbbbbbbbbbbbbbbb.
+  const POOLER = 'aws-0-eu-north-1.pooler.supabase.com'
+  const PROD = 'bbbbbbbbbbbbbbbbbbbb'
+  const at = (db, allowHost = POOLER) => devTarget(root, { db, allowHost, pick: never })
+  it('refuses a user or host naming refs.prod, whatever --allow-host says', () => {
+    expect(at(`postgresql://postgres.${PROD}:pw@${POOLER}:6543/postgres`).error).toMatch(/names the production project/)
+    expect(at(`postgresql://postgres@db.${PROD}.supabase.co/postgres`, `db.${PROD}.supabase.co`).error).toMatch(/db\.b+\.supabase\.co names the production project/)
+    expect(at(`postgresql://u@localhost/postgres?host=db.${PROD}.supabase.co`, `db.${PROD}.supabase.co`).error).toMatch(/names the production project/)
+    expect(at(`postgresql://postgres.localstackplaceholder@${POOLER}/postgres?user=postgres.${PROD}`).error).toMatch(/names the production project/)
+    expect(at(`postgresql://POSTGRES.${PROD.toUpperCase()}@${POOLER}/postgres`).error).toMatch(/names the production project/)
+  })
+  it('on a pooler host takes only the user postgres.<refs.dev>', () => {
+    expect(at(`postgresql://postgres.localstackplaceholder:pw@${POOLER}:6543/postgres`)).toEqual({ args: ['--db-url', `postgresql://postgres.localstackplaceholder:pw@${POOLER}:6543/postgres`], label: `db-url:${POOLER}` })
+    expect(at(`postgresql://postgres:pw@${POOLER}:6543/postgres`).error).toMatch(/user must be postgres\.localstackplaceholder .*not postgres$/)
+    expect(at(`postgresql://${POOLER}:6543/postgres`).error).toMatch(/not \(none\)/)
+    expect(at(`postgresql://postgres.someoneelse@${POOLER}/postgres`).error).toMatch(/not postgres\.someoneelse/)
+    // The pooler rule doesn't stand in for --allow-host: the host still has to be allowed.
+    expect(at(`postgresql://postgres.localstackplaceholder@${POOLER}/postgres`, null).error).toMatch(/needs --allow-host aws-0/)
+  })
+  it('refuses a pooler host without refs.dev, and adds no prod refusal without refs.prod', () => {
+    writeFileSync(join(root, '.claude', 'kit.json'), JSON.stringify({ project: { name: 'fixture' } }))
+    expect(at(`postgresql://postgres.localstackplaceholder@${POOLER}/postgres`).error).toMatch(/no refs\.dev/)
+    expect(at(`postgresql://postgres@db.${PROD}.supabase.co/postgres`, `db.${PROD}.supabase.co`).label).toBe(`db-url:db.${PROD}.supabase.co`)
+    rmSync(join(root, '.claude', 'kit.json'))
+    expect(at(`postgresql://postgres@db.${PROD}.supabase.co/postgres`, `db.${PROD}.supabase.co`).label).toBe(`db-url:db.${PROD}.supabase.co`)
+  })
 })
 
 describe('a lane seed', () => {
