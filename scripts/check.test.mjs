@@ -7,7 +7,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, test } from 'node:test'
-import { checkKit, checkRanjit, kitVersionNote, liveBehind, projectValues } from './check.mjs'
+import { BUILDERS, MARKER } from '../plugins/release/scripts/make-builders.mjs'
+import { checkBuilders, checkKit, checkRanjit, checkRetiredNames, kitVersionNote, liveBehind, longestLesson, projectValues } from './check.mjs'
 
 const roots = []
 after(() => roots.forEach((r) => rmSync(r, { recursive: true, force: true })))
@@ -144,15 +145,51 @@ test('a lessons line over 300 characters fails with its line and length; 300 pas
   })
   const { problems } = checkKit(root, { base: root })
   assert.deepEqual(problems.filter((p) => p.includes('lesson')), [
-    'plugins/core/lessons.md:4  lesson line over 300 characters (301)',
+    'plugins/core/lessons.md:4  lesson line over 300 characters (301 of 300)',
   ])
+})
+
+test('longestLesson prints the longest lesson beside the cap', () => {
+  const root = kit({ 'plugins/core/lessons.md': `# L\n\n- ${'a'.repeat(100)}\n- ${'b'.repeat(250)}\n` })
+  assert.equal(longestLesson(root), 'longest lesson: 252 of 300 (plugins/core/lessons.md:4)')
+  assert.equal(longestLesson(kit({ 'README.md': 'x' })), null)
+})
+
+const stripMarker = (body) => `---\nname: x\n---\nHead\n\n${MARKER}\n\n${body}`
+const builderKit = (agentBody = 'Body\n') => {
+  const files = { 'plugins/release/templates/builder.md': 'Body\n' }
+  for (const name of BUILDERS) files[`plugins/release/agents/${name}.md`] = stripMarker(agentBody)
+  return kit(files)
+}
+
+test('builders matching the template pass; a planted stale builder fails with its name', () => {
+  assert.deepEqual(checkBuilders(builderKit()), [])
+  const root = builderKit()
+  writeFileSync(join(root, 'plugins/release/agents/jesse-pinkman.md'), stripMarker('An old hand edit\n'))
+  const problems = checkBuilders(root)
+  assert.equal(problems.length, 1)
+  assert.match(problems[0], /^plugins\/release\/agents\/jesse-pinkman\.md:1 {2}stale builder/)
+  assert.deepEqual(checkBuilders(kit({ 'README.md': 'x' })), [])
+})
+
+test('a planted retired name fails; history, the allowlist and a missing map pass', () => {
+  const map = kit({ 'name-map.md': '## The map\n\n| Was | Name |\n|---|---|\n| `the dojo` | Pylos |\n' }) + '/name-map.md'
+  const root = kit({
+    'plugins/core/skills/a/SKILL.md': 'We start at the dojo today.\n',
+    'plugins/core/CHANGELOG.md': 'the dojo, long ago\n',
+    'plugins/core/skills/mr-miyagi/persona.md': 'the dojo\n',
+  })
+  const problems = checkRetiredNames(root, { map })
+  assert.equal(problems.length, 1)
+  assert.match(problems[0], /^plugins\/core\/skills\/a\/SKILL\.md:1 {2}retired name "the dojo" \(now Pylos/)
+  assert.deepEqual(checkRetiredNames(root, { map: join(root, 'none.md') }), [])
 })
 
 test("with --project, the project's .claude/lessons.md gets the same cap", () => {
   const root = kit({ ...good, 'plugins/core/lessons.md': '# Lessons\n\n- **[fine]** short\n' })
   const project = kit({ '.claude/lessons.md': `# Lessons\n${'x'.repeat(301)}\n` })
   const { problems } = checkKit(root, { base: project, project })
-  assert.deepEqual(problems.filter((p) => p.includes('lesson')), ['.claude/lessons.md:2  lesson line over 300 characters (301)'])
+  assert.deepEqual(problems.filter((p) => p.includes('lesson')), ['.claude/lessons.md:2  lesson line over 300 characters (301 of 300)'])
   assert.deepEqual(checkKit(root, { base: project }).problems.filter((p) => p.includes('lesson')), [])
 })
 
