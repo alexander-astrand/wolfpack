@@ -4,9 +4,11 @@
 // budgets file and the routing rules, so the navigator writes only the half
 // that needs judgment (the why, the taste lines, the shared parts).
 //
-// Usage: node compose-order.mjs --plan <plan file> --step <id> [--project <dir>] [--json]
+// Usage: node compose-order.mjs --plan <plan file> --step <id> [--project <dir>] [--json] [--dry]
 //   prints   one block: agent, model, effort, the `[budget NM]` tag (never
-//            absent), mode, the step, the files to read (the row's file:line
+//            absent), mode, the step, for a mosbius-designs step the dealt
+//            directions (design/scripts/deal.mjs, logged as the deal of record
+//            unless --dry), the files to read (the row's file:line
 //            column), the tests that read them, the standing facts that touch
 //            the step, the shell-shape line and the closing "Cheaper next
 //            time" ask; for a `the-playbook` step also the lane brief (test,
@@ -33,6 +35,16 @@ import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
+
+// The design plugin's dealer (kit 1.9, C2; Alexander 3 Nov: every mosbius-designs order deals).
+// It lives in the sibling plugin, so a release plugin installed without design still composes:
+// the order then says to run deal.mjs by hand.
+let dealDirections = null
+try {
+  ;({ deal: dealDirections } = await import(new URL('../../design/scripts/deal.mjs', import.meta.url).href))
+} catch {
+  dealDirections = null
+}
 
 export const POOL = ['chris-de-kok', 'ahmed-och-ahmed', 'saul-goodman', 'jeff-winger', 'troy-and-abed']
 
@@ -407,8 +419,27 @@ const readJson = (p) => {
   }
 }
 
-/** The order for one step, as data. Paths are passed in, so tests never touch the real ~/.claude. */
-export function compose({ planText, stepId, root, budgets = readJson(join(HERE, '..', 'budgets.json')) ?? {} }) {
+/**
+ * The dealt directions for a designer order (`design/scripts/deal.mjs`), or a note when it can't.
+ * `log` writes the deal to the project's deals.log: the composed order is the deal of record,
+ * since every release order passes through here and a dry deal would never rotate.
+ */
+export function dealFor(root, mode, { log = false, args = [] } = {}) {
+  if (!dealDirections) return { error: 'the design plugin is not beside this one: run <design>/scripts/deal.mjs --project <dir> and paste its Brief line' }
+  const kind = mode === 'drawn-things' ? 'drawn' : 'layout'
+  try {
+    const d = dealDirections(['--project', root, '--kind', kind, ...(log ? [] : ['--dry']), ...args])
+    return { kind, brief: d.brief, names: d.dealt.map((x) => x.name), starter: d.starter, log: d.log, notes: d.notes }
+  } catch (err) {
+    return { error: `deal.mjs: ${err.message}` }
+  }
+}
+
+/**
+ * The order for one step, as data. Paths are passed in, so tests never touch the real ~/.claude.
+ * `deal` goes to dealFor: `{ log, args }` (args carry deal.mjs's --library and --log-dir in tests).
+ */
+export function compose({ planText, stepId, root, budgets = readJson(join(HERE, '..', 'budgets.json')) ?? {}, deal = {} }) {
   const row = findStep(planText, stepId)
   if (!row) return { error: `no row for step ${stepId} in the plan's tables` }
   const kit = readJson(join(root, '.claude', 'kit.json')) ?? {}
@@ -475,6 +506,10 @@ export function compose({ planText, stepId, root, budgets = readJson(join(HERE, 
     notes,
   }
   if (design?.tokenCss) order.tokenCss = design.tokenCss
+  if (agent === 'mosbius-designs') {
+    order.deal = dealFor(root, mode, deal)
+    if (order.deal.error) notes.push(order.deal.error)
+  }
   if (!factsText) notes.push('no .claude/standing-facts.md yet: the first preflight copies the release plugin\'s templates/standing-facts.md')
 
   if (agent === 'the-playbook') {
@@ -505,6 +540,11 @@ export function render(o) {
   if (o.lane) L.push(`Lane: ${o.lane}`)
   L.push('', `The step: ${o.what}`)
   if (o.tokenCss) L.push(`Token CSS (scripted mode): ${o.tokenCss}`)
+  if (o.deal && !o.deal.error) {
+    L.push('', 'Dealt directions:', o.deal.brief)
+    for (const n of o.deal.notes) L.push(`- ${n}`)
+    L.push(o.deal.log ? `- This deal is logged (${o.deal.log}): draw these, never a fresh deal.` : '- A dry deal, not logged: compose again without --dry for the order you spawn.')
+  }
   L.push('', 'Files to read:', ...(o.files.length ? o.files.map((f) => `- ${f}`) : ['- (none named in the row)']))
   L.push('', 'Tests that read them:', ...(o.tests.length ? o.tests.map((f) => `- ${f}`) : ['- (none found)']))
   if (o.check) L.push('', `Check: ${o.check}`)
@@ -524,14 +564,15 @@ export function render(o) {
 }
 
 export function parseArgs(argv) {
-  const a = { json: false }
+  const a = { json: false, dry: false }
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i]
     if (k === '--json') a.json = true
+    else if (k === '--dry') a.dry = true
     else if (k === '--plan' || k === '--step' || k === '--project') a[k.slice(2)] = argv[++i]
     else return { error: `unknown argument ${k}` }
   }
-  if (!a.plan || !a.step) return { error: 'usage: node compose-order.mjs --plan <plan file> --step <id> [--project <dir>] [--json]' }
+  if (!a.plan || !a.step) return { error: 'usage: node compose-order.mjs --plan <plan file> --step <id> [--project <dir>] [--json] [--dry]' }
   return a
 }
 
@@ -546,7 +587,7 @@ function main() {
     process.exit(2)
   }
   const root = resolve(a.project ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd())
-  const o = compose({ planText: readFileSync(a.plan, 'utf8'), stepId: a.step, root })
+  const o = compose({ planText: readFileSync(a.plan, 'utf8'), stepId: a.step, root, deal: { log: !a.dry } })
   if (o.error) {
     console.error(o.error)
     process.exit(2)
