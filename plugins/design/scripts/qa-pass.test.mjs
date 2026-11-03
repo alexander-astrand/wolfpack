@@ -3,14 +3,25 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { DEFAULT_WIDGET, pageUrl, paneBatches, parseArgs, parsePass, rowsFor, run, table } from './qa-pass.mjs'
+import { DEFAULT_WIDGET, pageUrl, paneBatches, parseArgs, parsePass, rowsFor, run, table, tellsOffFrom } from './qa-pass.mjs'
 import { findChrome } from './qa/cdp.mjs'
 
 const pass = (o = {}) => parsePass(JSON.stringify({ base: 'http://localhost:5174', pages: ['/notes'], ...o }))
 
 describe('parsePass', () => {
   it('fills the defaults', () => {
-    expect(pass()).toEqual({ base: 'http://localhost:5174', pages: ['/notes'], widths: [375, 1024], themes: [], themeVia: 'param:theme', widget: DEFAULT_WIDGET })
+    expect(pass()).toEqual({ base: 'http://localhost:5174', pages: ['/notes'], widths: [375, 1024], themes: [], themeVia: 'param:theme', widget: DEFAULT_WIDGET, tellsOff: [] })
+  })
+  it('takes a list of tells to turn off', () => {
+    expect(pass({ tellsOff: ['glow-shadow'] }).tellsOff).toEqual(['glow-shadow'])
+    expect(() => pass({ tellsOff: 'glow-shadow' })).toThrow(/"tellsOff" is not a list/)
+  })
+})
+
+describe('tellsOffFrom', () => {
+  it('reads every `tells: off` line in a taste.md, bullets and backticks included', () => {
+    expect(tellsOffFrom('## Colour\n- `tells: off gradient-text, glow-shadow`\nWe like warm.\ntells: off nested-cards\n')).toEqual(['gradient-text', 'glow-shadow', 'nested-cards'])
+    expect(tellsOffFrom('No tells line here; tells are fine.')).toEqual([])
   })
   it('names every problem at once', () => {
     expect(() => parsePass(JSON.stringify({ pages: [], widths: ['x'], themeVia: 'cookie' }), 'p.json')).toThrow(/p\.json: no "base" URL; "pages" is not a list of paths; "widths" is not a list of whole numbers; themeVia "cookie"/)
@@ -52,6 +63,13 @@ describe('rowsFor and table', () => {
       ['already at the end (not judged)', ''],
     ])
   })
+  it('makes nonText a must and gives tells an advisory row of their own', () => {
+    const rows = rowsFor('/n', [{ width: 375, theme: null, counts: { nonText: 1, smallTargets: 0 }, tells: { 'glow-shadow': { count: 2, examples: [] }, 'side-stripe': { count: 1, examples: [] } } }], null, null, null)
+    expect(rows).toEqual([
+      { page: '/n', check: 'scan 375', result: 'nonText 1', finding: 'yes' },
+      { page: '/n', check: 'tells 375', result: 'glow-shadow 2, side-stripe 1', finding: '' },
+    ])
+  })
   it('prints a markdown table with pipes kept as text', () => {
     expect(table([{ page: '/a', check: 'console', result: 'a | b', finding: 'yes' }])).toBe('| page | check | result | finding |\n|---|---|---|---|\n| /a | console | a \\| b | yes |')
   })
@@ -68,6 +86,10 @@ describe('paneBatches', () => {
     expect(js.text).toContain('page-scan.js: one page')
     expect(js.text).not.toContain("fetch('/qa/page-scan.js')).text(); JSON.parse(await eval(src))\n")
     expect(after.input).toEqual({ preset: 'desktop', tabId: 't1' })
+  })
+  it('carries tellsOff into the scan args', () => {
+    const { batches } = paneBatches(pass({ tellsOff: ['icon-tile'] }), { tab: 't1' })
+    expect(batches[0].actions[2].input.text).toContain('"tellsOff":["icon-tile"]')
   })
 })
 
