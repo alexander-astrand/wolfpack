@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { addedLines, hitsOf, KIT_CHECKS, parsePipeline, projectChecks, render, review, toRegExp } from './review-greps.mjs'
+import { addedLines, hitsOf, KIT_CHECKS, kitPathHits, parsePipeline, projectChecks, render, review, toRegExp } from './review-greps.mjs'
 
 const DIFF = [
   'diff --git a/src/Logo.tsx b/src/Logo.tsx',
@@ -70,8 +70,9 @@ describe('builder-checks pipelines', () => {
     expect(hitsOf(lines, checks).map((h) => `${h.check} @ ${h.where}`)).toEqual(['Game nights filtered @ src/a.ts:1'])
   })
 
-  // Real lines from reel-helper's and Burrow's .claude/builder-checks.md
-  // (31 Oct 2026), copied in with the prose after the grep trimmed (review MUST 3).
+  // The shapes of real builder-checks lines (31 Oct 2026), kept as fixed lines so
+  // CI, which has no project checked out, still covers the parser. The projects'
+  // live files are replayed in "each project's live builder-checks.md" below.
   const REAL = [
     "- **A logo or mark draws on whole pixels** (the kit's taste: a wordmark at 109x25.25 and a mark at 18.9px both blurred, in two projects). `git diff main -U0 | grep -nE '^\\+.*[0-9]+\\.[0-9]+px'` shows no fractional size in a logo, mark or icon box; a computed size goes through `Math.round`.",
     "- **An add line keeps its text until the write succeeds.** Use `AddLine` (`components/ui/add-line.tsx`), or clear only after the write returns. Grep: `git diff main -- components | grep -n \"setText('')\\|setValue('')\"`. (V0.6 G2 N11: notes, other shops, wishes, `aa71d30`.)",
@@ -107,6 +108,85 @@ describe('builder-checks pipelines', () => {
     expect(parsePipeline('grep -n -e "setText" -e "setValue" components')).toBe(null)
     expect(parsePipeline('grep -L "no_oauth_client" supabase/migrations/x.sql')).toBe(null)
     expect(parsePipeline('git diff main -- app components lib | grep -n "x"')).toMatchObject({ paths: ['app', 'components', 'lib'], diff: true })
+  })
+})
+
+// Kit 1.9 P3: the projects' own files, read live (no pasted copies). A project
+// whose file is absent is skipped, so CI (no projects) runs none of these.
+const HOME = homedir()
+const PROJECT_FILES = ['Desktop/HutzUp', 'Desktop/burrow', 'burrow', 'HutzUp', 'pelion', 'Desktop/pelion']
+  .map((p) => join(HOME, p, '.claude', 'builder-checks.md'))
+  .filter((f) => existsSync(f))
+// One planted violation per rule shape: [the rule's name, a file, the line that breaks it].
+const PLANTS = [
+  [/outline-none/, 'src/Btn.tsx', '  <button className="outline-none">'],
+  [/navigator\.share/, 'src/Card.tsx', '  navigator.share({ url })'],
+  [/game_nights|private-nights|visibility filter/, 'src/List.tsx', "  supabase.from('game_nights')"],
+  [/add line keeps its text/, 'components/Add.tsx', "    setText('')"],
+  [/width, column count and sticky top/, 'styles/page.css', '  max-width: 720px;'],
+  [/Today comes from/, 'app/today.tsx', "  const tz = 'Europe/Stockholm'"],
+  [/whole pixels/, 'src/Logo.tsx', '  <svg width="18.9px" />'],
+]
+
+describe.each(PROJECT_FILES.map((f) => [f.replace(HOME, '~'), f]))("each project's live builder-checks.md: %s", (_name, file) => {
+  const md = readFileSync(file, 'utf8')
+  const { checks, manual } = projectChecks(md)
+  const bullets = md.split('\n').filter((l) => /^\s*[-*]\s/.test(l))
+
+  it('turns every bullet into grep checks or a read-by-hand count', () => {
+    expect(bullets.length).toBeGreaterThan(0)
+    expect(new Set(checks.map((c) => c.name)).size + manual).toBeLessThanOrEqual(bullets.length)
+    expect(checks.length).toBeGreaterThan(0)
+  })
+
+  it('stays quiet on an ordinary line', () => {
+    expect(hitsOf([{ file: 'src/App.tsx', line: 1, text: '  const total = items.length' }], checks)).toEqual([])
+  })
+
+  it('fires on the planted violation of each rule the file holds', () => {
+    for (const [rule, path, text] of PLANTS) {
+      const own = checks.filter((c) => rule.test(c.name))
+      if (!own.length) continue
+      const hit = hitsOf([{ file: path, line: 1, text }], own)
+      expect(hit.length, `${rule} should hit "${text}"`).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe('test files and kit paths', () => {
+  const diff = (file, text) => [`+++ b/${file}`, '@@ -0,0 +1 @@', `+${text}`].join('\n')
+
+  it('drops added lines in test files, fixtures and __tests__ folders', () => {
+    for (const f of ['a/x.test.mjs', 'a/x.test.js', 'a/__tests__/x.js', 'a/fixtures/x.md', 'x.spec.ts']) expect(addedLines(diff(f, 'outline-none'))).toEqual([])
+    expect(addedLines(diff('a/x.mjs', 'outline-none'))).toHaveLength(1)
+  })
+
+  it('counts line numbers past a skipped test file', () => {
+    const d = ['+++ b/a.test.mjs', '@@ -0,0 +1,2 @@', '+x', '+y', '+++ b/b.md', '@@ -0,0 +4 @@', '+z'].join('\n')
+    expect(addedLines(d)).toEqual([{ file: 'b.md', line: 4, text: 'z' }])
+  })
+
+  const files = new Set(['plugins/design/scripts/gallery.mjs', 'plugins/release', 'plugins/core', 'plugins/design', 'plugins/database', 'scripts/check.mjs'])
+  const exists = (p) => [...files].some((f) => p.endsWith(`/${f}`))
+  const md = (text) => [{ file: 'docs/x.md', line: 7, text }]
+  const hits = (text, names = new Set(['norms.md'])) => kitPathHits(md(text), { repo: '/r', exists, trackedNames: () => names }).map((h) => h.text.split(' ')[0])
+
+  it('flags a kit file named in markdown that the kit does not hold (order-common.md)', () => {
+    expect(hits('Both agents read `order-common.md` in the kit.')).toEqual(['order-common.md'])
+    expect(hits('The kit keeps `norms.md`.')).toEqual([])
+  })
+
+  it('flags a missing plugins/, scripts/ or <plugin>/ path and passes real ones', () => {
+    expect(hits('See `plugins/design/scripts/gallery.mjs` and `<design>/scripts/gallery.mjs`.')).toEqual([])
+    expect(hits('See `plugins/design/scripts/nope.mjs`.')).toEqual(['plugins/design/scripts/nope.mjs'])
+    expect(hits('Run `<design>/scripts/nope.mjs`.')).toEqual(['plugins/design/scripts/nope.mjs'])
+    expect(hits('See `scripts/check.mjs`, then `scripts/gone.mjs`.')).toEqual(['scripts/gone.mjs'])
+  })
+
+  it('leaves URLs, ~/ paths, placeholders, globs and non-markdown files alone', () => {
+    expect(hits('https://example.com/plugins/x/y.md and ~/kit/plugins/x/y.md')).toEqual([])
+    expect(hits('`plugins/<project>/x.md`, `plugins/*/x.md`, `${ROOT}/scripts/x.mjs`')).toEqual([])
+    expect(kitPathHits([{ file: 'a.mjs', line: 1, text: "see 'plugins/x/nope.mjs'" }], { repo: '/r', exists })).toEqual([])
   })
 })
 
