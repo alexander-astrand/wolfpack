@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { CI_WORKFLOW, DEV_REF, PROD_URL, VERCEL_TOOLS, WORST_CASE_MS, decide as guardDecide, maskSecrets, namesProtected, parseShell, readJsonMarker, readRepoState, releasePrFrom } from './guard-production.mjs'
+import { settingsFiles, vercelUuids } from './guard-vercel.mjs'
 import { CI_JOBS, UNREAD_CHECKBOX, allowedCommands, explainSteps, loadKitConfig, parseProductionSteps, prFacts, previewText, unreadCheckboxes } from './production-steps.mjs'
 
 const PROD = 'prodrefprodrefprodre'
@@ -19,7 +20,9 @@ const OTHER = 'abcdefghijabcdefghij'
 // passes its own readLog.
 // Nor read the live markers: a test that doesn't pass its own gets none, so
 // a run in an armed checkout answers as in an unarmed one (2.13.2.1).
-const decide = (input, env = {}) => guardDecide(input, { log: () => {}, chainLog: () => {}, readLog: () => '', marker: () => null, chainMarker: () => null, ...env })
+// Nor the real settings files' Vercel uuid (guard-vercel.mjs): a test that
+// wants one passes vercelUuids.
+const decide = (input, env = {}) => guardDecide(input, { log: () => {}, chainLog: () => {}, readLog: () => '', marker: () => null, chainMarker: () => null, vercelUuids: () => new Set(), ...env })
 const REAL_LOGS = ['../full-auto.log', '../full-auto-chain.log'].map((p) => fileURLToPath(new URL(p, import.meta.url)))
 const logState = () => REAL_LOGS.map((f) => { try { const s = statSync(f); return `${s.size}:${s.mtimeMs}` } catch { return 'none' } })
 const LOGS_BEFORE = logState()
@@ -33,7 +36,7 @@ const SANDBOX = realpathSync(mkdtempSync(join(tmpdir(), 'guard-sandbox-')))
 process.once('exit', () => rmSync(SANDBOX, { recursive: true, force: true }))
 mkdirSync(join(SANDBOX, '.claude', 'hooks'), { recursive: true })
 const sandboxed = (file) => join(SANDBOX, '.claude', 'hooks', file)
-for (const f of ['guard-entry.mjs', 'guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs', 'denied-log.mjs', 'step-aside.mjs']) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), sandboxed(f))
+for (const f of ['guard-entry.mjs', 'guard-production.mjs', 'guard-vercel.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs', 'denied-log.mjs', 'step-aside.mjs']) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), sandboxed(f))
 // Rows that only say "not refused": a listed read comes back allow (2.12.3),
 // anything else passes to the permission rules.
 const OPEN = /^(?:pass|allow)$/
@@ -177,35 +180,67 @@ describe('navigator and other agents', () => {
 // app's, a fixture only: the hook matches any uuid by shape.
 describe('the Vercel connector', () => {
   const PREFIXES = ['mcp__3be6532e-019b-4c2b-89d9-df0479a0419f__', 'mcp__claude_ai_Vercel__']
-  // The connector's write tools as the settings ask about them, from
-  // ~/pylos/notes/connectors.md and ~/.claude/settings.json, 2 Nov 2026 (Gap 6).
-  const WRITES_2026_11_02 = ['add_project_domain', 'add_route', 'add_toolbar_reaction', 'approve_rolling_release_stage', 'assign_alias', 'cancel_deployment',
-    'change_toolbar_thread_resolve_status', 'complete_rolling_release', 'create_deployment', 'create_drain', 'create_edge_config', 'create_flag',
-    'create_flags_project_connection', 'create_git_project', 'create_observability_query', 'create_project', 'create_project_env', 'create_record',
-    'create_sandboxes_sessions_by_session_id_snapshot_v2', 'create_sandboxes_sessions_by_session_id_snapshot_v3', 'create_sandboxes_v2', 'create_sandboxes_v3',
-    'create_sandboxes_v4', 'create_session_directory', 'create_storage_stores_blob', 'create_trace_session', 'edit_project_env', 'edit_route', 'edit_toolbar_message',
-    'extend_session_timeout', 'generate_route', 'import-claude-dashboard-from-url', 'import-claude-design-from-url', 'import-claude-motion-from-url',
-    'invalidate_by_src_images', 'invalidate_by_tags', 'issue_cert', 'kill_session_command', 'patch_edge_config_items', 'patch_url_protection_bypass', 'pause_project',
-    'put_firewall_config', 'record_events', 'replace_domain_dns_records', 'reply_to_toolbar_thread', 'request_promote', 'request_rollback', 'restore_edge_config_backup',
-    'restore_redirects', 'run_session_command', 'stage_redirects', 'stage_routes', 'start_rolling_release', 'stop_session', 'submit_feedback', 'test_drain',
-    'unpause_project', 'update_attack_challenge_mode', 'update_bulk_redirect_version', 'update_connector', 'update_drain', 'update_edge_config', 'update_firewall_config',
-    'update_flag', 'update_flag_segment', 'update_flag_settings', 'update_project', 'update_project_protection_bypass', 'update_record', 'update_rolling_release_config',
-    'update_route_versions', 'update_sandbox', 'update_session_network_policy', 'upload_artifact', 'upload_file', 'upsert_connector_project_connection',
-    'verify_project_domain', 'write_session_files', 'buy_domain', 'create_or_transfer_domain', 'accept_project_transfer_request', 'authorize_team_access',
-    'authorize_team_sso', 'create_sdk_key', 'create_edge_config_token']
+  // The connector's whole tool list as the desktop app showed it on 2 Nov 2026
+  // (tools.txt in the "pylos · setup · travel mcp servers" side-session notes;
+  // Gap 6, R1-1): 247 names.
+  const TOOLS_2026_11_02 = `accept_project_transfer_request activate_kms_signing_key add_project_domain add_route add_toolbar_reaction aggregate_events aggregate_pageviews
+    approve_rolling_release_stage artifact_query assign_alias authorize_team_access authorize_team_sso buy_domain cancel_deployment change_toolbar_thread_resolve_status
+    complete_rolling_release count_events count_pageviews create_deployment create_drain create_edge_config create_edge_config_token create_flag
+    create_flags_project_connection create_git_project create_kms_issuer create_kms_issuer_policy create_kms_signing_key create_observability_query
+    create_or_transfer_domain create_project create_project_env create_record create_sandboxes_sessions_by_session_id_snapshot_v2
+    create_sandboxes_sessions_by_session_id_snapshot_v3 create_sandboxes_v2 create_sandboxes_v3 create_sandboxes_v4 create_sdk_key create_session_directory
+    create_storage_stores_blob create_trace_session edit_project_env edit_route edit_toolbar_message extend_session_timeout filter_project_envs generate_route
+    get-dashboard-import-job-status get-design-import-job-status get-motion-import-job-status get_access_to_vercel_url get_active_attack_status get_agent_run
+    get_agent_run_trace get_alias get_auth_user get_bulk_availability get_bulk_price get_bypass_ip get_cert_by_id get_configuration get_connector
+    get_connector_project_connection get_contact_info_schema get_custom_environment get_deployment get_deployment_feature_flags get_deployment_file_contents
+    get_domain get_domain_availability get_domain_config get_domain_contact_verification get_domain_order get_domain_price get_domain_project_domains
+    get_domain_verification_record get_domains_records_by_record_id get_drain get_edge_config get_edge_config_backup get_edge_config_backups get_edge_config_item
+    get_edge_config_items get_edge_config_token get_edge_config_tokens get_edge_configs get_firewall_config get_flag get_flag_segment get_flag_settings
+    get_flags_project_disconnection_link get_git_deployment_context get_kms_issuer get_microfrontends_config get_microfrontends_config_for_project get_named_sandbox
+    get_observability_configuration_projects get_observability_schema get_order get_project get_project_deletion_link get_project_domain get_project_env
+    get_project_trace get_purchase_quote get_records get_remote_cache_status get_rolling_release get_rolling_release_billing_status get_rolling_release_config
+    get_runtime_errors get_runtime_logs get_session get_session_command get_session_command_logs get_session_snapshot get_shared_env_var get_storage_stores_by_id
+    get_team get_tld get_tld_price get_toolbar_thread get_vercel_ci_invocation get_vercel_ci_invocation_logs get_vercel_ci_invocation_tree
+    get_vercel_ci_job_definition get_vercel_ci_job_run get_vercel_ci_job_run_logs get_vercel_ci_task_logs get_vercel_ci_task_run_logs get_webhooks git_namespaces
+    import-claude-dashboard-from-url import-claude-design-from-url import-claude-motion-from-url invalidate_by_src_images invalidate_by_tags issue_cert
+    kill_session_command list_access_group_members list_access_group_projects list_access_groups list_agent_run_projects list_agent_runs list_aliases
+    list_billing_charges list_bulk_redirect_versions list_bulk_redirects list_certs list_connector_project_connections list_connectors list_contract_commitments
+    list_deployment_aliases list_deployment_events list_deployment_files list_deployments list_domains list_drains list_event_types list_feature_flag_sdk_keys
+    list_flag_segments list_flag_versions list_flags list_flags_project_connections list_flags_v2 list_integration_billing_plans
+    list_integration_configuration_products list_integration_configurations list_kms_issuers list_named_sandboxes list_project_connector_connections
+    list_project_custom_environments list_project_domains list_project_route_versions list_project_routes list_projects list_promote_aliases list_session_commands
+    list_session_snapshots list_sessions list_supported_tlds list_team_flag_settings list_team_flags list_team_flags_v2 list_team_members list_teams
+    list_toolbar_threads list_user_events list_vercel_ci_invocation_attempts list_vercel_ci_invocations list_vercel_ci_job_definitions list_vercel_ci_job_runs
+    list_vercel_ci_task_definitions list_vercel_ci_task_runs patch_edge_config_items patch_url_protection_bypass pause_project put_firewall_config read_access_group
+    read_access_group_project read_session_file record_events replace_domain_dns_records reply_to_toolbar_thread request_promote request_rollback rerequest_check
+    restore_edge_config_backup restore_redirects retry_vercel_ci_invocation revoke_kms_signing_key run_session_command search_domains search_repo
+    search_vercel_documentation stage_redirects stage_routes start_rolling_release stop_session submit_feedback test_drain unpause_project
+    update_attack_challenge_mode update_bulk_redirect_version update_connector update_drain update_edge_config update_firewall_config update_flag
+    update_flag_segment update_flag_settings update_kms_issuer update_kms_issuer_policy update_project update_project_protection_bypass update_record
+    update_rolling_release_config update_route_versions update_sandbox update_session_network_policy upload_artifact upload_file
+    upsert_connector_project_connection verify_project_domain web_fetch_vercel_url write_session_files`.split(/\s+/)
   const GO = { arg: '1.9', at: Date.parse('2026-11-03T08:00:00Z') }
   const lines = []
-  const call = (tool, toolInput = {}, { mode = 'default', go = null, agent } = {}) => {
+  const call = (tool, toolInput = {}, { mode = 'default', go = null, agent, marker = { version: '1.9' }, uuids = new Set() } = {}) => {
     const input = { tool_name: tool, tool_input: toolInput, permission_mode: mode }
     if (agent) input.agent_type = agent
-    return decide(input, { humanGo: () => go, marker: () => ({ version: '1.9' }), log: (l) => lines.push(l), linkedRef: () => DEV_REF, releasePr: () => null })
+    return decide(input, { humanGo: () => go, marker: () => marker, log: (l) => lines.push(l), linkedRef: () => DEV_REF, releasePr: () => null, vercelUuids: () => uuids })
   }
   const verdict = (...a) => call(...a)?.decision ?? 'pass'
 
   for (const p of PREFIXES) {
     describe(p, () => {
       it('passes the reads, adding no allow', () => {
-        for (const t of ['get_project', 'list_deployments_x', 'search_vercel_documentation', 'get-import-status', 'get_project_env', 'filter_project_envs', 'rerequest_check']) expect(verdict(p + t, { projectId: 'prj_abc' })).toBe('pass')
+        for (const t of ['get_project', 'list_deployments_x', 'search_vercel_documentation', 'get-import-status', 'get_project_env', 'filter_project_envs', 'artifact_query']) expect(verdict(p + t, { projectId: 'prj_abc' })).toBe('pass')
+      })
+      it('counts a re-run check or CI invocation as a production write (R1-8)', () => {
+        expect(verdict(p + 'rerequest_check')).toBe('ask')
+        expect(verdict(p + 'retry_vercel_ci_invocation', {}, { go: GO })).toBe('allow')
+      })
+      it('takes the go only for the armed release (R1-4)', () => {
+        expect(call(p + 'request_promote', {}, { go: { ...GO, arg: '1.8' } }).reason).toMatch(/names 1\.8, and the armed release is 1\.9/)
+        expect(call(p + 'request_promote', {}, { go: GO, marker: null }).reason).toMatch(/has no armed release/)
+        expect(verdict(p + 'request_promote', {}, { go: GO, marker: null, mode: 'bypassPermissions' })).toBe('deny')
       })
       it('asks on a known production write when attended, and logs it', () => {
         lines.length = 0
@@ -243,9 +278,36 @@ describe('the Vercel connector', () => {
     expect(verdict('mcp__0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b__add_to_list', { name: 'soap' })).toBe('pass')
   })
 
-  it('knows every write tool of the 2 Nov list, and leaves the Supabase connector to its own rule', () => {
-    const { VERCEL_PROD_WRITES, VERCEL_PAID, VERCEL_WRITES } = VERCEL_TOOLS
-    expect(WRITES_2026_11_02.filter((t) => !VERCEL_PROD_WRITES.has(t) && !VERCEL_PAID.has(t) && !VERCEL_WRITES.has(t))).toEqual([])
+  it('knows the desktop uuid from the settings rules, and an unknown write there asks (R1-1)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'guard-vercel-'))
+    const home = join(dir, 'home')
+    const claude = join(dir, 'proj', '.claude')
+    mkdirSync(join(home, '.claude'), { recursive: true })
+    mkdirSync(claude, { recursive: true })
+    const UUID = '3be6532e-019b-4c2b-89d9-df0479a0419f'
+    writeFileSync(join(home, '.claude', 'settings.json'), JSON.stringify({ permissions: { allow: [`mcp__${UUID}__get_*`], ask: [`mcp__${UUID}__request_promote`, 'mcp__b9b722b0-cd4f-4144-b0cf-ec304092b6c0__execute_sql'] } }))
+    writeFileSync(join(claude, 'settings.json'), '{ not json')
+    const uuids = vercelUuids(settingsFiles(claude, home))
+    expect([...uuids]).toEqual([UUID])
+    // Missing and broken files name nothing, and never throw.
+    expect(vercelUuids(settingsFiles(join(dir, 'none'), join(dir, 'nobody'))).size).toBe(0)
+    const V = `mcp__${UUID}__`
+    expect(verdict(V + 'create_kms_signing_key', {}, { uuids })).toBe('ask')
+    expect(verdict(V + 'delete_everything', {}, { uuids })).toBe('ask')
+    expect(verdict(V + 'delete_everything', {}, { uuids, mode: 'dontAsk' })).toBe('deny')
+    expect(verdict(V + 'get_project', {}, { uuids })).toBe('pass')
+    // A uuid the settings don't name keeps the known-write fallback only.
+    const N = 'mcp__0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b__'
+    expect(verdict(N + 'notion-create-pages', { pages: [] }, { uuids })).toBe('pass')
+    expect(verdict(N + 'request_promote', {}, { uuids })).toBe('ask')
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('knows every non-read tool of the 2 Nov list, and leaves the Supabase connector to its own rule', () => {
+    const { VERCEL_READ, VERCEL_PROD_WRITES, VERCEL_PAID, VERCEL_WRITES, READ_RE } = VERCEL_TOOLS
+    expect(TOOLS_2026_11_02).toHaveLength(247)
+    const writes = TOOLS_2026_11_02.filter((t) => !READ_RE.test(t) && !VERCEL_READ.has(t))
+    expect(writes.filter((t) => !VERCEL_PROD_WRITES.has(t) && !VERCEL_PAID.has(t) && !VERCEL_WRITES.has(t))).toEqual([])
     const SUPA = 'mcp__b9b722b0-cd4f-4144-b0cf-ec304092b6c0__'
     // Supabase's pause_project carries a ref, so it is never taken for Vercel's.
     expect(verdict(SUPA + 'pause_project', { project_id: DEV_REF })).toBe('pass')
@@ -2610,7 +2672,7 @@ describe('2.12.4 review: refused as on main', () => {
   beforeAll(async () => {
     mainDir = mkdtempSync(join(tmpdir(), 'guard-main-'))
     try {
-      for (const f of ['guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs']) {
+      for (const f of ['guard-production.mjs', 'guard-vercel.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs']) {
         writeFileSync(join(mainDir, f), execFileSync('git', ['show', `main:.claude/hooks/${f}`], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))
       }
       mainDecide = (await import(pathToFileURL(join(mainDir, 'guard-production.mjs')).href)).decide
@@ -3153,7 +3215,7 @@ describe('2.14.9.1: the values from kit.json, and the project root', () => {
     const own = realpathSync(mkdtempSync(join(tmpdir(), 'own-hooks-')))
     try {
       mkdirSync(join(own, '.claude', 'hooks'), { recursive: true })
-      for (const f of ['guard-production.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'chain-exclusions.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs']) {
+      for (const f of ['guard-production.mjs', 'guard-vercel.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'chain-exclusions.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs']) {
         if (existsSync(fileURLToPath(new URL(`./${f}`, import.meta.url)))) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), join(own, '.claude', 'hooks', f))
       }
       copyFileSync(fileURLToPath(new URL('./fixtures/kit.json', import.meta.url)), join(own, '.claude', 'kit.json'))
