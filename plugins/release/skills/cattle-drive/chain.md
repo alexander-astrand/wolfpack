@@ -63,7 +63,7 @@ Never trust the message; read the facts:
 
 | Kind | Done means |
 |---|---|
-| release | a draft PR for `V<version>`, CI green (both jobs of `.github/workflows/ci.yml`, by name, SUCCESS), `MERGEABLE` |
+| release | a PR for `V<version>` out of draft (leg 1 marks it ready once at its end: drafts run no CI), CI green (both jobs of `.github/workflows/ci.yml`, by name, SUCCESS), `MERGEABLE` |
 | deploy | PR merged; `.claude/full-auto.json` gone; the chain marker lists `<version>` in `done` (after the last version it stays, with `finished`, for the wrap-up) |
 | wrap-up | its log section, and a `First commit` heading in `<plans>V<next>.md` |
 
@@ -122,7 +122,7 @@ LINK STOPPED V<version> <kind> <PR url or none> :: <reason>
 ```
 
 ## Release link
-Run the release leg of `<release>/skills/cattle-drive/SKILL.md` for `<version>` (`/captain-call <version> away`, with its preflight). Skip "The start": the conductor has taken the sessions and armed. Instead of the hand-on, `LINK DONE` once the PR is a draft with both `ci.yml` jobs SUCCESS and `Leg 1 done at <sha>` is in the plan. Any hard stop, Hank stop or raven "stop the link": `LINK STOPPED`.
+Run the release leg of `<release>/skills/cattle-drive/SKILL.md` for `<version>` (`/captain-call <version> away`, with its preflight). Skip "The start": the conductor has taken the sessions and armed. Instead of the hand-on, `LINK DONE` once the PR is out of draft (the release leg's last step marks it ready: drafts run no CI) with both `ci.yml` jobs SUCCESS and `Leg 1 done at <sha>` is in the plan. Any hard stop, Hank stop or raven "stop the link": `LINK STOPPED`.
 
 ## Deploy+wrap link
 **Deploy.** Run the deploy leg of `<release>/skills/cattle-drive/SKILL.md` for `<version>`: `<release>/skills/cattle-drive/deploy-leg.md`'s steps 1-6 with the drive's additions.

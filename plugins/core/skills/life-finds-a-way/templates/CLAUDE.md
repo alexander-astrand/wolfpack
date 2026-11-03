@@ -30,7 +30,7 @@ scripts/check.sh     # ruff and pytest where installed (a missing one says "skip
 scripts/check.sh     # no checks yet: add the project's own to scripts/check.sh <!-- stack:other -->
 ```
 
-CI runs the same check on every pull request.
+CI runs the same check on every pull request once it is ready for review; a draft runs none, to save the month's minutes.
 
 ## Releases
 
