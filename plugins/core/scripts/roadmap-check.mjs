@@ -4,8 +4,9 @@
 // rows.json is a dump of the page's db keyed by doc path: {"meta/page": {...}, "meta/archive": {...}, "cards/v3-3": {...}, ...}
 // (a script can't call the artifact's database; the caller dumps the rows first).
 // Prints the "At a glance" quick list as drawGlance() builds it, then one line per problem; exit 1 if any.
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 export function parseStatus(pageHtml) {
   const m = pageHtml.match(/var STATUS = \[([\s\S]*?)\];/);
@@ -170,7 +171,8 @@ export function check(rows, pageHtml) {
   return problems;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Node runs the real file: a spaced path or a symlink compares as its real URL.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const [rowsPath, pagePath] = process.argv.slice(2);
   if (!rowsPath || !pagePath) {
     console.error('usage: node roadmap-check.mjs <rows.json> <page.html>');
