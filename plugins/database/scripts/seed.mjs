@@ -23,7 +23,9 @@
 //   from run-tests.mjs's target(), which refuses a CLI linked to production
 //   or an unknown target. A database URL (only the design plugin's
 //   qa-seed.mjs passes one, from --db or QA_SEED_DB_URL) goes to the CLI as
-//   --db-url, and only when every host it can reach is local or allowed.
+//   --db-url, and only when every host it can reach is local or allowed,
+//   no user or host names kit.json's refs.prod, and a Supavisor host
+//   (*.pooler.supabase.com) has the user postgres.<refs.dev>.
 // The design plugin's qa-seed.mjs is a thin wrapper over run(): it adds the
 // lane ({{LANE}} in the SQL) and seed=shared. Kit 1.9 folded the two runners
 // into this one after they drifted (PR #46's notes for review).
@@ -73,22 +75,55 @@ export function targetsOf(url) {
   return out.map((h) => h.trim())
 }
 
+// Supavisor's hosts (aws-0-<region>.pooler.supabase.com) serve every project in
+// a region, production too: only the user, postgres.<ref>, says which one.
+const POOLER_RE = /\.pooler\.supabase\.com$/i
+
+/** kit.json's refs.dev and refs.prod, lower-cased; either is null when unset. */
+export function refsOf(root) {
+  let refs = null
+  try {
+    refs = JSON.parse(read(join(root, '.claude', 'kit.json')) || 'null')?.refs
+  } catch {}
+  const one = (v) => (typeof v === 'string' && v.trim() ? v.trim().toLowerCase() : null)
+  return { dev: one(refs?.dev), prod: one(refs?.prod) }
+}
+
+/** The URL's user name and any `?user=` (libpq lets the query override it too). */
+export function usersOf(url) {
+  const u = new URL(url)
+  return [decodeURIComponent(u.username), ...u.searchParams.getAll('user')].map((s) => s.trim().toLowerCase()).filter(Boolean)
+}
+
 /**
  * The one dev-only check for both runners: `{ args, label }` for the CLI, or
  * `{ error }`. Without a URL it is run-tests.mjs's target(); with one, every
  * host the URL can reach must be local or the one `allowHost` names (a hosted
  * dev project). `label` is one word with no password in it, for the log.
+ * --allow-host alone can't tell dev from production on a shared pooler host
+ * (kit 1.9 review R1-6), so with a URL two more refusals come first, and no
+ * --allow-host lifts them: a user or host naming kit.json's refs.prod, and a
+ * *.pooler.supabase.com host whose user is not postgres.<refs.dev>.
  */
 export function devTarget(root, { db = null, allowHost = null, pick = target } = {}) {
   if (!db) {
     const t = pick(root)
     return t.error ? t : { args: [t.flag], label: t.flag }
   }
-  let hosts
+  let hosts, users
   try {
     hosts = targetsOf(db)
+    users = usersOf(db)
   } catch (e) {
     return { error: e.message }
+  }
+  const refs = refsOf(root)
+  if (refs.prod) for (const s of [...users, ...hosts.map((h) => h.toLowerCase())]) if (s.includes(refs.prod)) return { error: `${s} names the production project (kit.json refs.prod); seeds run on dev only` }
+  if (hosts.some((h) => POOLER_RE.test(h))) {
+    if (!refs.dev) return { error: 'a pooler.supabase.com host is shared with production, and kit.json has no refs.dev to check the user against' }
+    const want = `postgres.${refs.dev}`
+    const wrong = users.length ? users.find((u) => u !== want) : '(none)'
+    if (wrong) return { error: `on a pooler.supabase.com host the user must be ${want} (kit.json refs.dev), not ${wrong}` }
   }
   for (const h of hosts) if (!LOCAL_HOSTS.has(h) && h !== allowHost) return { error: `${h} is not a local database; a hosted dev database needs --allow-host ${h}` }
   return { args: ['--db-url', db], label: `db-url:${hosts[0]}` }
