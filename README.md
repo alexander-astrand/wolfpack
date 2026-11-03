@@ -73,7 +73,7 @@ A release end to end: `/captain-call <version>` (with `fable allowance=high plan
 Briefs, mock-ups and QA for anything the app shows: browser checks at phone and desktop widths in both themes, an accessibility review, and a full QA pass. It also carries `voice-card.md` (the shape of every agent's `## Voice` card) and `taste-template.md` (start your project's `.claude/taste.md` from it).
 
 - Agents: `bengt-johansson`, `daredevil`, `heisenberg`, `magnus-wislander`, `mosbius-designs`, `staffan-olsson`, `tomas-svensson`
-- Skills: `darth-vader`, `heisenberg`, `spidey-sense`, `superlab`, `web-shooters` (the core of `spidey-sense`: shot counts, the page scan, headless shots and flows; `mosbius-designs` preloads only this one)
+- Skills: `darth-vader`, `heisenberg`, `spidey-sense`, `superlab`, `web-shooters` (the core of `spidey-sense`: shot counts, the page scan (with non-text contrast and, since kit 1.9, eleven advisory AI tells a project's taste can turn off), headless shots and flows; `mosbius-designs` preloads only this one)
 - Scripts: `mock-scaffold.mjs`, `gallery.mjs` (`--from-reports` builds the shots file from the designers' reports), `leans.mjs` (rewrites `heisenberg`'s `## Leans` from the library's `Score` column), `mosbius-scripted.md` (the short order for a plain one-page layout), `bengan-boys.mjs` (writes the three Bengan Boys from their template; `--check` finds drift), `qa-pass.mjs`, `taste-repeats.mjs` (a page's repeated sendbacks, checked first by a builder) and `qa-seed.mjs`, and in `scripts/qa/` `batch-shots.mjs`, `page-scan.js`, `save-shot.mjs` and `qa-flow.mjs` (a click-through from a steps file, headless or as Browser pane calls)
 
 ### database
