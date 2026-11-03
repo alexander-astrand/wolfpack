@@ -606,7 +606,10 @@ function actionsRow(r, rows) {
   if (!cap || r.minutes == null) return null
   const top = r.top ? ` (${r.top.repo} ${num(Math.round(r.top.minutes))})` : ''
   const billed = r.billed != null ? `. Billed so far: $${r.billed.toFixed(2)}` : ''
-  return { pct: share(r.minutes, cap), detail: `${num(Math.round(r.minutes))} of ${num(cap)} private-repo minutes this month${top}${billed}` }
+  // tier-readers.mjs's budget flags (4 Nov 2026), alerts first, so the row says it before the cut at 200
+  const flags = [...(r.flags || [])].sort((a, b) => (a.level === 'alert' ? 0 : 1) - (b.level === 'alert' ? 0 : 1)).map((f) => f.text)
+  const said = flags.length ? `. ${flags.join('; ').replace(/^./, (c) => c.toUpperCase())}` : ''
+  return { pct: share(r.minutes, cap), detail: `${num(Math.round(r.minutes))} of ${num(cap)} private-repo minutes this month${top}${billed}${said}` }
 }
 
 const READERS = { vercel: vercelRow, supabase: supabaseRow, netlify: netlifyRow, 'github actions': actionsRow }

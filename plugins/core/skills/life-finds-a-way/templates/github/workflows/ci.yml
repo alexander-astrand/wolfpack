@@ -1,49 +1,79 @@
 name: CI
 
+# The CI minutes rule (the kit's norms.md, "CI minutes"; the budget is kit.json's
+# ci.minutesBudget): ready PRs only, never a run on a push to main (the PR already
+# checked that head), a draft spends nothing, and marking it ready runs CI once.
 on:
   pull_request:
-    # Nothing deploys, so a draft spends no minutes and marking it ready runs CI. A project that deploys keeps CI on drafts: full auto arms on a draft and waits for this job green. <!-- ships-nowhere -->
-    types: [opened, synchronize, reopened, ready_for_review] <!-- ships-nowhere -->
-  push:
-    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
-# A newer push to a PR stops the run it replaces; runs on main always finish. The action
-# is in the group so the run at "ready" never cancels one on the same commit, which
-# would leave a cancelled Checks beside the green one and stop the merge.
+# A newer push to a PR stops the run it replaces. The action is in the group so the
+# run at "ready" never cancels one on the same commit, which would leave a cancelled
+# Checks beside the green one and stop the merge.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event.action }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
-    # kit.json's ci.jobs names this job: the one-tap arm waits for it by name.
+    # kit.json's ci.jobs names this job: /one-ring and the arm wait for it by name.
     name: Checks
-    if: github.event_name == 'push' || github.event.pull_request.draft == false <!-- ships-nowhere -->
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # A change that only touches docs, plans, .claude/ or Markdown skips the rest and
+      # ends green. Here, not with paths-ignore: a workflow that never starts leaves
+      # Checks pending, and the merge waits for it by name. A diff that fails stops the
+      # job; an empty one runs the checks.
+      - id: scope
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          files=$(git diff --name-only "origin/$BASE...HEAD")
+          code=$(printf '%s\n' "$files" | grep -vE '^(docs/|\.claude/|plans/)|\.md$' || true)
+          if [ -n "$files" ] && [ -z "$code" ]; then
+            echo "Docs only: nothing to check."
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+          fi
 <!-- stack:node -->
       - uses: actions/setup-node@v4
+        if: steps.scope.outputs.docs != 'true'
         with:
           node-version: 22
+          # The npm cache needs a lock file; a new skeleton has none yet.
+          cache: ${{ hashFiles('package-lock.json') != '' && 'npm' || '' }}
       # A new skeleton has no package.json or lock file yet; npm ci waits for one.
       - run: npm ci
-        if: hashFiles('package-lock.json') != ''
+        if: steps.scope.outputs.docs != 'true' && hashFiles('package-lock.json') != ''
+      # A build tool with a cache of its own (.next/cache, node_modules/.vite) gets an
+      # actions/cache step here once the project has one.
 <!-- /stack -->
 <!-- stack:python -->
       - uses: actions/setup-python@v5
+        if: steps.scope.outputs.docs != 'true'
         with:
           python-version: '3.12'
+          # The pip cache needs a requirements file; a new skeleton has none yet.
+          cache: ${{ hashFiles('requirements.txt', 'pyproject.toml') != '' && 'pip' || '' }}
       # check.sh skips a tool that isn't installed; CI installs both so they run here.
       - run: pip install ruff pytest
+        if: steps.scope.outputs.docs != 'true'
       # A new skeleton has neither file yet; each install waits for its own.
       - run: pip install -r requirements.txt
-        if: hashFiles('requirements.txt') != ''
+        if: steps.scope.outputs.docs != 'true' && hashFiles('requirements.txt') != ''
       # Only a pyproject.toml with a [project] table is installable; one that holds
       # only tool settings ([tool.ruff], [tool.pytest]) would fail `pip install -e .`.
-      - run: |
+      - if: steps.scope.outputs.docs != 'true'
+        run: |
           if [ -f pyproject.toml ] && grep -q '^\[project\]' pyproject.toml; then
             pip install -e .
           fi
 <!-- /stack -->
-      - run: bash scripts/check.sh
+      - if: steps.scope.outputs.docs != 'true'
+        run: bash scripts/check.sh

@@ -24,7 +24,7 @@ import {
   withParts,
 } from './dev-hq.mjs'
 import { readFreeTiers } from './scrooge.mjs'
-import { actionsMonth, edgeMonth, netlifyReading, vercelReading } from './tier-readers.mjs'
+import { actionsFlags, actionsMonth, budgetsByRepo, edgeMonth, minutesLine, NEW_PROJECT_BUDGET, netlifyReading, repoName, vercelReading, withFlags } from './tier-readers.mjs'
 import { receipt } from './week-receipt.mjs'
 
 const NOW = Date.parse('2026-10-28T14:00:00Z')
@@ -460,10 +460,62 @@ describe('free tiers and trials', () => {
   it('counts only private repos\' Actions minutes, a repo gh cannot find among them', () => {
     const days = { '2026-10-01': { burrow: 100, wolfpack: 50 }, '2026-10-02': { burrow: 20, gone: 5 } }
     const month = actionsMonth(days, { burrow: 'private', wolfpack: 'public', gone: 'unknown' })
-    expect(month).toEqual({ minutes: 125, public: 50, top: { repo: 'burrow', minutes: 120 } })
+    expect(month).toEqual({ minutes: 125, public: 50, top: { repo: 'burrow', minutes: 120 }, byRepo: { burrow: 120, gone: 5 } })
     const rows = [{ service: 'GitHub Actions (GitHub Free account)', limit: 'Private repos, minutes', value: '2,000 / month', pct: null }]
     const gh = tiersPart({ freeTiers: [{ limits: rows }] }, { readings: { 'github actions': { ...month, minutes: 2049, billed: 0 } } }).list[0]
     expect(gh).toMatchObject({ pct: 100, detail: '2,049 of 2,000 private-repo minutes this month (burrow 120). Billed so far: $0.00' })
+  })
+
+  describe('the CI minutes budget (4 Nov 2026)', () => {
+    // 4 Nov 00:00 UTC: three days of thirty gone, so the month's pace is 200.
+    const now = Date.parse('2026-11-04T00:00:00Z')
+    const budgets = budgetsByRepo([
+      { remote: 'https://github.com/alexander-astrand/burrow.git\n', kit: { project: { name: 'burrow' } } },
+      { remote: 'https://github.com/alexander-astrand/burrow.git', kit: { project: { name: 'burrow-copy' }, ci: { minutesBudget: 5 } } },
+      { remote: 'git@github.com:alexander-astrand/alexander-astrand-portfolio.git', kit: { project: { name: 'portfolio' } } },
+      { remote: 'https://github.com/alexander-astrand/svardsvik', kit: { project: { name: 'svardsvik' }, ci: { minutesBudget: 40 } } },
+    ])
+
+    it('maps each repo to its project and budget: kit.json first, then the rule\'s table, then a new project\'s 100', () => {
+      expect(repoName('git@github.com:a/b-c.git')).toBe('b-c')
+      expect(budgets).toEqual({
+        burrow: { project: 'burrow', budget: 700 },
+        'alexander-astrand-portfolio': { project: 'portfolio', budget: 100 },
+        svardsvik: { project: 'svardsvik', budget: 40 },
+      })
+      expect(budgetsByRepo([{ remote: 'https://github.com/a/captain-toy.git', kit: {} }])).toEqual({ 'captain-toy': { project: 'captain-toy', budget: NEW_PROJECT_BUDGET } })
+    })
+
+    it('flags the month ahead of pace and each project past its budget or its pace', () => {
+      const flags = actionsFlags({ minutes: 383, byRepo: { burrow: 286, svardsvik: 45, 'reel-helper': 12, 'captain-toy': 3 } }, budgets, now)
+      expect(flags).toEqual([
+        { level: 'warn', text: 'ahead of pace: 383 by day 4, the pace is 200' },
+        { level: 'warn', project: 'burrow', text: 'burrow ahead of its pace: 286 of 700, the pace is 70' },
+        { level: 'alert', project: 'svardsvik', text: 'svardsvik past its budget: 45 of 40' },
+        { level: 'warn', project: 'reel-helper', text: 'reel-helper ahead of its pace: 12 of 100, the pace is 10' },
+      ])
+      // a tenth of the budget before a project's pace counts; on pace, no flags
+      expect(actionsFlags({ minutes: 150, byRepo: { burrow: 60, 'reel-helper': 9 } }, budgets, now)).toEqual([])
+    })
+
+    it('flags 50, 70 and 90 % of the 2,000 with what each one means', () => {
+      const late = Date.parse('2026-11-30T23:00:00Z')
+      expect(actionsFlags({ minutes: 1000 }, {}, late)).toEqual([{ level: 'warn', text: '50 % of the 2,000: half the month gone in minutes' }])
+      expect(actionsFlags({ minutes: 1400 }, {}, late)[0]).toEqual({ level: 'alert', text: '70 % of the 2,000: CI only for merges in flight' })
+      expect(actionsFlags({ minutes: 1850 }, {}, late)[0]).toEqual({ level: 'alert', text: '92 % of the 2,000: stop pushing to ready PRs' })
+    })
+
+    it('reaches Dev HQ\'s tiers row, alerts first, and the daily note\'s line, with only this project\'s flags', () => {
+      const reading = withFlags({ minutes: 383, public: 31, top: { repo: 'burrow', minutes: 286 }, byRepo: { burrow: 286, svardsvik: 45 }, billed: 0 }, budgets, now)
+      const rows = [{ service: 'GitHub Actions (GitHub Free account)', limit: 'Private repos, minutes', value: '2,000 / month', pct: null }]
+      const gh = tiersPart({ freeTiers: [{ limits: rows }] }, { readings: { 'github actions': reading } }).list[0]
+      // Dev HQ keeps 200 characters, so the alert leads and the last flag's tail is cut
+      expect(gh.detail).toBe('383 of 2,000 private-repo minutes this month (burrow 286). Billed so far: $0.00. Svardsvik past its budget: 45 of 40; ahead of pace: 383 by day 4, the pace is 200; burrow ahead of its pace: 286 of 700')
+      expect(minutesLine(reading, 'burrow')).toBe('CI minutes: 383 of 2,000 this month (19 %) · burrow 286 of its 700 · ! ahead of pace: 383 by day 4, the pace is 200 · ! burrow ahead of its pace: 286 of 700, the pace is 70')
+      expect(minutesLine(withFlags({ minutes: 50, byRepo: { burrow: 50 } }, budgets, now), 'burrow')).toBe('CI minutes: 50 of 2,000 this month (2 %) · burrow 50 of its 700 · on pace')
+      expect(minutesLine({ need: "gh's user scope" }, 'burrow')).toBe("CI minutes: not read (needs gh's user scope)")
+      expect(withFlags({ need: 'gh auth login' }, budgets, now)).toEqual({ need: 'gh auth login' })
+    })
   })
 
   it('sums the Edge Function hours it kept this month, per free org, and drops last month', () => {

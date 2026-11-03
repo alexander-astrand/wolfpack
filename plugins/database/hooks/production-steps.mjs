@@ -515,7 +515,7 @@ export const CI_WORKFLOW = 'CI'
 /**
  * '' when every check passed (skipped and neutral count) and each CI job
  * succeeded, else the first that didn't. A job can sit there twice on one
- * commit: a project that ships nowhere skips CI on a draft, and the run at
+ * commit: every project skips CI on a draft (the CI minutes rule, 4 Nov 2026), and the run at
  * "ready" lands beside the skipped one. One success is enough, since every
  * other run already passed the loop above (failed, cancelled or still running
  * refuses).

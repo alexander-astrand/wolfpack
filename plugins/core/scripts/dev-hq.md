@@ -13,7 +13,7 @@ The kit card from Burrow's `/legendary` of 27 Oct 2026; Alexander, 28 Oct: "Ther
   - `links`: each publish once, new with its dot; one he deletes stays deleted.
   - `shares`: the week receipt's slice of the meter per project over the meter's own week, Saturday's reset on, as `{ resets_at, list }`; delphi counts its own.
   - `readings`: every seven-day reading in the tower's tick log with the reset it counts toward, so each lands in its meter week.
-  - `tiers`: Pollux only. Each open trial from the trials ledger and one row per service across the projects' `free-tiers.md`, from `scrooge.mjs`, with GitHub Actions minutes from `gh` when its token has the `user` scope.
+  - `tiers`: Pollux only. Each open trial from the trials ledger and one row per service across the projects' `free-tiers.md`, from `scrooge.mjs`, with GitHub Actions minutes from `gh` when its token has the `user` scope; that row carries `tier-readers.mjs`'s budget flags (50, 70 and 90 % of the 2,000, the month or a project ahead of its pace, a project past its `ci.minutesBudget`), alerts first.
 - **By hand:** `node <core>/scripts/dev-hq.mjs push --dry-run` prints the body; `push --backfill` also files the last week's publishes.
 - **Moves** (Burrow V1.9 D6): `dev-hq.mjs moves <input.json>` posts nothing; it prints the connector writes `/inception` (`plan`) and `/future-ted` (`ship`) make so a project's releases sit on their weeks: the release's `dev_bookings` row on the week of its planned start or ship day (a shipped one with that day), the project's later releases pushed on a week apart when it slipped (never pulled back), and the card's `planned_for`.
 - **Where it sends nothing:** a machine without the sender or the key (the cloud).
