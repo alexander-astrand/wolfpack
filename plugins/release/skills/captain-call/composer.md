@@ -6,7 +6,7 @@ How the navigator builds each step's work order with `compose-order.mjs`. Read b
 
 `node ${CLAUDE_PLUGIN_ROOT}/scripts/compose-order.mjs --plan <plan file> --step <id> --project <project root>`, once per step, before the spawn. `--json` gives the same as data. Exit 2 means no row for that step: the plan's step table has no such id, or the step lives in prose; write that order by hand.
 
-It reads the plan's step row (columns found by header word: Step, What, Agent or Who, Model, Lane, Budget or Ceiling, Found or Files or Where, Check), `.claude/kit.json`, `.claude/standing-facts.md`, `budgets.json` and the routing rules below. It reads files only; no agent, no database.
+It reads the plan's step row (columns found by header word: Step, What, Agent or Who, Model, Lane, Budget or Ceiling, Found or Files or Where, Check), `.claude/kit.json`, `.claude/standing-facts.md`, `budgets.json` and the routing rules below. It reads files only; no agent, no database. The one write: it appends a line to `~/.claude/plans/design/<project>/deals.log` per designer step, unless you pass `--dry`.
 
 ## What it prints, and what you add
 

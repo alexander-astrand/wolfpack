@@ -230,7 +230,7 @@ export function run(o, { budgets, gh = realGh, now = new Date(), log = console.l
   // throws (the body moved twice) used to leave the row behind, and the rerun
   // the error asks for appended it a second time.
   const writeSteps = () => {
-    if (!o.plan) return log('no --plan: no steps file and no cost line')
+    if (!o.plan) return log('no --plan: no steps file, no cost line and no build log')
     const file = stepsFileFor(o.plan)
     if (o.dry) log(`steps file ${file} would get:\n${line}`)
     else appendSteps(file, line)

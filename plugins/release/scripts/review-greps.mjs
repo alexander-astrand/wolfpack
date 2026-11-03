@@ -177,8 +177,8 @@ export function hitsOf(lines, checks) {
 
 // Kit paths named in added markdown that don't exist on the branch (kit 1.9 P3;
 // kit 1.8's PR #46 named `order-common.md`, which was never written, and a
-// reviewer found it by hand). Only in a repo with a `plugins/` folder, i.e. the
-// kit itself. Read: `plugins/...` and `scripts/...` paths, `<design>/...`-style
+// reviewer found it by hand). Only in a repo with `.claude-plugin/marketplace.json`,
+// i.e. the kit itself. Read: `plugins/...` and `scripts/...` paths, `<design>/...`-style
 // placeholders (the plugin's folder), and a bare backticked `name.md` on a line
 // that says the kit holds it. Skipped: URLs, `~/` and other paths with a parent
 // folder in front, globs, `${...}`, `<project>` and every other placeholder.
@@ -197,6 +197,8 @@ export function kitPathHits(lines, { repo, exists = existsSync, trackedNames = (
       const ph = /^<([a-z]+)>\//.exec(p)
       if (ph) p = `plugins/${ph[1]}/${p.slice(ph[0].length)}`
       if (p === 'plugins' || p === 'scripts') continue
+      // "the project's scripts/x" or "its scripts/x" names someone else's folder, not the kit's.
+      if (p.startsWith('scripts/') && /\b(?:project'?s?|its)\b/i.test(l.text)) continue
       // A bare `scripts/x` may be the kit's root scripts folder or a plugin's own.
       const homes = p.startsWith('scripts/') ? [repo, ...plugins.map((x) => join(repo, 'plugins', x))] : [repo]
       if (!homes.some((h) => exists(join(h, p)))) hits.push({ check: 'kit path named in markdown does not exist', where: `${l.file}:${l.line}`, text: `${p} (${l.text.trim().slice(0, 80)})` })
@@ -230,7 +232,8 @@ export function review({ repo, base, version, conventions = true }, run = run0) 
   const bc = join(repo, '.claude', 'builder-checks.md')
   const project = existsSync(bc) ? projectChecks(readFileSync(bc, 'utf8')) : { checks: [], manual: 0 }
   const hits = hitsOf(lines, [...KIT_CHECKS, ...project.checks])
-  if (existsSync(join(repo, 'plugins'))) {
+  // The kit is the repo with a plugin marketplace; a Nuxt app has a plugins/ folder too.
+  if (existsSync(join(repo, '.claude-plugin', 'marketplace.json'))) {
     const trackedNames = () => new Set(String(run('git', ['-C', repo, 'ls-files'])).split('\n').map((f) => f.split('/').pop()))
     hits.push(...kitPathHits(lines, { repo, trackedNames }))
   }
