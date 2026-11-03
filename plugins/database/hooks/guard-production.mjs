@@ -140,6 +140,8 @@ import { READ_BUDGET_MS, readTimeout, startReads, stopReads } from './read-clock
 import { CHAIN_USAGE, FROZEN, FROZEN_RE, RELEASE_PR_FIELDS, chainArgs, chainWhyNot, frozenOnDisk, oneTapDecision, oneTapVerdict, projectRoot } from './chain-arm.mjs'
 import { GO_HOURS, TRANSCRIPT_RE, goArg, readHumanGo } from './one-ring-go.mjs'
 import { GH_PR_READS, GIT_READS, PIPE_FILTERS, TEXT_READS } from './read-list.mjs'
+import { VERCEL_TOOLS, settingsFiles, vercelCall as vercelDecide, vercelUuids } from './guard-vercel.mjs'
+export { VERCEL_TOOLS }
 
 // The project's values come from its .claude/kit.json (production-steps.mjs
 // reads it; a missing key fails closed): DEV_REF, DEPLOYER, PROD_URL (the one
@@ -299,6 +301,9 @@ function decideCall(input, env) {
     // Alexander's typed `/one-ring <go>` in this session, read only at a
     // deploy call (one-ring-go.mjs).
     humanGo: env.humanGo ?? (() => readHumanGo({ transcriptPath: input.transcript_path, sessionId: input.session_id, now: Date.now() })),
+    // The uuids the settings rules mark as the Vercel connector's, read only
+    // at a uuid call to an unknown tool (guard-vercel.mjs, R1-1).
+    vercelUuids: env.vercelUuids ?? (() => vercelUuids(settingsFiles(CLAUDE_DIR))),
     // Set by the checks when a call reaches production; logged while armed.
     production: false,
     logged: false,
@@ -936,92 +941,10 @@ function checkMcp(tool, args, ctx) {
   return null
 }
 
-// Kit 1.9 (D1): the Vercel connector. Until now checkMcp passed every call
-// without a Supabase ref, so request_promote or create_deployment reached
-// production with only the settings rules in the way (~/pylos/notes/
-// connectors.md, 2 Nov 2026). Two names for one connector: the desktop app's
-// `mcp__<uuid>__<tool>` and the CLI's `mcp__claude_ai_Vercel__<tool>` (a
-// plain `mcp__vercel__` server counts as named too).
-//
-// Which uuid is Vercel? Other connectors are uuids too (Supabase, Notion,
-// Burrow, hotels...), and Pollux's and delphi's uuids differ, so the hook
-// keeps no uuid constant. A uuid-named call is Vercel's only when its tool
-// name is one of Vercel's known writes below, and never when it carries a
-// Supabase-shaped ref (Supabase has a pause_project too). An unknown tool on a
-// uuid server can't be told from Notion's and gets no decision here; on a
-// Vercel-named server it asks (Alexander, 3 Nov: "Ask, deny unattended").
-//
-// Reads (the verbs below) get no decision: they stay on the settings allow
-// list (and get_deployment, list_deployments on the drive's read list), and
-// the guard adds no allow for them. The secret-revealing reads the settings
-// ask about (get_project_env and the like) stay the settings' asks.
-const VERCEL_NAMED_RE = /^mcp__(?:claude_ai_)?vercel__/i
-const UUID_SERVER_RE = /^mcp__[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}__/i
-const VERCEL_READ_RE = /^(?:get|list|search|count|aggregate|read)[_-]/
-// The settings' other reads, and filter_project_envs, a read the settings ask
-// about because it shows secrets (theirs to ask, not the guard's).
-const VERCEL_READ = new Set(['rerequest_check', 'retry_vercel_ci_invocation', 'artifact_query', 'git_namespaces', 'web_fetch_vercel_url', 'filter_project_envs'])
-// What a production deploy may do: ask, and a /one-ring typed by him in this
-// session is the yes, as for scripts/full-auto.sh deploy.
-const VERCEL_PROD_WRITES = new Set([
-  'request_promote', 'request_rollback', 'create_deployment', 'cancel_deployment', 'assign_alias',
-  'create_project_env', 'edit_project_env',
-  'update_project', 'pause_project', 'unpause_project',
-  'create_record', 'update_record', 'replace_domain_dns_records', 'add_project_domain', 'verify_project_domain',
-  'put_firewall_config', 'update_firewall_config', 'update_attack_challenge_mode',
-])
-// Production writes that cost money: they ask, and no deploy go covers a
-// purchase (Alexander's cost rule: never paid by accident).
-const VERCEL_PAID = new Set(['buy_domain', 'create_or_transfer_domain'])
-// Vercel's other writes (the settings' ask list, 2 Nov 2026): they ask, with no
-// go, and they are how a uuid-named call is known as Vercel's.
-const VERCEL_WRITES = new Set([
-  'add_route', 'edit_route', 'generate_route', 'stage_routes', 'update_route_versions',
-  'stage_redirects', 'restore_redirects', 'update_bulk_redirect_version',
-  'invalidate_by_tags', 'invalidate_by_src_images',
-  'create_edge_config', 'update_edge_config', 'patch_edge_config_items', 'restore_edge_config_backup', 'create_edge_config_token',
-  'create_flag', 'update_flag', 'update_flag_segment', 'update_flag_settings', 'create_flags_project_connection', 'create_sdk_key',
-  'start_rolling_release', 'approve_rolling_release_stage', 'complete_rolling_release', 'update_rolling_release_config',
-  'create_drain', 'update_drain', 'test_drain',
-  'create_project', 'create_git_project', 'accept_project_transfer_request',
-  'update_project_protection_bypass', 'patch_url_protection_bypass', 'issue_cert',
-  'update_connector', 'upsert_connector_project_connection', 'authorize_team_access', 'authorize_team_sso',
-  'create_sandboxes_v2', 'create_sandboxes_v3', 'create_sandboxes_v4', 'update_sandbox',
-  'create_sandboxes_sessions_by_session_id_snapshot_v2', 'create_sandboxes_sessions_by_session_id_snapshot_v3',
-  'create_session_directory', 'run_session_command', 'kill_session_command', 'stop_session', 'extend_session_timeout',
-  'update_session_network_policy', 'write_session_files',
-  'upload_artifact', 'upload_file', 'create_storage_stores_blob',
-  'add_toolbar_reaction', 'change_toolbar_thread_resolve_status', 'edit_toolbar_message', 'reply_to_toolbar_thread',
-  'create_observability_query', 'create_trace_session', 'record_events', 'submit_feedback',
-  'import-claude-dashboard-from-url', 'import-claude-design-from-url', 'import-claude-motion-from-url',
-])
-export const VERCEL_TOOLS = { VERCEL_PROD_WRITES, VERCEL_PAID, VERCEL_WRITES }
-
+// Kit 1.9 (D1): the Vercel connector's rules live in guard-vercel.mjs (R1-3);
+// they get the guard's own helpers, so a decision logs like any other.
 function vercelCall(tool, args, ctx) {
-  const name = tool.slice(tool.lastIndexOf('__') + 2)
-  const ref = args.project_id ?? args.project_ref
-  if (typeof ref === 'string' && REF_RE.test(ref)) return null
-  const prodWrite = VERCEL_PROD_WRITES.has(name)
-  const known = prodWrite || VERCEL_PAID.has(name) || VERCEL_WRITES.has(name)
-  if (!VERCEL_NAMED_RE.test(tool) && !(UUID_SERVER_RE.test(tool) && known)) return null
-  if (VERCEL_READ_RE.test(name) || VERCEL_READ.has(name)) return null
-  const what = `${tool} ${JSON.stringify(args)}`
-  ctx.logged = true
-  const kind = prodWrite ? 'a production write' : VERCEL_PAID.has(name) ? 'a purchase' : known ? 'a write' : 'a write the guard does not know'
-  if (prodWrite && !ctx.subagent) {
-    let typed = null
-    try { typed = ctx.humanGo() } catch { typed = null }
-    if (typed) {
-      record(ctx, logLine(ctx, 'allow', what, `his typed /one-ring ${typed.arg}`))
-      return prodCall(ctx, { decision: 'allow', reason: `Vercel ${name} is a production write, and Alexander typed /one-ring ${typed.arg} in this session at ${new Date(typed.at).toISOString()}: that is the go. Logged.` })
-    }
-  }
-  const why = prodWrite
-    ? (ctx.subagent ? 'from a subagent, where no /one-ring go counts' : `no /one-ring typed by him in this session in the last ${GO_HOURS} hours`)
-    : `${kind}, which no deploy go covers`
-  record(ctx, logLine(ctx, ctx.unattended ? 'deny' : 'ask', what, why))
-  if (ctx.unattended) return prodCall(ctx, deny(`Vercel ${name} is ${kind} on the connector, and ${why}. Bypass and don't-ask modes can't ask him: run it from a Manual or Auto mode session${prodWrite ? ', or through /one-ring' : ''}.`))
-  return prodCall(ctx, { decision: 'ask', reason: `Vercel ${name} is ${kind} on the connector (it may change production): ${why}, so your yes here is the go.` })
+  return vercelDecide(tool, args, ctx, { record, logLine, prodCall, deny, refRe: REF_RE })
 }
 
 // ---------------------------------------------------------------- the read allowlist
