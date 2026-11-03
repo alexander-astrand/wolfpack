@@ -185,6 +185,8 @@ describe('test files and kit paths', () => {
 
   it('leaves URLs, ~/ paths, placeholders, globs and non-markdown files alone', () => {
     expect(hits('https://example.com/plugins/x/y.md and ~/kit/plugins/x/y.md')).toEqual([])
+    // spidey-sense/SKILL.md:60, a real false hit: the project's folder, not the kit's.
+    expect(hits('Read its `scripts/qa/README.md` first.')).toEqual([])
     expect(hits('`plugins/<project>/x.md`, `plugins/*/x.md`, `${ROOT}/scripts/x.mjs`')).toEqual([])
     expect(kitPathHits([{ file: 'a.mjs', line: 1, text: "see 'plugins/x/nope.mjs'" }], { repo: '/r', exists })).toEqual([])
   })
