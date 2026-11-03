@@ -163,7 +163,7 @@ export async function wrapFacts(version, env = {}) {
   // Sessions: the plan's build notes, the PRs' bodies and comments (the deploy's "Deploy usage" comment)
   const { plan, draftDone, build } = planFiles(project, version)
   if (!plan) missing.push(`the plan file for ${version}`)
-  const texts = [plan ? readFileSync(plan, 'utf8') : '', build ? readFileSync(build, 'utf8') : '',...prs.flatMap((p) => [p.body ?? '', ...(p.comments ?? []).map((c) => c.body ?? '')])]
+  const texts = [plan ? readFileSync(plan, 'utf8') : '', build ? readFileSync(build, 'utf8') : '', ...prs.flatMap((p) => [p.body ?? '', ...(p.comments ?? []).map((c) => c.body ?? '')])]
   let ids = sessionIds(...texts)
   const usagePath = env.usage === undefined ? findUsage() : env.usage
   if (!usagePath) missing.push("the release plugin's usage.mjs")
