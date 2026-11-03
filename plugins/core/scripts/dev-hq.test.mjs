@@ -505,6 +505,7 @@ describe('free tiers and trials', () => {
       'not json',
     ].join('\n')
     expect(vercelCharges(text, '2026-11-01')).toEqual({ metrics: { edgeRequest: 42, fastDataTransfer: 0.5 }, billed: [{ name: 'Pro', cost: 1.29 }], from: '2026-11-01' })
+    expect(vercelCharges(text, '2026-11-01', 'hobby').billed).toEqual([])
     expect(vercelCharges('', '2026-11-01')).toBe(null)
   })
 

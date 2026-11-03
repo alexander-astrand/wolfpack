@@ -75,9 +75,12 @@ function keychain(service) {
 
 // Vercel's billing charges (FOCUS rows, one JSON object a line: CLI 65's
 // `vercel usage` parses them as one document and fails, so they are read
-// here) as { product: quantity } over the month so far, and what it billed
-// for anything (the Pro license that showed after the 21 Oct downgrade to
-// Hobby). The products keep the names the old `vercel usage` report used.
+// here) as { product: quantity } over the month so far, and what it billed.
+// The export prices every line at list rates, Hobby's usage and a $0.645 a
+// day "Pro" license included, so a Hobby team's lines are never billed (3 Nov
+// 2026: the plan said hobby, no card on file, and the export still priced
+// Pro; he asked "Where are you getting this billing info from?"). The
+// products keep the names the old `vercel usage` report used.
 const VERCEL_SERVICES = {
   'Fast Data Transfer': 'fastDataTransfer',
   'Function Invocations': 'functionInvocation',
@@ -90,7 +93,7 @@ const VERCEL_SERVICES = {
 
 // A row's day is its start in Los Angeles (07:00 or 08:00 UTC), so it counts
 // in the month that day falls in; `from` is that month's first day.
-export function vercelCharges(text, from = null) {
+export function vercelCharges(text, from = null, plan = null) {
   const metrics = {}
   const cost = {}
   let rows = 0
@@ -106,7 +109,7 @@ export function vercelCharges(text, from = null) {
     if (from && iso(Date.parse(c.ChargePeriodStart) - 6 * HOUR).slice(0, 10) < from) continue
     const product = VERCEL_SERVICES[c.ServiceName]
     if (product) metrics[product] = (metrics[product] || 0) + (Number(c.ConsumedQuantity) || 0)
-    if (Number(c.BilledCost) > 0) cost[c.ServiceName] = (cost[c.ServiceName] || 0) + Number(c.BilledCost)
+    if (plan !== 'hobby' && Number(c.BilledCost) > 0) cost[c.ServiceName] = (cost[c.ServiceName] || 0) + Number(c.BilledCost)
   }
   if (!rows) return null
   for (const k of Object.keys(metrics)) if (!metrics[k]) delete metrics[k]
@@ -144,7 +147,10 @@ async function readVercel(now = Date.now()) {
   const r = await fetch(`https://api.vercel.com/v1/billing/charges?${q}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(60_000) })
   if (r.status === 401 || r.status === 403) return { need: 'vercel login' }
   if (!r.ok) return null
-  return vercelCharges(await r.text(), `${iso(now).slice(0, 7)}-01`)
+  const owner = await fetch(team ? `https://api.vercel.com/v2/teams/${team}` : 'https://api.vercel.com/v2/user', { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000) })
+  const o = owner.ok ? await owner.json() : null
+  const plan = (team ? o?.billing?.plan : o?.user?.billing?.plan) ?? null
+  return vercelCharges(await r.text(), `${iso(now).slice(0, 7)}-01`, plan)
 }
 
 // --- GitHub Actions ----------------------------------------------------------------------
