@@ -19,7 +19,7 @@
 
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { readTimeout } from './read-clock.mjs'
@@ -527,4 +527,4 @@ function main() {
   fail('usage: node .claude/hooks/chain-arm.mjs frozen | new-chain <main sha> <version…> | done <version> | one-tap <version>', 2)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) main()

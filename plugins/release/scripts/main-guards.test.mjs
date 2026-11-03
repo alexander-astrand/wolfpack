@@ -22,7 +22,22 @@ const SCRIPTS = [
   ['design/scripts/mock-scaffold.mjs', ['--help'], ''],
   ['design/scripts/qa/qa-flow.mjs', ['--help'], ''],
   ['design/scripts/qa/batch-shots.mjs', ['--help'], ''],
+  // database (P4(a)): no args reaches each one's usage path, never a database or the network.
+  ['database/hooks/deploy.mjs', [], ''],
+  ['database/scripts/seed.mjs', [], ''],
+  ['database/scripts/scope.mjs', [], ''],
+  ['database/scripts/sync-ranjit.mjs', [], ''],
 ]
+
+// Hooks read a payload on stdin; an empty one must exit 0.
+const HOOKS = [
+  'release/hooks/ask-to-start.mjs',
+  'database/hooks/guard-production.mjs',
+  'database/hooks/denied-log.mjs',
+]
+
+// These two refuse an empty payload (exit 2 with a reason): main ran, which is the point.
+const REFUSING_HOOKS = ['database/hooks/chain-arm.mjs', 'database/hooks/production-steps.mjs']
 
 const run = (link, args, input) => spawnSync('node', [link, ...args], { encoding: 'utf8', input, timeout: 20000, env: { ...process.env, HOME: mkdtempSync(join(tmpdir(), 'guard-home-')) } })
 
@@ -39,12 +54,26 @@ describe('main guards run through a symlink', () => {
     })
   }
 
-  it('release/hooks/ask-to-start.mjs reads an empty hook payload and exits 0', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'main guard '))
-    const link = join(dir, 'linked.mjs')
-    symlinkSync(join(PLUGINS, 'release', 'hooks', 'ask-to-start.mjs'), link)
-    const r = run(link, [], '{}')
-    expect(r.error).toBeUndefined()
-    expect(r.status).toBe(0)
-  })
+  for (const path of HOOKS) {
+    it(`${path} reads an empty hook payload and exits 0`, () => {
+      const dir = mkdtempSync(join(tmpdir(), 'main guard '))
+      const link = join(dir, 'linked.mjs')
+      symlinkSync(join(PLUGINS, path), link)
+      const r = run(link, [], '{}')
+      expect(r.error).toBeUndefined()
+      expect(r.status).toBe(0)
+    })
+  }
+
+  for (const path of REFUSING_HOOKS) {
+    it(`${path} refuses an empty hook payload (main ran)`, () => {
+      const dir = mkdtempSync(join(tmpdir(), 'main guard '))
+      const link = join(dir, 'linked.mjs')
+      symlinkSync(join(PLUGINS, path), link)
+      const r = run(link, [], '{}')
+      expect(r.error).toBeUndefined()
+      expect(r.status).toBe(2)
+      expect(r.stderr.trim().length).toBeGreaterThan(0)
+    })
+  }
 })

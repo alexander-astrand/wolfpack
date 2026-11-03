@@ -29,7 +29,7 @@
 // so a test can play GitHub, git, Docker and the scripts.
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -614,7 +614,7 @@ function realIo(root) {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const root = kit.projectRoot()
   if (!existsSync(join(root, '.git'))) {
     process.stderr.write(`deploy: ${root} isn't a git checkout\n`)
