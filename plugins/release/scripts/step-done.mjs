@@ -8,7 +8,10 @@
 // Usage: node step-done.mjs <agent> --step "<label>" --budget <N>M --session <transcript id>
 //          [--pr <n>] [--cheaper "<line>"] [--tag order|route|rule|drop]
 //          [--tick "<checkbox text>"] [--plan <plan file>] [--dir <transcript dir>]
-//          [--hank-log <file>] [--dry]
+//          [--hank-log <file>] [--log] [--dry]
+//
+// --log (with --plan) also appends the same clock-stamped line to the build
+// log beside the plan (`<plan>-build.md`), so its lines are never typed.
 //
 // 1. Reads the agent's used tokens and whether Hank stopped it from Skyler
 //    (usage.mjs's budgetRows, imported, so the numbers are the ones Hank and
@@ -85,6 +88,18 @@ export function stepsLine({ when, agent, step, budget, used, stopped, tag, cheap
 export function appendSteps(file, line) {
   const head = existsSync(file) ? '' : `${STEPS_HEADER.join('\t')}\n`
   appendFileSync(file, `${head}${line}\n`)
+}
+
+export function buildFileFor(plan) {
+  return join(dirname(plan), `${basename(plan).replace(/\.md$/, '')}-build.md`)
+}
+
+// The build log's line, stamped from the clock like the steps row (never typed): `- 08:33Z agent: step, 1.0M of 12.0M. ...`.
+export function buildLogLine({ now, agent, step, budget, used, stopped, tag, cheaper }) {
+  const at = `${now.toISOString().slice(11, 16)}Z`
+  const spend = `${fmtM(used)} of ${budget ? fmtM(budget) : 'no budget'}${stopped ? ', stopped by Hank' : ''}`
+  const note = cheaper ? ` Cheaper next time (${tag}): ${clean(cheaper)}` : ''
+  return `- ${at} ${clean(agent)}: ${clean(step)}, ${spend}.${note}`
 }
 
 export function costLine(spent, expected) {
@@ -178,11 +193,12 @@ export function updatePr({ gh, pr, changes, dry = false }) {
 }
 
 export function parseArgs(argv) {
-  const o = { agent: null, step: '', budget: null, session: null, pr: null, cheaper: null, tag: null, tick: null, plan: null, dir: null, hankLog: null, dry: false }
+  const o = { agent: null, step: '', budget: null, session: null, pr: null, cheaper: null, tag: null, tick: null, plan: null, dir: null, hankLog: null, dry: false, log: false }
   const val = { '--step': 'step', '--budget': 'budget', '--session': 'session', '--pr': 'pr', '--cheaper': 'cheaper', '--tag': 'tag', '--tick': 'tick', '--plan': 'plan', '--dir': 'dir', '--hank-log': 'hankLog' }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--dry') o.dry = true
+    else if (a === '--log') o.log = true
     else if (val[a]) o[val[a]] = argv[++i]
     else if (a.startsWith('--')) throw new Error(`Unknown option ${a}`)
     else if (!o.agent) o.agent = a
@@ -209,6 +225,7 @@ export function run(o, { budgets, gh = realGh, now = new Date(), log = console.l
   const stamp = `${now.toISOString().slice(0, 16)}Z`
 
   const line = stepsLine({ when: stamp, agent: row.agent, step, budget, used: row.tokens, stopped: row.stopped, tag: o.tag, cheaper: o.cheaper })
+  const logLine = buildLogLine({ now, agent: row.agent, step, budget, used: row.tokens, stopped: row.stopped, tag: o.tag, cheaper: o.cheaper })
   // The steps row lands last, after the PR edit succeeded: a PR edit that
   // throws (the body moved twice) used to leave the row behind, and the rerun
   // the error asks for appended it a second time.
@@ -217,6 +234,10 @@ export function run(o, { budgets, gh = realGh, now = new Date(), log = console.l
     const file = stepsFileFor(o.plan)
     if (o.dry) log(`steps file ${file} would get:\n${line}`)
     else appendSteps(file, line)
+    if (o.log) {
+      if (o.dry) log(`build log ${buildFileFor(o.plan)} would get:\n${logLine}`)
+      else appendFileSync(buildFileFor(o.plan), `${logLine}\n`)
+    }
   }
 
   if (o.pr == null) {
