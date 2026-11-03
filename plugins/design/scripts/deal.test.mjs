@@ -91,8 +91,8 @@ describe('weigh', () => {
       { pick: 'Field notebook', kind: 'none' },
     ]
     const w = Object.fromEntries(weigh(parseDirections(DIRECTIONS), rows).map((d) => [d.name, d.weight]))
-    // "Night tram" is in the first Pick cell only as the loser, but the match is by name: it counts.
-    expect(w).toEqual({ 'Field notebook': 2, 'Night tram': 3, 'Seed catalogue': 1, 'Ski map': 4 })
+    // "Night tram" is in the first Pick cell only after "over", as what the pick beat: no weight.
+    expect(w).toEqual({ 'Field notebook': 2, 'Night tram': 1, 'Seed catalogue': 1, 'Ski map': 4 })
   })
 
   it('a heavier direction is dealt more often', () => {

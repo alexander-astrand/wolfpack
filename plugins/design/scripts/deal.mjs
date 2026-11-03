@@ -77,15 +77,16 @@ const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
  * One weight per direction from the library rows: 1, plus 1 for each row whose Pick names it,
- * plus 1 more when that row's lean won (he picked it and heisenberg had leaned to it). Never 0,
- * so a direction he hasn't picked yet still gets dealt.
+ * plus 1 more when that row's lean won (he picked it and heisenberg had leaned to it). Only the
+ * Pick cell's text before "over" counts (`B Night tram over A Field notebook`): what it beat is
+ * no win. Never 0, so a direction he hasn't picked yet still gets dealt.
  */
 export function weigh(directions, rows = []) {
   return directions.map((d) => {
     const re = new RegExp(`(^|[^\\w])${escape(d.name)}($|[^\\w])`, 'i')
     let weight = 1
     for (const r of rows) {
-      if (!re.test(r.pick ?? '')) continue
+      if (!re.test(String(r.pick ?? '').split(/\bover\b/i)[0])) continue
       weight += r.kind === 'won' ? 2 : 1
     }
     return { ...d, weight }
