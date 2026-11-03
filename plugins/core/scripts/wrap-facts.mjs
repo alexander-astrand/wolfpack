@@ -68,15 +68,19 @@ const readJson = (file) => {
 export function planFiles(project, version) {
   const plans = readJson(join(project, '.claude', 'kit.json'))?.plans
   const dir = typeof plans === 'string' && plans ? plans.replace(/^~(?=\/|$)/, homedir()) : join(homedir(), '.claude', 'plans')
-  const v = version.replace(/^v/i, '')
-  const names = [`V${v}`, v, `kit-${v}`]
+  const v = bareVersion(version)
+  const names = [`V${v}`, v, `kit-${v}`, `Kit ${v}`, `kit ${v}`]
   const find = (ext) => names.map((n) => join(dir, `${n}${ext}`)).find((p) => existsSync(p)) ?? null
-  return { dir, plan: find('.md'), draftDone: find('.draft-done') }
+  // The build log (<plan>-build.md) holds the session ids the plan itself may not (kit 1.8).
+  return { dir, plan: find('.md'), draftDone: find('.draft-done'), build: find('-build.md') }
 }
+
+/** "V1.8", "Kit 1.8", "kit-1.8" and "1.8" all mean 1.8 (the kit 1.8 wrap found no PR: the title says "Kit 1.8"). */
+export const bareVersion = (version) => String(version).trim().replace(/^(v|kit[ -]?)/i, '')
 
 // "1.7" in a title, but not "1.7.1" or "11.7".
 export const titleHas = (title, version) => {
-  const v = version.replace(/^v/i, '').replace(/\./g, '\\.')
+  const v = bareVersion(version).replace(/\./g, '\\.')
   return new RegExp(`(^|[^0-9.])v?${v}(?![0-9]|\\.[0-9])`, 'i').test(title ?? '')
 }
 
@@ -141,7 +145,7 @@ export async function wrapFacts(version, env = {}) {
   let prs = []
   const fields = 'number,title,state,isDraft,mergeCommit,createdAt,url'
   try {
-    const list = JSON.parse(gh(['pr', 'list', '--state', 'all', '--search', `${version.replace(/^v/i, '')} in:title`, '--limit', '30', '--json', fields]))
+    const list = JSON.parse(gh(['pr', 'list', '--state', 'all', '--search', `${bareVersion(version)} in:title`, '--limit', '30', '--json', fields]))
     prs = list.filter((p) => titleHas(p.title, version))
     if (!prs.length) prs = JSON.parse(gh(['pr', 'list', '--state', 'all', '--limit', '100', '--json', fields])).filter((p) => titleHas(p.title, version))
   } catch (err) {
@@ -157,9 +161,9 @@ export async function wrapFacts(version, env = {}) {
   if (!prs.length && !missing.length) missing.push(`a PR whose title names ${version}`)
 
   // Sessions: the plan's build notes, the PRs' bodies and comments (the deploy's "Deploy usage" comment)
-  const { plan, draftDone } = planFiles(project, version)
+  const { plan, draftDone, build } = planFiles(project, version)
   if (!plan) missing.push(`the plan file for ${version}`)
-  const texts = [plan ? readFileSync(plan, 'utf8') : '', ...prs.flatMap((p) => [p.body ?? '', ...(p.comments ?? []).map((c) => c.body ?? '')])]
+  const texts = [plan ? readFileSync(plan, 'utf8') : '', build ? readFileSync(build, 'utf8') : '',...prs.flatMap((p) => [p.body ?? '', ...(p.comments ?? []).map((c) => c.body ?? '')])]
   let ids = sessionIds(...texts)
   const usagePath = env.usage === undefined ? findUsage() : env.usage
   if (!usagePath) missing.push("the release plugin's usage.mjs")
