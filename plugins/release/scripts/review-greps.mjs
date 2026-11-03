@@ -23,6 +23,9 @@
 // - the project's conventions script (`conventions` in `.claude/kit.json`),
 //   its output printed when it exits non-zero.
 // - `[release-bump]`: package.json's version against --version.
+// - in the kit itself (a repo with `plugins/`): every kit path named in added
+//   markdown must exist on the branch (`kitPathHits`).
+// Test files (`*.test.mjs`, `__tests__`, `fixtures`) are never read.
 // Prints a table of hits and one count line; "No hits." when clean.
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
@@ -31,7 +34,12 @@ import { pathToFileURL } from 'node:url'
 
 const run0 = (cmd, args, opts) => execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024, ...opts })
 
-// Added lines of a unified diff (-U0): [{ file, line, text }].
+// A test file plants the shapes the checks look for on purpose (kit 1.9 P3), so
+// its added lines are never read: `*.test.mjs`, `*.test.js` (and the ts forms),
+// anything under `__tests__` or `fixtures`.
+export const isTestFile = (file) => /\.(test|spec)\.(mjs|js|ts|tsx)$/.test(file) || /(^|\/)(__tests__|fixtures)\//.test(file)
+
+// Added lines of a unified diff (-U0): [{ file, line, text }], test files left out.
 export function addedLines(diff) {
   const out = []
   let file = null
@@ -39,7 +47,8 @@ export function addedLines(diff) {
   for (const l of diff.split('\n')) {
     if (l.startsWith('+++ ')) file = l.slice(4).replace(/^b\//, '')
     else if (l.startsWith('@@')) line = Number(/\+(\d+)/.exec(l)?.[1] || 0)
-    else if (l.startsWith('+') && file && file !== '/dev/null') out.push({ file, line: line++, text: l.slice(1) })
+    else if (l.startsWith('+') && file && file !== '/dev/null' && !isTestFile(file)) out.push({ file, line: line++, text: l.slice(1) })
+    else if (l.startsWith('+') && file) line++
     else if (!l.startsWith('-') && !l.startsWith('\\')) line += l.startsWith(' ') ? 1 : 0
   }
   return out
@@ -166,6 +175,45 @@ export function hitsOf(lines, checks) {
   return hits
 }
 
+// Kit paths named in added markdown that don't exist on the branch (kit 1.9 P3;
+// kit 1.8's PR #46 named `order-common.md`, which was never written, and a
+// reviewer found it by hand). Only in a repo with `.claude-plugin/marketplace.json`,
+// i.e. the kit itself. Read: `plugins/...` and `scripts/...` paths, `<design>/...`-style
+// placeholders (the plugin's folder), and a bare backticked `name.md` on a line
+// that says the kit holds it. Skipped: URLs, `~/` and other paths with a parent
+// folder in front, globs, `${...}`, `<project>` and every other placeholder.
+const PLUGIN_NAMES = ['core', 'release', 'design', 'database', 'wolfpack']
+const KIT_PATH = /(?<![\w/.~}$:-])(?:plugins|scripts|<(?:core|release|design|database|wolfpack)>)\/[\w.\-/<>]+/g
+
+export function kitPathHits(lines, { repo, exists = existsSync, trackedNames = () => new Set() }) {
+  const hits = []
+  const plugins = PLUGIN_NAMES.filter((p) => exists(join(repo, 'plugins', p)))
+  let names = null
+  for (const l of lines) {
+    if (!l.file.endsWith('.md')) continue
+    for (const m of l.text.matchAll(KIT_PATH)) {
+      let p = m[0].replace(/[.,;:)>\]]+$/, '').replace(/\/$/, '')
+      if (/[*{$]|\.\.\./.test(p) || /<(?!(?:core|release|design|database|wolfpack)>)/.test(p)) continue
+      const ph = /^<([a-z]+)>\//.exec(p)
+      if (ph) p = `plugins/${ph[1]}/${p.slice(ph[0].length)}`
+      if (p === 'plugins' || p === 'scripts') continue
+      // "the project's scripts/x" or "its scripts/x" names someone else's folder, not the kit's.
+      if (p.startsWith('scripts/') && /\b(?:project'?s?|its)\b/i.test(l.text)) continue
+      // A bare `scripts/x` may be the kit's root scripts folder or a plugin's own.
+      const homes = p.startsWith('scripts/') ? [repo, ...plugins.map((x) => join(repo, 'plugins', x))] : [repo]
+      if (!homes.some((h) => exists(join(h, p)))) hits.push({ check: 'kit path named in markdown does not exist', where: `${l.file}:${l.line}`, text: `${p} (${l.text.trim().slice(0, 80)})` })
+    }
+    if (/\bkit\b/i.test(l.text) && !/\bproject'?s?\b/i.test(l.text)) {
+      for (const m of l.text.matchAll(/`([\w-]+\.md)`/g)) {
+        if (/^(README|CLAUDE|SKILL|MEMORY)\.md$/.test(m[1])) continue
+        names ??= trackedNames()
+        if (!names.has(m[1])) hits.push({ check: 'kit file named in markdown does not exist', where: `${l.file}:${l.line}`, text: `${m[1]} (${l.text.trim().slice(0, 80)})` })
+      }
+    }
+  }
+  return hits
+}
+
 function baseRef(repo, run) {
   for (const ref of ['origin/main', 'main']) {
     try {
@@ -184,6 +232,11 @@ export function review({ repo, base, version, conventions = true }, run = run0) 
   const bc = join(repo, '.claude', 'builder-checks.md')
   const project = existsSync(bc) ? projectChecks(readFileSync(bc, 'utf8')) : { checks: [], manual: 0 }
   const hits = hitsOf(lines, [...KIT_CHECKS, ...project.checks])
+  // The kit is the repo with a plugin marketplace; a Nuxt app has a plugins/ folder too.
+  if (existsSync(join(repo, '.claude-plugin', 'marketplace.json'))) {
+    const trackedNames = () => new Set(String(run('git', ['-C', repo, 'ls-files'])).split('\n').map((f) => f.split('/').pop()))
+    hits.push(...kitPathHits(lines, { repo, trackedNames }))
+  }
   const notes = []
   if (version) {
     const pkg = join(repo, 'package.json')

@@ -22,7 +22,7 @@
 // Artifact tool can publish it as is. Light and dark follow the viewer's setting; at 375 the page
 // never scrolls sideways.
 // Writes <out> (default: gallery.html beside the JSON) and prints its path and size.
-import { existsSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, extname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -276,7 +276,7 @@ export function writeGallery(o) {
   return { out: o.out, bytes: Buffer.byteLength(html), rate: rateLine(doc.rates ?? {}) }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   try {
     const o = parseArgs(process.argv.slice(2))
     if (o.help) {

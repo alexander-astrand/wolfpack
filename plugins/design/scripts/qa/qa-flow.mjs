@@ -28,7 +28,7 @@
 //       { "js": "document.title" },                    any expression; its value is printed
 //       { "shot": "notes-375-dark" } ] }               a name for <out>/<name>.jpg
 // click, type and wait take "timeout" (ms, default 5000). The first failing step stops the flow.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { viewportFor } from './batch-shots.mjs'
@@ -285,7 +285,7 @@ export async function run(o, log = console.log) {
   return headless(flow, log)
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   let o
   try {
     o = parseArgs(process.argv.slice(2))

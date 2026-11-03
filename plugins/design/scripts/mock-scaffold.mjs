@@ -16,7 +16,7 @@
 // --base <url> skips mock.html and page.js: the mock is a route in the app (Hutzup's
 // src/pages/mock/), and only the shot list is written, with the same ?option= and ?theme=.
 // Then: node <design>/scripts/qa/batch-shots.mjs <mock folder>/shots.json
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -190,7 +190,7 @@ export function scaffold(o) {
   return written.map((w) => join(dir, w))
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   try {
     const o = parseArgs(process.argv.slice(2))
     if (o.help) {

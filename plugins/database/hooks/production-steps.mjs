@@ -833,4 +833,4 @@ export function previewText(body, pr, facts = {}, version = null) {
   return out.join('\n') + '\n'
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) main()

@@ -18,7 +18,7 @@
 // loudly instead of saving a desktop shot under a 375 name. --scan also runs page-scan.js on each
 // shot and writes <out>/scan.json (geometry and contrast, the same scan QA runs in the pane).
 // No sign-in: it shoots mocks and pages that need no login. Signed-in pages go through the pane.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { launch, sleep } from './cdp.mjs'
@@ -144,7 +144,7 @@ export async function run(o) {
   return failed ? 1 : 0
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   let o
   try {
     o = parseArgs(process.argv.slice(2))

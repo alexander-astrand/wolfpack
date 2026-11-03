@@ -58,16 +58,24 @@ Every council, every skill and agent judged against its own purpose (fork B, Ale
 
 **The merged sheet (kit 1.8):** when the four readers are done, `r2-d2` (Haiku, which has Write) merges their Fixes and Features tables into one ranked sheet, `<audits>/skills-lens-merged.md`, with the lens name per row, so `mace-windu` reads about 60 rows once instead of four files of 140 to 170 lines.
 
+## 3b. The scout lens (wave 2, beside the sweep)
+Every council (Alexander, 2 Nov 2026: "Part of the jedi council should be to look research new skills, plugins, mcp servers etc to see how to improve our workflow and the kit."). Nothing runs between councils; a one-off scan is `/88-mph medium`.
+- One `doc-brown` lane in **scout mode**, spawned with the sweep, `[budget 8M]`, on **Sonnet**, below its usual Opus on purpose: a catalog scan, not a decision. The order says so, or the model hook reads it as a mistake.
+- Sources: the connector directory (`search_mcp_registry`), the plugin catalog (`SearchPlugins`), Claude Code's release notes, allmcps.com/best, trending GitHub skill repos, and screenshots Alexander drops in (Reddit can't be fetched from either machine). The navigator pastes the two catalog lists into the order, since the lane has no MCP tools.
+- Its one file is `<audits>/scout.md`: a borrow / maybe / skip table with name, what it does, what in the kit or the projects it would replace or improve, size, licence, and the strangers'-code check (source read, version pinned, read-only tools, money tools denied).
+- Its picks go to `mace-windu` and onto the agenda for `/memento`. Nothing is installed in the review.
+
 ## 4. Council (wave 2, last)
 `mace-windu` (Fable, high, `[budget 20M]`, a star; its agent file carries the lenses) **as an auditor, not a planner.** Its order says:
 - audit, not plan: write findings, **no step tables, no plan edits**;
-- the one file it writes is `<audits>/jedi-council.md`;
+- the one file it writes is `<audits>/jedi-council.md`; it reads `scout.md` (§3b) beside the sheet;
 - every recommendation is phrased for `/memento` and marked **"Alexander decides at `/memento`"**.
 
 Lenses (the plan's brief names the current specifics):
 - **how well the team learns:** repeats. Sendbacks (`taste.md`'s "worst sendback is a repeat"), review musts that came back, lessons that never changed behaviour;
 - **the important agents' instructions:** `captain-call`, `heisenberg`, the builders, `kissochbajslowski`, the Bengan Boys, `ranjit`, `three-eyed-raven`; what to sharpen;
 - **the skills themselves:** the merged sheet `skills-lens-merged.md` (the four `skills-lens-<plugin>.md` files' tables in one, a lens name per row; the four files only to check a row) and the cards, weighed by spend; the answers to question 3 are judged as **features**, apart from the fixes (2.5 of the kit 1.4 council: the test run's order found two thirds fixes because it asked only for missing lines);
+- **the scout's finds:** `scout.md`; judge borrow rows as features, weigh by what each replaces;
 - **which roles earned their keep:** the roles table in `facts.md`; seniors asked in how many links, as a recommendation, not a decision;
 - **how fast and lean each process runs** (Alexander, 4 Oct 2026: "Make this part of the jedi council process, that we evaluate how we can make our processes run more effecient and less time consuming."): from the speed table, every process (`/inception`, `/captain-call`, `/cattle-drive`'s deploy, `/future-ted`, `/memento`, `/superlab`, the page edits) gets its typical minutes and tokens and its slowest step. Name why it's slow: an agent reading serially what the navigator already holds, a model or effort above what the job needs, agents run one after another that could run side by side, the same page read twice, or time spent waiting for Alexander (his time, kept apart from the machine's). Each fix says the minutes and tokens it should save, measured against the table.
 

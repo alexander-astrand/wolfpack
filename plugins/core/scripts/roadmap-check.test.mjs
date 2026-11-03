@@ -1,4 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { check, glance } from './roadmap-check.mjs';
 
@@ -54,6 +58,25 @@ describe('roadmap-check', () => {
     const r = rows();
     r['cards/v3-3-3'].title = 'Don&rsquo;t &middot; stop';
     expect(glance(r).join('\n')).toContain('Don’t · stop');
+  });
+
+  // The main guard compares real URLs, so a spaced path and a symlink both run it.
+  it('runs as a CLI through a spaced path and through a symlink', () => {
+    const root = mkdtempSync(join(tmpdir(), 'roadmap-check-'));
+    const spaced = join(root, 'a b');
+    mkdirSync(spaced);
+    const copy = join(spaced, 'roadmap-check.mjs');
+    copyFileSync(fileURLToPath(new URL('./roadmap-check.mjs', import.meta.url)), copy);
+    const link = join(root, 'link.mjs');
+    symlinkSync(fileURLToPath(new URL('./roadmap-check.mjs', import.meta.url)), link);
+    const rowsFile = join(root, 'rows.json');
+    const pageFile = join(root, 'page.html');
+    writeFileSync(rowsFile, JSON.stringify(rows()));
+    writeFileSync(pageFile, page);
+    for (const script of [copy, link]) {
+      const out = execFileSync(process.execPath, [script, rowsFile, pageFile], { encoding: 'utf8' });
+      expect(out).toContain('roadmap-check: ok');
+    }
   });
 
   it('fails a card whose status is next', () => {
