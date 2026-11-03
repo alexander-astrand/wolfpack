@@ -31,6 +31,8 @@ import { homedir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { checkDrift } from './drift.mjs'
+import { sync as syncBuilders } from '../plugins/release/scripts/make-builders.mjs'
+import { DEFAULT_MAP, replacementTable, sweep as sweepNames } from '../plugins/release/scripts/rename-sweep.mjs'
 
 // Built from parts so this file doesn't flag itself in the secrets grep.
 const SECRET_PATTERNS = [
@@ -265,8 +267,54 @@ function checkLessonsFile(file, problems, rel) {
     .forEach((text, i) => {
       // Count characters, not UTF-16 units, so an arrow or a dash is one.
       const n = [...text].length
-      if (n > LESSON_MAX) problems.push(`${rel(file)}:${i + 1}  lesson line over ${LESSON_MAX} characters (${n})`)
+      // The length beside the cap, so the next author sees the room left (kit 1.9).
+      if (n > LESSON_MAX) problems.push(`${rel(file)}:${i + 1}  lesson line over ${LESSON_MAX} characters (${n} of ${LESSON_MAX})`)
     })
+}
+
+// The longest lesson beside the cap, as one info line (null with no lessons file).
+export function longestLesson(kitDir) {
+  const file = join(kitDir, 'plugins', 'core', 'lessons.md')
+  if (!existsSync(file)) return null
+  let best = { n: 0, line: 0 }
+  readFileSync(file, 'utf8').split('\n').forEach((text, i) => {
+    const n = [...text].length
+    if (n > best.n) best = { n, line: i + 1 }
+  })
+  return best.n ? `longest lesson: ${best.n} of ${LESSON_MAX} (plugins/core/lessons.md:${best.line})` : null
+}
+
+// Drift checks that used to wait for a person to run them (kit 1.9): a builder
+// file that differs from templates/builder.md, and a retired name in live files.
+export function checkBuilders(kitDir) {
+  const release = join(kitDir, 'plugins', 'release')
+  if (!existsSync(join(release, 'templates', 'builder.md'))) return []
+  let stale = []
+  try {
+    stale = syncBuilders({ dir: release })
+  } catch (err) {
+    return [`plugins/release/agents:1  builder check failed: ${err.message} (node plugins/release/scripts/make-builders.mjs)`]
+  }
+  return stale.map((name) => `plugins/release/agents/${name}.md:1  stale builder: differs from templates/builder.md (node plugins/release/scripts/make-builders.mjs)`)
+}
+
+// Files that name an old name on purpose (history, a rename table, a fixture),
+// each with its why. A new entry needs a why.
+export const RETIRED_ALLOW = [
+  [/^plugins\/release\/scripts\/rename-sweep(\.test)?\.mjs$/, 'the sweep holds the table and its fixtures'],
+  [/^plugins\/core\/skills\/mr-miyagi\//, 'the skill keeps the persona it was named for'],
+  [/^plugins\/core\/skills\/farbror-vattenmelon\/SKILL\.md$/, 'its origin line tells the renames'],
+  [/^plugins\/core\/scripts\/(week-receipt|dev-hq)(\.test)?\.mjs$/, 'folder names of projects that were renamed'],
+]
+
+// The name map lives outside the repo (Pylos), so CI has none: skipped with no problem.
+export function checkRetiredNames(kitDir, { map = DEFAULT_MAP } = {}) {
+  if (!existsSync(map)) return []
+  const table = replacementTable(readFileSync(map, 'utf8'))
+  const { rows } = sweepNames([join(kitDir, 'plugins')], table.pairs, { live: true, cwd: kitDir })
+  return rows
+    .filter((r) => !RETIRED_ALLOW.some(([re]) => re.test(r.where.replace(/:\d+$/, ''))))
+    .map((r) => `${r.where}  retired name "${r.old}" (now ${r.new}; node plugins/release/scripts/rename-sweep.mjs --live plugins)`)
 }
 
 export function checkKit(kitDir, { values = [], base = process.cwd(), project = null } = {}) {
@@ -353,9 +401,12 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     problems.push(`${where}  drifted from ${p.hutzup}: ${what} (node scripts/drift.mjs <project>)`)
   }
   problems.push(...checkRanjit(project, kitDir))
+  problems.push(...checkBuilders(kitDir), ...checkRetiredNames(kitDir))
   for (const p of problems) console.log(p)
   if (problems.length) process.exit(1)
   console.log(plugins ? `kit ok: ${plugins} plugin${plugins === 1 ? '' : 's'}` : 'no plugins yet')
+  const longest = longestLesson(kitDir)
+  if (longest) console.log(longest)
   const note = project ? kitVersionNote(project, kitDir) : null
   if (note) console.log(note)
   const behind = liveBehind()

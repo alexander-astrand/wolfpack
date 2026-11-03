@@ -21,7 +21,7 @@
 // (this plugin's hooks/budget-cap.mjs), imports the counting functions below, so an
 // agent is stopped on the same numbers the PR's Usage section shows.
 
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
@@ -731,7 +731,7 @@ async function main() {
 }
 
 // Run only as a script; Hank imports the functions above without running it.
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   main().catch((err) => {
     console.error(err.message)
     process.exit(1)

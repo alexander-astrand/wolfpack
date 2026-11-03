@@ -21,6 +21,7 @@
 // Each block is one line in `.claude/session-hooks.log` (see start-gate.mjs).
 // Fails open: any error of its own lets the turn end.
 
+import { realpathSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { logDecision, tailEntries, turnEntries } from './start-gate.mjs'
 
@@ -177,4 +178,4 @@ async function main() {
   if (result) process.stdout.write(JSON.stringify(result))
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) main()

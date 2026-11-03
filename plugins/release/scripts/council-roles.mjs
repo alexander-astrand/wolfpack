@@ -8,7 +8,7 @@
 //
 // Usage: node council-roles.mjs --since <YYYY-MM-DD> [--dir <transcripts>]…
 // Without --dir the transcripts are this project's (derived from the cwd).
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { agentName, projectDir, readEntries, timelineRow } from './usage.mjs'
@@ -109,4 +109,4 @@ function main() {
   console.log(tableOf(roleTotals(dirs, from)))
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) main()
