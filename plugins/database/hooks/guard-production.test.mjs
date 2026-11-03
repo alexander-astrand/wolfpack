@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { CI_WORKFLOW, DEV_REF, PROD_URL, WORST_CASE_MS, decide as guardDecide, maskSecrets, namesProtected, parseShell, readJsonMarker, readRepoState, releasePrFrom } from './guard-production.mjs'
+import { CI_WORKFLOW, DEV_REF, PROD_URL, VERCEL_TOOLS, WORST_CASE_MS, decide as guardDecide, maskSecrets, namesProtected, parseShell, readJsonMarker, readRepoState, releasePrFrom } from './guard-production.mjs'
 import { CI_JOBS, UNREAD_CHECKBOX, allowedCommands, explainSteps, loadKitConfig, parseProductionSteps, prFacts, previewText, unreadCheckboxes } from './production-steps.mjs'
 
 const PROD = 'prodrefprodrefprodre'
@@ -170,6 +170,88 @@ describe('navigator and other agents', () => {
     expect(run('mcp__b9b722b0__list_migrations', { project_id: PROD })).toBe('deny')
     // Vercel ids aren't Supabase refs.
     expect(run('mcp__vercel__get_project', { project_id: 'prj_abc123' })).toBe('pass')
+  })
+})
+
+// Kit 1.9 (D1): the Vercel connector's two names. The uuid is Pollux's desktop
+// app's, a fixture only: the hook matches any uuid by shape.
+describe('the Vercel connector', () => {
+  const PREFIXES = ['mcp__3be6532e-019b-4c2b-89d9-df0479a0419f__', 'mcp__claude_ai_Vercel__']
+  // The connector's write tools as the settings ask about them, from
+  // ~/pylos/notes/connectors.md and ~/.claude/settings.json, 2 Nov 2026 (Gap 6).
+  const WRITES_2026_11_02 = ['add_project_domain', 'add_route', 'add_toolbar_reaction', 'approve_rolling_release_stage', 'assign_alias', 'cancel_deployment',
+    'change_toolbar_thread_resolve_status', 'complete_rolling_release', 'create_deployment', 'create_drain', 'create_edge_config', 'create_flag',
+    'create_flags_project_connection', 'create_git_project', 'create_observability_query', 'create_project', 'create_project_env', 'create_record',
+    'create_sandboxes_sessions_by_session_id_snapshot_v2', 'create_sandboxes_sessions_by_session_id_snapshot_v3', 'create_sandboxes_v2', 'create_sandboxes_v3',
+    'create_sandboxes_v4', 'create_session_directory', 'create_storage_stores_blob', 'create_trace_session', 'edit_project_env', 'edit_route', 'edit_toolbar_message',
+    'extend_session_timeout', 'generate_route', 'import-claude-dashboard-from-url', 'import-claude-design-from-url', 'import-claude-motion-from-url',
+    'invalidate_by_src_images', 'invalidate_by_tags', 'issue_cert', 'kill_session_command', 'patch_edge_config_items', 'patch_url_protection_bypass', 'pause_project',
+    'put_firewall_config', 'record_events', 'replace_domain_dns_records', 'reply_to_toolbar_thread', 'request_promote', 'request_rollback', 'restore_edge_config_backup',
+    'restore_redirects', 'run_session_command', 'stage_redirects', 'stage_routes', 'start_rolling_release', 'stop_session', 'submit_feedback', 'test_drain',
+    'unpause_project', 'update_attack_challenge_mode', 'update_bulk_redirect_version', 'update_connector', 'update_drain', 'update_edge_config', 'update_firewall_config',
+    'update_flag', 'update_flag_segment', 'update_flag_settings', 'update_project', 'update_project_protection_bypass', 'update_record', 'update_rolling_release_config',
+    'update_route_versions', 'update_sandbox', 'update_session_network_policy', 'upload_artifact', 'upload_file', 'upsert_connector_project_connection',
+    'verify_project_domain', 'write_session_files', 'buy_domain', 'create_or_transfer_domain', 'accept_project_transfer_request', 'authorize_team_access',
+    'authorize_team_sso', 'create_sdk_key', 'create_edge_config_token']
+  const GO = { arg: '1.9', at: Date.parse('2026-11-03T08:00:00Z') }
+  const lines = []
+  const call = (tool, toolInput = {}, { mode = 'default', go = null, agent } = {}) => {
+    const input = { tool_name: tool, tool_input: toolInput, permission_mode: mode }
+    if (agent) input.agent_type = agent
+    return decide(input, { humanGo: () => go, marker: () => ({ version: '1.9' }), log: (l) => lines.push(l), linkedRef: () => DEV_REF, releasePr: () => null })
+  }
+  const verdict = (...a) => call(...a)?.decision ?? 'pass'
+
+  for (const p of PREFIXES) {
+    describe(p, () => {
+      it('passes the reads, adding no allow', () => {
+        for (const t of ['get_project', 'list_deployments_x', 'search_vercel_documentation', 'get-import-status', 'get_project_env', 'filter_project_envs', 'rerequest_check']) expect(verdict(p + t, { projectId: 'prj_abc' })).toBe('pass')
+      })
+      it('asks on a known production write when attended, and logs it', () => {
+        lines.length = 0
+        const out = call(p + 'request_promote', { projectId: 'prj_abc', deploymentId: 'dpl_1' })
+        expect(out.decision).toBe('ask')
+        expect(out.reason).toMatch(/production write .*no \/one-ring typed by him/)
+        expect(lines[0].split('\t').slice(1, 3)).toEqual(['ask', `${p}request_promote {"projectId":"prj_abc","deploymentId":"dpl_1"}`])
+      })
+      it('denies a known production write unattended (bypass and dontAsk)', () => {
+        expect(verdict(p + 'create_deployment', {}, { mode: 'bypassPermissions' })).toBe('deny')
+        expect(verdict(p + 'create_project_env', {}, { mode: 'dontAsk' })).toBe('deny')
+      })
+      it('allows a known production write with his typed /one-ring go, logged; never a subagent\'s', () => {
+        lines.length = 0
+        const out = call(p + 'request_rollback', {}, { go: GO })
+        expect(out.decision).toBe('allow')
+        expect(out.reason).toMatch(/typed \/one-ring 1\.9 in this session/)
+        expect(lines[0].split('\t')[1]).toBe('allow')
+        expect(verdict(p + 'request_rollback', {}, { go: GO, agent: 'ranjit' })).toBe('ask')
+      })
+      it('asks on a purchase or another known write even with a go, and denies them unattended', () => {
+        expect(verdict(p + 'buy_domain', { name: 'x.com' }, { go: GO })).toBe('ask')
+        expect(verdict(p + 'update_flag', {}, { go: GO })).toBe('ask')
+        expect(verdict(p + 'update_flag', {}, { mode: 'bypassPermissions' })).toBe('deny')
+      })
+    })
+  }
+
+  it('asks on an unknown write on the named connector, denies it unattended; a uuid server\'s unknown tool is not Vercel\'s', () => {
+    expect(verdict('mcp__claude_ai_Vercel__delete_everything')).toBe('ask')
+    expect(verdict('mcp__vercel__delete_everything')).toBe('ask')
+    expect(verdict('mcp__claude_ai_Vercel__delete_everything', {}, { mode: 'dontAsk' })).toBe('deny')
+    // Notion, Burrow and the like are uuid servers too.
+    expect(verdict('mcp__0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b__notion-create-pages', { pages: [] })).toBe('pass')
+    expect(verdict('mcp__0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b__add_to_list', { name: 'soap' })).toBe('pass')
+  })
+
+  it('knows every write tool of the 2 Nov list, and leaves the Supabase connector to its own rule', () => {
+    const { VERCEL_PROD_WRITES, VERCEL_PAID, VERCEL_WRITES } = VERCEL_TOOLS
+    expect(WRITES_2026_11_02.filter((t) => !VERCEL_PROD_WRITES.has(t) && !VERCEL_PAID.has(t) && !VERCEL_WRITES.has(t))).toEqual([])
+    const SUPA = 'mcp__b9b722b0-cd4f-4144-b0cf-ec304092b6c0__'
+    // Supabase's pause_project carries a ref, so it is never taken for Vercel's.
+    expect(verdict(SUPA + 'pause_project', { project_id: DEV_REF })).toBe('pass')
+    expect(verdict(SUPA + 'pause_project', { project_id: PROD })).toBe('deny')
+    expect(verdict(SUPA + 'execute_sql', { project_id: DEV_REF, query: 'select 1' })).toBe('pass')
+    expect(verdict(SUPA + 'get_advisors', { project_id: PROD, type: 'security' }, { agent: 'ranjit' })).toBe('allow')
   })
 })
 
