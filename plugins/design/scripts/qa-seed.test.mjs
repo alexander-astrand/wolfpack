@@ -1,10 +1,15 @@
 // The wrapper's own rules only: the lane, seed=shared and the arguments. The pair check and the
 // dev-only target (the ?host= case included) are seed.mjs's, tested once in seed.test.mjs.
 import { afterEach, beforeEach, describe, it, expect } from 'vitest'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { laneOf, parseArgs, run } from './qa-seed.mjs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { laneOf, parseArgs, run, seedPath } from './qa-seed.mjs'
+
+const SCRIPTS = dirname(fileURLToPath(import.meta.url))
+const DB_SCRIPTS = join(SCRIPTS, '..', '..', 'database', 'scripts')
 
 let root
 beforeEach(() => {
@@ -24,6 +29,47 @@ const local = () => ({ flag: '--local' })
 const never = () => {
   throw new Error('ran the CLI')
 }
+
+// Where seed.mjs is found (kit 1.9 review R1-5): the repo's side-by-side plugins, a marketplace
+// cache (<cache>/wolfpack/<plugin>/<version>/), or neither, each run as a real `--help`.
+describe('finding the database plugin', () => {
+  let tmp
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), 'qa-seed-layout-'))
+  })
+  afterEach(() => rmSync(tmp, { recursive: true, force: true }))
+  const help = (scripts) => spawnSync('node', [join(scripts, 'qa-seed.mjs'), '--help'], { encoding: 'utf8' })
+
+  it('runs --help with the plugins side by side', () => {
+    cpSync(SCRIPTS, join(tmp, 'plugins', 'design', 'scripts'), { recursive: true })
+    cpSync(DB_SCRIPTS, join(tmp, 'plugins', 'database', 'scripts'), { recursive: true })
+    const r = help(join(tmp, 'plugins', 'design', 'scripts'))
+    expect(r.stderr).toBe('')
+    expect(r.status).toBe(0)
+    expect(r.stdout).toMatch(/QA seed for a lane/)
+  })
+  it('runs --help from a marketplace cache, and picks the highest database version', () => {
+    const design = join(tmp, 'cache', 'wolfpack', 'design', '1.9.0', 'scripts')
+    cpSync(SCRIPTS, design, { recursive: true })
+    cpSync(DB_SCRIPTS, join(tmp, 'cache', 'wolfpack', 'database', '1.9.0', 'scripts'), { recursive: true })
+    const r = help(design)
+    expect(r.stderr).toBe('')
+    expect(r.status).toBe(0)
+    expect(r.stdout).toMatch(/QA seed for a lane/)
+    mkdirSync(join(tmp, 'cache', 'wolfpack', 'database', '1.10.0', 'scripts'), { recursive: true })
+    writeFileSync(join(tmp, 'cache', 'wolfpack', 'database', '1.10.0', 'scripts', 'seed.mjs'), '')
+    mkdirSync(join(tmp, 'cache', 'wolfpack', 'database', '2.0.0'))
+    expect(seedPath(design)).toBe(join(tmp, 'cache', 'wolfpack', 'database', '1.10.0', 'scripts', 'seed.mjs'))
+  })
+  it('says in one line that the database plugin is needed, and exits 1, when it is missing', () => {
+    const design = join(tmp, 'cache', 'wolfpack', 'design', '1.9.0', 'scripts')
+    cpSync(SCRIPTS, design, { recursive: true })
+    expect(seedPath(design)).toBe(null)
+    const r = help(design)
+    expect(r.status).toBe(1)
+    expect(r.stderr.trim()).toMatch(/^qa-seed: the database plugin is needed[^\n]*$/)
+  })
+})
 
 describe('parseArgs', () => {
   it('reads the action, name, lane and shared flag, with the defaults', () => {

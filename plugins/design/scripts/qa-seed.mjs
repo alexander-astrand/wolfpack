@@ -18,11 +18,38 @@
 // run-tests.mjs does (a local stack, or the CLI linked to refs.dev). A URL whose host, or whose
 // ?host=, ?hostaddr= or ?service=, is not local is refused unless --allow-host names it.
 // --dry prints the target and the SQL and runs nothing.
-import { readFileSync, realpathSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-// The repo keeps the plugins side by side (as dev-hq.mjs imports release's usage.mjs).
-import { devTarget, run as seedRun } from '../../database/scripts/seed.mjs'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const NEEDS_DB = 'qa-seed: the database plugin is needed (its scripts/seed.mjs runs every seed); install it beside the design plugin'
+
+// Where the database plugin's seed.mjs sits. A static import of the sibling path broke a marketplace
+// install, where each plugin lives in <cache>/<marketplace>/<plugin>/<version>/ and even --help died
+// with ERR_MODULE_NOT_FOUND (kit 1.9 review R1-5). So: the sibling first (the repo, and
+// ~/wolfpack-live/plugins/* side by side), then the highest version folder beside ours, else null.
+export function seedPath(here = HERE) {
+  const sibling = join(here, '..', '..', 'database', 'scripts', 'seed.mjs')
+  if (existsSync(sibling)) return sibling
+  const versions = join(here, '..', '..', '..', 'database')
+  if (!existsSync(versions)) return null
+  const found = readdirSync(versions)
+    .filter((v) => existsSync(join(versions, v, 'scripts', 'seed.mjs')))
+    .sort((a, b) => b.localeCompare(a, 'en', { numeric: true }))
+  return found.length ? join(versions, found[0], 'scripts', 'seed.mjs') : null
+}
+
+const isMain = process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url
+const found = seedPath()
+if (!found) {
+  if (isMain) {
+    console.error(NEEDS_DB)
+    process.exit(1)
+  }
+  throw new Error(NEEDS_DB)
+}
+const { devTarget, run: seedRun } = await import(pathToFileURL(found).href)
 
 export function parseArgs(argv, env = process.env, cwd = process.cwd()) {
   const o = { action: null, name: null, lane: null, shared: false, root: resolve(cwd, env.CLAUDE_PROJECT_DIR || '.'), db: env.QA_SEED_DB_URL || null, allowHost: null, dry: false }
@@ -69,7 +96,7 @@ export function run(o, log = console.log, { exec, bin = process.env.RUN_TESTS_SU
   return out.code
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+if (isMain) {
   try {
     const o = parseArgs(process.argv.slice(2))
     if (o.help) {
