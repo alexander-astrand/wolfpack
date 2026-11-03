@@ -4048,7 +4048,7 @@ export async function explain(command, { cwd = process.cwd(), agent, mode = 'aut
   return lines.join('\n') + '\n'
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const argv = process.argv.slice(2)
   if (argv[0] === '--explain') {
     const at = (flag) => { const i = argv.indexOf(flag); return i > 0 ? argv[i + 1] : undefined }

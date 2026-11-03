@@ -21,7 +21,7 @@
 // Exit codes: 0 written or the same, 1 the copy differs (--check; the diff is
 // printed), 2 usage, kit.json unreadable, or a placeholder with no value.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -110,7 +110,7 @@ function writeOut(file, text) {
   writeFileSync(file, text)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const args = process.argv.slice(2)
   const check = args.includes('--check')
   const rest = args.filter((a) => a !== '--check')

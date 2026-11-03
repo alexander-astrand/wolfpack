@@ -47,7 +47,7 @@
 // rules forbid).
 
 import { createHash } from 'node:crypto'
-import { appendFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, readdirSync, realpathSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { guardListedHead } from './read-list.mjs'
@@ -459,4 +459,4 @@ async function main() {
   process.exit(0)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) main()
