@@ -103,7 +103,7 @@ Nobody types "continue". Before any spawn, and before the deploy's arm, read `ge
 2. Start `sleep <seconds to resetsAt + 60>` with Bash `run_in_background` (never a foreground sleep), and end the turn.
 3. The harness re-invokes the session when the sleep exits (checked 30 Sep: background sleeps of 180 s and 720 s each ran to the end and sent their completion notice; the wake from an idle main session is first proven in step 7's drive). Re-read `get_usage`: still above 85%, sleep once more; otherwise read the `Next:` line and go on.
 
-An armed `ranjit` run is never paused midway: the check comes before the arm. The weekly meter is a separate check: the arm accepts it (`[meter]` in lessons.md), and a chain stops for the week only when the headroom left is below 1.5x the next link's budget.
+An armed `ranjit` run is never paused midway: the check comes before the arm. The weekly meter is a separate check: the arm accepts it (`[meter]` in lessons.md), and a chain stops for the week only when the headroom left is below 1.5x the next link's budget. With headroom, it never waits for the reset (`[accelerate]`).
 
 ## Preflight (both legs; a failure is a hard stop)
 - **The deploy's preflight** is `deploy-leg.md`'s "Preflight" (scripts, deployer, Auto, the root checkout at the PR head), checked in leg 1's first minute too, so a missing script stops the drive before the build.

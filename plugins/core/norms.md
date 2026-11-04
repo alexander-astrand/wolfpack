@@ -77,6 +77,14 @@ The rule and each project's monthly budget: `~/.claude/global/CLAUDE.md`, Costs,
 - **Push less:** `scripts/check.sh` locally is the check. A PR stays a draft until its work is done and green locally, then goes ready once (`/one-ring` marks it ready itself; under `/cattle-drive` the release leg does it at its end); more fixes after ready go in one push.
 - **The warning:** `tier-readers.mjs` (`actionsFlags`) flags 50 % and 70 % of the month's 2,000, a project past its `ci.minutesBudget`, and a month running ahead of its pace. The flags reach Dev HQ's tiers row, `/scrooge` and `/groundhog-day`'s note for the 08:00 brief. At 70 % only merges in flight get CI; at 90 % stop pushing to ready PRs and say so in one line.
 
+## Meter timing (`[accelerate]`)
+Every piece of timing or size advice against the weekly meter (a planner's "When" question, `/inception`'s go, a release's or chain's start, a side session's brief) runs this check first, from a fresh `get_usage` (`[reset-from-usage]`):
+- **Spare** = what's left of the week − a 10-point safety margin − what's already booked this week (the `dev_meter` row's `planned` shares, and any release running now). **Usable** = the smaller of the spare and 14 % for each daily window left before the reset.
+- **Usable spare would go unused at the reset:** recommend accelerating. Start now, and bundle the next roadmap card in when it fits. The 5 % per release is the default for a week with no spare, never a cap on a week that would otherwise waste meter, so a release over 5 % that fits the usable spare is "fits", not "too big".
+- **Never recommend "after the reset"** while the week has usable spare, and never offer it as an option. A wait is right only when the release is bigger than the usable spare; then say how much is short and offer a trim to fit first.
+- The 14 % daily stop, the 7 % step-down and the lift in the last two windows (week ≤ 60 %) stay as `~/.claude/CLAUDE.md` says: they pace a release across the windows, they're no reason to wait for the next week.
+- Alexander, 4 Nov 2026: "You should tell me to accelerate instead to not waste usage" (the case and his full words: `lessons-numbers.md`, `[accelerate]`).
+
 ## Which Claude for what
 | Mode | When | Type |
 |---|---|---|

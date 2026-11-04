@@ -25,7 +25,7 @@ Everything the night could stop on is asked now, in **one message** in the first
 - **The dev tab:** the `captain-call` preflight's probe on the :<project.devPort> tab. Signed in, or "no UI" when the plan touches no page. Signed out: the message asks him to sign in on that tab now.
 - **The human steps:** everything the night will need from a person (production secrets such as a push key pair, Vercel or dashboard settings, facts only Alexander knows), listed one per line straight into the plan's Human steps. The night builds around them rather than waiting (2.12: production's VAPID pair).
 - **The allow rules:** the commands and tools the plan's steps will call that aren't on the allow list (`~/.claude/settings.json` and the project's `.claude/settings.json`), each as the exact rule line. Nobody answers a prompt overnight, so a missing rule is a stop or a slower route.
-- **The meter:** `get_usage`, the week and the daily window, against the plan's expected spend.
+- **The meter:** `get_usage`, the week and the daily window, against the plan's expected spend. Usable spare that would go unused at the reset is a reason to run tonight, never to wait (`[accelerate]`, norms.md "Meter timing").
 - **The follow-up session:** its title, started parked in this turn (above), so he can see it exists.
 
 End that message with what he does before bed (sign in, add the rule lines, answer a human step). The night doesn't wait for his answer: the planning starts now and his answers are folded in as they come. Only a signed-out dev tab on a release with pages holds the first builder; still signed out at the first watchdog wake, stop rather than build without QA.
