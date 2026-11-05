@@ -95,6 +95,8 @@ Only the hard stops above wait for a person. When anything else is refused or fa
 2. If no route works within two tries, defer that item to the end of the leg or link and go on with the rest.
 3. Every deferred item goes first under "What needs you" in the final ping, with what was refused and the route that would clear it.
 
+**A missed prompt is not a no** (`[missed-prompt]`; Alexander, 5 Nov 2026, after Burrow V1.12 sat four hours: "I was also available on phone so should have been pinged"). A call that comes back "User rejected tool use", or refused by a prompt, while his last own message is over 10 minutes old is a prompt nobody saw: ping him in the same turn (`~/pylos/bin/nestor-push.sh --prompt "<line>"`: what was refused, what the leg does next), then the steps above, with one other route before it defers. Never stop a leg or link on it. A production call or a hard stop is still a hard stop; norms.md, "A missed prompt is not a no".
+
 Never re-spell a refused production command to get it past the guard; production stays behind the hard stops.
 
 ## The 5-hour self-wake (every leg, link and conductor)
