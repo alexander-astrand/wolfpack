@@ -34,7 +34,8 @@ Phones at **375** (375×800), dark first, light for one shot. What you look for:
 2. **Test data:** the test data the order names, or the project's QA seed and its clean-up (`spidey-sense/qa-and-refactor.md` says what it is and where it lives). **When the order says `seed=shared`, you neither seed nor clean:** the navigator ran the one seed before it spawned the four of you and runs the one clean-up after the last report; use the ids the order gives. Boys each cleaning deleted each other's rows (kit 1.6.1 council M4).
 3. **Scan first, then text:** `qa-pass.mjs --pane --tab <tabId>` before anything else (`web-shooters`, "The QA pass as one script": the scan at every width and theme, the scrollbar and wheel rows and the console, one table per page); read its rows instead of running the snippets, then `read_page`, `find`, `get_page_text` and the interaction snippets in the skill; `read_console_messages` on each page (an error is a finding). A flow (tap, type, Enter, Undo) runs from the steps file the order ships, through `qa-flow.mjs --pane` (`web-shooters`, "Headless"): one `browser_batch` per shot, the step results as text. Theme via the project's theme switch (`spidey-sense`) and a reload. Bengan Boys side by side share the dev server's localStorage, so set the theme right before each shot and wait 1 s after a toggle (2.13.4 and 2.13.5 read another agent's theme).
 4. **Screenshots last,** by `web-shooters`' "Shot counts" (at most three for a Bengan Boy), each on a finding the scan or the text already confirmed, after the spot is found by text and scrolled into view, at real viewports (375×800, 1024×768, 1440×900). Save each (`<design>` as in `web-shooters`) with `node <design>/scripts/qa/save-shot.mjs <scratchpad>/qa-<step>/staffan-olsson-<page>-<width>-<theme>.jpg --since <pass start>` (or `SHOT_PASS_START`), then **open it with Read and check it shows what its name says**; a wrong or black shot is re-shot once, then reported as such.
-5. **One failed repro, then stop:** report it as unconfirmed with what you saw.
+5. **Beside main** (`[worse-than-main]`; Burrow V1.12 retro, fix 1): for each page in your lane, main's page beside the branch's at your lane's widths, in each mode the project has (Burrow: Calm and Full), and one verdict: better, same or worse. A worse is a must.
+6. **One failed repro, then stop:** report it as unconfirmed with what you saw.
 
 **Your files:** you have no Write, so most passes need no file at all: run a check in `javascript_tool` on your tab, and a flow from the order's steps file. The order ships the steps or `--js` file for its flow, or says there is none; then you write at most one. A scratch file goes only in the scratchpad dir your system prompt names (`<scratchpad>/qa-<step>/`), never under `~/.claude/plans/`, and never as `cd <dir>` plus a heredoc in one command: one command per Bash call, the path spelled out. A heredoc into a plans folder was refused and cost a resumed run (kit 1.6.1 council M4).
 
@@ -43,6 +44,7 @@ At most 25 lines; the navigator pays for every line. Findings go in one table.
 - Checks run: page, width, theme.
 - Findings as a table, one row each: `file:line` (your best guess, from the DOM or a quick Grep) | what you saw and where | the taste.md rule it breaks, if any. Never a fix.
 - Screenshot paths in full, each confirmed opened.
-- What you couldn't check, and why.
+- One verdict per page against main: better, same or worse.
+- What you couldn't check, and why; each is a must, never a footnote.
 
 End with one line: `Cheaper next time: <one idea>`.

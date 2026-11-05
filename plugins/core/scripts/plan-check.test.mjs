@@ -15,6 +15,7 @@ const plan = (rows, expected = '**Expected: ≈ 106M.** Cap ≈ 140M.') => [
   '|---|---|---|---|---|---|---|',
   ...rows,
   '',
+  'Desktop pages: none (no screen in this release)',
   expected,
 ].join('\n')
 
@@ -73,12 +74,65 @@ describe('plan-check', () => {
       '| U1 | trips tab | chris-de-kok · Opus | A | 10M | app/us/trips/page.tsx:12 |',
       '| R1 | review | kissochbajslowski · Opus | - | 8M | |',
       '',
+      'Desktop pages: /us/trips Calm and Full (magnus-wislander)',
       'Expected: ≈ 300M',
     ].join('\n')
     expect(check(v15, models).fails).toEqual([
       expect.stringMatching(/^item 12: step R1 /),
       expect.stringMatching(/^stamp: step R1 .*without a reason/),
     ])
+  })
+
+  // The Burrow V1.12 retro (5 Nov 2026): fixes 2, 3, 4, 10 and 13.
+  const v112 = (rows, extra = []) =>
+    [
+      '| Step | What | Found | Agent | Model | Budget | Intent |',
+      '|---|---|---|---|---|---|---|',
+      ...rows,
+      '',
+      'Desktop pages: /notes Calm and Full (magnus-wislander, his look)',
+      'Expected: ≈ 120M',
+      ...extra,
+    ].join('\n')
+  const tables = '| N1 | the grid | lib/note-table.ts:322 | chris-de-kok | Opus | 10M | I1 |'
+
+  it('item 14: an intent with no first tap, or a tap with no place in the code', () => {
+    expect(check(v112([tables]), models).fails).toEqual([expect.stringMatching(/^item 14: I1 has no first-tap line/)])
+    const vague = ['', '## Intents and first taps', '- I1 · tables · first tap: Aa, Table']
+    expect(check(v112([tables], vague), models).fails).toEqual([expect.stringMatching(/^item 14: I1 \(line \d+\): the first tap needs/)])
+    const today = ['', '## Intents and first taps', '- I1 · tables · first tap: Aa, Table · components/mine/notebook/format-bar.tsx:70']
+    expect(check(v112([tables], today), models).fails).toEqual([])
+    const built = ['', '## Intents and first taps', '- **I1** · tables · first tap: Aa, Table · built by N0']
+    expect(check(v112([tables], built), models).fails).toEqual([])
+  })
+
+  it('item 15: no Desktop pages line', () => {
+    expect(check(plan(good).replace(/^Desktop pages:.*$/m, ''), models).fails).toEqual([expect.stringMatching(/^item 15:/)])
+  })
+
+  it('item 16: never Sonnet on design, and Opus QA in a design release', () => {
+    const taps = ['', '## Intents and first taps', '- I2 · every page redone · first tap: open Food · app/food/page.tsx:1']
+    const sweep = '| S1 | Food redo: words to faces, glass, bubbles | app/food/page.tsx:12 | jesse-pinkman | Sonnet | 8M | I2 |'
+    const qa = '| Q1 | QA by hand | | bengt-johansson | Sonnet | 7M | I2 |'
+    expect(check(v112([sweep, qa], taps), models).fails).toEqual([
+      expect.stringMatching(/^item 16: step S1 .*design work on sonnet/),
+      expect.stringMatching(/^item 16: step Q1 .*QA of a design release runs Opus/),
+    ])
+    const opus = [sweep.replace('jesse-pinkman | Sonnet', 'chris-de-kok | Opus'), qa.replace('Sonnet', 'Opus: a design release')]
+    expect(check(v112(opus, taps), models).fails).toEqual([])
+    const review = '| R | review the layout diff | | kissochbajslowski | Sonnet | 10M | |'
+    expect(check(v112([review]), models).fails).toEqual([])
+  })
+
+  it('item 17: Expected past 400M needs a Split line', () => {
+    const big = v112([tables], ['', '## Intents and first taps', '- I1 · t · first tap: Aa · built by N1']).replace('≈ 120M', '≈ 735M')
+    expect(check(big, models).fails).toEqual([expect.stringMatching(/^item 17: Expected ≈ 735M/)])
+    expect(check(`${big}\nSplit: offered V1.12 design system and V1.13 the page redo; recommended`, models).fails).toEqual([])
+  })
+
+  it('item 18: a plan rule with no check', () => {
+    const rules = ['', '## Plan rules', '- Never a second row above the bar · surface: food', '- One row with the + above the bar · surface: food · check: 375 shot beside main']
+    expect(check(`${plan(good)}\n${rules.join('\n')}`, models).fails).toEqual([expect.stringMatching(/^item 18: plan rule at line \d+ has no `check:`/)])
   })
 
   it('refuses a plan with no step table', () => {

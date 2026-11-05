@@ -10,7 +10,9 @@
 //            directions (design/scripts/deal.mjs, logged as the deal of record
 //            unless --dry), the files to read (the row's file:line
 //            column), the tests that read them, the standing facts that touch
-//            the step, the shell-shape line and the closing "Cheaper next
+//            the step, the plan rules whose surface the step touches (the
+//            plan's `## Plan rules`, each with its check; Burrow V1.12 retro,
+//            fix 10), the shell-shape line and the closing "Cheaper next
 //            time" ask; for a `the-playbook` step also the lane brief (test,
 //            apply, read-the-schema and types commands, the non-code files
 //            naming each table or function, and one scope.mjs line per name)
@@ -340,6 +342,37 @@ export function factsFor(text, stepText, files = []) {
   return out
 }
 
+/**
+ * The plan's rules that hold on this step's surface (Burrow V1.12 retro, fix
+ * 10: "never a second row" sat in the plan and reached no order). A rule is a
+ * bullet under `## Plan rules`: `<rule> · surface: <words, paths or step ids> ·
+ * check: <a grep or a shot>`. It touches the step when a surface word of three
+ * letters or more is in the step's id, text or files, or the surface is
+ * `all` or `every page`. A rule with no surface touches every step.
+ */
+export function planRulesFor(planText, row, files = []) {
+  const out = []
+  let inside = false
+  const hay = [row.step, row.what, row.check, row.files, ...files].filter(Boolean).join(' ').toLowerCase()
+  for (const line of String(planText ?? '').split('\n')) {
+    const h = line.match(/^#{2,}\s+(.*)/)
+    if (h) {
+      inside = /plan rules/i.test(h[1])
+      continue
+    }
+    if (!inside || !/^\s*[-*]\s+\S/.test(line)) continue
+    const rule = line.replace(/^\s*[-*]\s+/, '').trim()
+    const surface = rule.match(/surface:\s*([^·|]+)/i)?.[1]?.trim().toLowerCase() ?? ''
+    const word = (w) => w.replace(/[`*]/g, '')
+    const hit = !surface || /^(all|every page)\b/.test(surface) || surface.split(/[\s,;]+/).some((w) => word(w).length >= 3 && hay.includes(word(w)))
+    if (hit) out.push({ rule, check: rule.match(/check:\s*(.+)$/i)?.[1]?.trim() ?? null })
+  }
+  return out
+}
+
+// Never Sonnet on design (oceans-eleven, Build; Burrow V1.12 retro, fix 3).
+const DESIGN_WORK = /\b(re-?design\w*|redo(?:es|ne)?|redraw\w*|restyl\w*|design|layouts?|looks?|glass)\b/i
+
 /** A token CSS file the scripted designer can take: the row's own .css, else a usual globals file. */
 export function tokenCssFor(root, files, all) {
   const own = files.map(barePath).find((f) => f.endsWith('.css'))
@@ -483,6 +516,9 @@ export function compose({ planText, stepId, root, budgets = readJson(join(HERE, 
   }
   if (/\bxhigh\b/i.test(`${row.model ?? ''} ${row.agent ?? ''}`)) effort = 'xhigh'
 
+  if (model === 'sonnet' && route.kind === 'build' && DESIGN_WORK.test(row.what ?? '')) {
+    notes.push('design work on Sonnet: give it to the next free Opus builder and the design team, never Sonnet on design (oceans-eleven, Build)')
+  }
   const budget = budgetFor(agent, row.budget ?? '', { budgets, kitBudgets, design })
   notes.push(...budget.notes)
   const short = (row.what ?? '').replace(/\*\*/g, '').replace(/`/g, '').split(/[:.;(]/)[0].trim().slice(0, 50)
@@ -501,6 +537,7 @@ export function compose({ planText, stepId, root, budgets = readJson(join(HERE, 
     files: resolved.map((r) => r.path ?? `${r.plan} (not found in the project)`),
     tests: found.length ? testsReading(root, found.map(barePath), all) : [],
     facts: factsText ? factsFor(factsText, stepText, planFiles) : null,
+    rules: planRulesFor(planText, row, planFiles),
     shell: SHELL_LINE,
     close: agent === 'the-playbook' ? CLOSE_ASK_PLAYBOOK : CLOSE_ASK,
     notes,
@@ -510,6 +547,7 @@ export function compose({ planText, stepId, root, budgets = readJson(join(HERE, 
     order.deal = dealFor(root, mode, deal)
     if (order.deal.error) notes.push(order.deal.error)
   }
+  for (const r of order.rules) if (!r.check) notes.push(`plan rule with no check: "${r.rule}"; add the grep or shot that proves it before the spawn`)
   if (!factsText) notes.push('no .claude/standing-facts.md yet: the first preflight copies the release plugin\'s templates/standing-facts.md')
 
   if (agent === 'the-playbook') {
@@ -549,6 +587,7 @@ export function render(o) {
   L.push('', 'Tests that read them:', ...(o.tests.length ? o.tests.map((f) => `- ${f}`) : ['- (none found)']))
   if (o.check) L.push('', `Check: ${o.check}`)
   if (o.facts) L.push('', 'Standing facts:', ...(o.facts.length ? o.facts.map((f) => `- ${f}`) : ['- (none touch this step)']))
+  if (o.rules?.length) L.push('', 'Plan rules on this surface (keep each, and run its check before you report):', ...o.rules.map((r) => `- ${r.rule}`))
   if (o.lane_brief) {
     const b = o.lane_brief
     L.push('', `Lane brief (${b.stack}):`, `- Test: ${b.test}`, `- Apply: ${b.apply}`, `- Read the schema: ${b.schema}`)

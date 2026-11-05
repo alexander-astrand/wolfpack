@@ -23,6 +23,18 @@
 //           "reason" anywhere in the row;
 //   stamp   a reviewer row (`kissochbajslowski`) on Opus or above without a
 //           reason, or a second such row even with one, refuses the stamp.
+// And the Burrow V1.12 retro's lines (5 Nov 2026; the release plugin's
+// templates/plan.md shows each shape):
+//   item 14 every intent a step row names (I1, I2 …) has a first-tap line:
+//           `I1 · <intent> · first tap: <the tap> · <file:line>` or `… · built by <step>`;
+//   item 15 one `Desktop pages:` line (each mode's pages at 1024 and up, and
+//           who looks), or `Desktop pages: none (<why>)`;
+//   item 16 never Sonnet on design: a row whose What redoes, redesigns,
+//           restyles or lays out a page runs Opus or above, and when the
+//           release has such a row its `bengt-johansson` rows do too;
+//   item 17 Expected at 400M or more carries a `Split:` line (the split the
+//           planner offered and why it is or isn't recommended);
+//   item 18 every bullet under `## Plan rules` names its `check:`.
 // Prints one line per failure and exits 1, or `plan-check: ok (<n> steps)`.
 // Read-only: it never edits the plan.
 
@@ -112,6 +124,39 @@ const hasReason = (modelCell, rowText, agent) => {
   return rest.split(/\s+/).filter(Boolean).length >= 2 || /\b(because|reason)\b/i.test(rowText)
 }
 
+// Item 16: the words of a row that changes looks. Review, a11y and docs rows
+// read or write about design without doing it, so they are exempt.
+export const DESIGN_WORDS = /\b(re-?design\w*|redo(?:es|ne)?|redraw\w*|restyl\w*|design|layouts?|looks?|glass)\b/i
+const NOT_DESIGN_WORK = ['kissochbajslowski', 'daredevil', 'c-3po', 'r2-d2', 'lorenzo-von-matterhorn']
+export const SPLIT_AT = 400e6
+
+const FILE_LINE = /[\w./-]+\.[a-z]{1,5}:\d+/i
+
+// The bullets under the first `##` heading matching `re`, with their line numbers.
+function sectionBullets(text, re) {
+  const out = []
+  let inside = false
+  text.split('\n').forEach((line, i) => {
+    const h = line.match(/^#{2,}\s+(.*)/)
+    if (h) {
+      inside = re.test(h[1])
+      return
+    }
+    if (inside && /^\s*[-*]\s+\S/.test(line)) out.push({ line: i + 1, text: line.replace(/^\s*[-*]\s+/, '').trim() })
+  })
+  return out
+}
+
+// Item 14: the first-tap line of each intent, keyed by its id.
+export function firstTaps(text) {
+  const taps = {}
+  for (const b of sectionBullets(text, /first taps?|intents/i)) {
+    const id = b.text.replace(/[*`]/g, '').match(/^(I\d+)\b/)
+    if (id) taps[id[1]] = b
+  }
+  return taps
+}
+
 const UNIT = { k: 1e3, m: 1e6, b: 1e9 }
 
 /**
@@ -134,12 +179,17 @@ export function check(text, models = {}) {
   if (parseExpected(text) == null) fails.push('item 2: no `Expected: ≈ <N>M` line (the headline is the expected real spend)')
   let steps = 0
   let opusReviews = 0
+  const intents = new Set()
+  const sonnetQa = []
+  let designRows = 0
   for (const t of tables) {
     const col = (pred) => t.header.findIndex(pred)
     const cStep = col(isStep)
     const cAgent = col((h) => h.startsWith('agent') || h === 'who')
     const cModel = col((h) => h.startsWith('model') || (h.startsWith('agent') && h.includes('model')))
     const cBudget = col(isBudget)
+    const cWhat = col((h) => h.startsWith('what'))
+    const cIntent = col((h) => h.startsWith('intent'))
     for (const r of t.rows) {
       const c = r.cells
       const id = c[cStep] || `line ${r.line}`
@@ -161,7 +211,32 @@ export function check(text, models = {}) {
         if (!reason) fails.push(`stamp: ${where}: reviewer on ${model} without a reason`)
         else if (opusReviews > 1) fails.push(`stamp: ${where}: a second reviewer row on ${model}; one at most, with its reason`)
       }
+      for (const m of (cIntent >= 0 ? c[cIntent] : '').matchAll(/\bI\d+\b/g)) intents.add(m[0])
+      const runs = model ?? route
+      if (agent === 'bengt-johansson') {
+        if (runs && RANK[runs] < RANK.opus) sonnetQa.push(where)
+        continue
+      }
+      if (NOT_DESIGN_WORK.includes(agent) || !DESIGN_WORDS.test(cWhat >= 0 ? c[cWhat] : text)) continue
+      designRows++
+      if (runs && RANK[runs] < RANK.opus) fails.push(`item 16: ${where}: design work on ${runs}; page redos, look sweeps and design fixes run Opus or above (never Sonnet on design)`)
     }
+  }
+  if (designRows) for (const where of sonnetQa) fails.push(`item 16: ${where}: QA of a design release runs Opus (bengt-johansson, by hand from each first tap)`)
+
+  const taps = firstTaps(text)
+  for (const id of [...intents].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))) {
+    const tap = taps[id]
+    if (!tap) fails.push(`item 14: ${id} has no first-tap line (\`${id} · <intent> · first tap: <the tap> · <file:line> | built by <step>\`)`)
+    else if (!/first tap:\s*\S/i.test(tap.text) || !(FILE_LINE.test(tap.text) || /built by\s+\S/i.test(tap.text))) {
+      fails.push(`item 14: ${id} (line ${tap.line}): the first tap needs its tap and where it lives today (file:line) or "built by <step>"`)
+    }
+  }
+  if (!/^[\s>*-]*Desktop pages\s*\**\s*:/im.test(text)) fails.push('item 15: no `Desktop pages:` line (each mode\'s pages at 1024 and up, and who looks; or `Desktop pages: none (<why>)`)')
+  const expected = parseExpected(text)
+  if (expected >= SPLIT_AT && !/^[\s>*-]*Split\s*\**\s*:/im.test(text)) fails.push(`item 17: Expected ≈ ${Math.round(expected / 1e6)}M is past ${SPLIT_AT / 1e6}M with no \`Split:\` line (offer the split; say why it is or isn't recommended)`)
+  for (const b of sectionBullets(text, /plan rules/i)) {
+    if (!/\bcheck:\s*\S/i.test(b.text)) fails.push(`item 18: plan rule at line ${b.line} has no \`check:\` (a grep or a shot that proves it)`)
   }
   return { steps, fails }
 }
