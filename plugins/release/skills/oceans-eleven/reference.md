@@ -23,7 +23,6 @@ The main session is the navigator, **`captain-call`**: it talks with Alexander, 
 | `jesse-pinkman` | builder (Sonnet) | Sonnet, medium | small UI steps with a clear spec, and docs; at most 2–3 steps per agent |
 | `mosbius-designs` | designer | Opus, medium | two layout options for one page or component, in a worktree, before it's built |
 | `the-playbook` | db-engineer | Opus, high | migrations, RLS, SQL tests, types, Edge Functions, on dev |
-| `romeo-olsson` | test-runner | Haiku, low | `/you-shall-not-pass` by hand, and the navigator's probes (autopilot runs `scripts/check.sh` itself) |
 | `kissochbajslowski` | release-reviewer | Sonnet, high | the pre-merge review of a release branch |
 | `daredevil` | a11y-reviewer | Sonnet, high | the design and accessibility review of a release with UI, beside `kissochbajslowski`; also `/darth-vader`'s a11y lane; read-only |
 | `mike-ehrmantraut` | codebase-auditor | Opus, high | `/no-half-measures`, the maintainability audit in a version window's end; read-only, a star |
