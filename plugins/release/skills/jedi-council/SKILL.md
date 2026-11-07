@@ -44,7 +44,7 @@ Once per big version window, near its end, beside `/black-box`, `/no-half-measur
 
 ## 2. Sweep (wave 2, first)
 `admiral-ackbar` in **sweep mode** (its file says what that allows; Opus, high, `[budget 8M]`): stale, contradictory and costly rules across the CLAUDE.md files, the agents, the skills, lessons and taste; context cost; the kit split. Its order (J1, kit 1.5):
-- names its one file, `<audits>/sweep.md`, and says "write the file by turn 40, mark the rest not swept";
+- names its one file, `<audits>/sweep.md`, and says "count your own tool calls; the write turn starts at two thirds of your cap (turn 40 of 60), mark the rest not swept", and "write the report skeleton with its closing line at turn 5" (F20: the admiral hit 60 against an order that said 40);
 - names `facts.md` and pastes `r2-d2`'s tables, so it never re-finds a path the facts already hold.
 Its sweep goes to `mace-windu`, not to the roadmap.
 
@@ -62,6 +62,7 @@ Every council, every skill and agent judged against its own purpose (fork B, Ale
 Every council (Alexander, 2 Nov 2026: "Part of the jedi council should be to look research new skills, plugins, mcp servers etc to see how to improve our workflow and the kit."). Nothing runs between councils; a one-off scan is `/88-mph medium`.
 - One `doc-brown` lane in **scout mode**, spawned with the sweep, `[budget 8M]`, on **Sonnet**, below its usual Opus on purpose: a catalog scan, not a decision. The order says so, or the model hook reads it as a mistake.
 - Sources: the connector directory (`search_mcp_registry`), the plugin catalog (`SearchPlugins`), Claude Code's release notes, allmcps.com/best, trending GitHub skill repos, and screenshots Alexander drops in (Reddit can't be fetched from either machine). The navigator pastes the two catalog lists into the order, since the lane has no MCP tools.
+- Same rule as the sweep (F20): the order says "count your tool calls, start the write-up at two thirds of the cap, write the skeleton with its closing line at turn 5"; so does every capped lane of the council (`doc-brown`, the lenses, `mace-windu`).
 - Its one file is `<audits>/scout.md`: a borrow / maybe / skip table with name, what it does, what in the kit or the projects it would replace or improve, size, licence, and the strangers'-code check (source read, version pinned, read-only tools, money tools denied).
 - Its picks go to `mace-windu` and onto the agenda for `/memento`. Nothing is installed in the review.
 
