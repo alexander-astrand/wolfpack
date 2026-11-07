@@ -290,6 +290,24 @@ describe('the helpers', () => {
     expect(parseGo('kit')).toBeNull()
   })
 
+  it('parseGo: a word and a dotted version (kit-1.10) is a named version', () => {
+    expect(parseGo('kit-1.9')).toEqual({ version: '1.9', word: 'kit' })
+    expect(parseGo('Kit-1.10')).toEqual({ version: '1.10', word: 'kit' })
+    expect(parseGo('kit-1')).toBeNull()
+    expect(parseGo('kit-')).toBeNull()
+  })
+
+  it('a named version finds the PR by its title or its dashed branch, and refuses an ambiguous one', () => {
+    const list = [
+      { number: 60, title: 'Kit 1.10: the council calls', headRefName: 'claude/kit-1-10-ff4f69', state: 'OPEN' },
+      { number: 54, title: 'Kit 1.9', headRefName: 'claude/kit-1-9-aa', state: 'MERGED', mergedAt: '2026-11-01T00:00:00Z' },
+      { number: 9, title: 'V1.10 Burrow', headRefName: 'V1.10', state: 'OPEN' },
+    ]
+    expect(pickPr(list, '1.10', { word: 'kit' })).toEqual({ number: 60 })
+    expect(pickPr(list, '1.9', { word: 'kit' })).toEqual({ number: 54 })
+    expect(pickPr([{ number: 7, title: 'x', headRefName: 'claude/kit-1-100-z', state: 'OPEN' }], '1.10', { word: 'kit' }).refuse).toMatch(/kit-1\.10/)
+  })
+
   it('a version names a PR by its branch or as a word of its title, never a longer version', () => {
     expect(namesVersion({ headRefName: 'V0.14', title: '' }, '0.14')).toBe(true)
     expect(namesVersion({ headRefName: 'x', title: 'V0.14.3.1: months ahead pay' }, '0.14.3.1')).toBe(true)

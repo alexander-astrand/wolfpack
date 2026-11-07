@@ -75,16 +75,34 @@ const stop = (code, why) => { throw new Stop(code, why) }
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/** `{ pr }` for a PR number, `{ version }` for a version, or null. */
+/**
+ * `{ pr }` for a PR number, `{ version }` for a version, or null. A word and a
+ * dotted version (`kit-1.10`) gives `{ version: '1.10', word: 'kit' }`: the
+ * kit's releases have no V<version> branch, so the word is part of the match.
+ */
 export function parseGo(arg) {
   const a = String(arg ?? '').trim().replace(/^[Vv#]/, '')
   if (/^\d+$/.test(a)) return { pr: Number(a) }
   if (/^\d+(?:\.\d+)+$/.test(a)) return { version: a }
+  const named = /^([A-Za-z][\w]*)-[Vv]?(\d+(?:\.\d+)+)$/.exec(String(arg ?? '').trim())
+  if (named) return { version: named[2], word: named[1].toLowerCase() }
   return null
 }
 
-/** Whether a PR is the release <version>: its branch V<version>, or the version as a word of its title. */
-export function namesVersion(pr, version) {
+/**
+ * Whether a PR is the release <version>: its branch V<version>, or the version
+ * as a word of its title. With a <word> (`kit-1.10`) the PR instead names the
+ * word and the version together: a title "Kit 1.10 ..." or "kit-1.10", or a
+ * branch like `claude/kit-1-10-ab12` (dots as dashes).
+ */
+export function namesVersion(pr, version, word) {
+  if (word) {
+    const w = escapeRe(word)
+    const v = escapeRe(version)
+    const title = new RegExp(`(?<![\\w])${w}[\\s-]+[Vv]?${v}(?![\\w]|\\.\\d)`, 'i').test(String(pr?.title ?? ''))
+    const branch = new RegExp(`(?<![\\w])${w}-${escapeRe(version.replace(/\./g, '-'))}(?![\\d])`, 'i').test(String(pr?.headRefName ?? ''))
+    return title || branch
+  }
   if (pr?.headRefName === `V${version}`) return true
   return new RegExp(`(?<![\\w.])[Vv]?${escapeRe(version)}(?![\\w]|\\.\\d)`).test(String(pr?.title ?? ''))
 }
@@ -101,15 +119,16 @@ export function versionOf(pr) {
  * The one PR a version names: an open one first; none open, a merged one
  * (the deploy merged it and stopped after). Two open is a setup stop.
  */
-export function pickPr(list, version, { mergedOnly = false } = {}) {
-  const hits = (Array.isArray(list) ? list : []).filter((p) => namesVersion(p, version))
+export function pickPr(list, version, { mergedOnly = false, word } = {}) {
+  const label = word ? `${word}-${version}` : `V${version}`
+  const hits = (Array.isArray(list) ? list : []).filter((p) => namesVersion(p, version, word))
   // A fix-forward follows the merged release, whatever else names it.
   const open = mergedOnly ? [] : hits.filter((p) => p.state === 'OPEN')
-  if (open.length > 1) return { refuse: `more than one open PR names V${version}: ${open.map((p) => `#${p.number}`).join(', ')}; type /one-ring <PR number>` }
+  if (open.length > 1) return { refuse: `more than one open PR names ${label}: ${open.map((p) => `#${p.number}`).join(', ')}; type /one-ring <PR number>` }
   if (open.length === 1) return { number: open[0].number }
   const merged = hits.filter((p) => p.state === 'MERGED').sort((a, b) => Date.parse(b.mergedAt) - Date.parse(a.mergedAt))
   if (merged.length) return { number: merged[0].number }
-  return { refuse: `no PR names V${version} (by its branch or its title); type /one-ring <PR number>` }
+  return { refuse: `no PR names ${label} (by its branch or its title); type /one-ring <PR number>` }
 }
 
 /**
@@ -317,7 +336,7 @@ function run(argv, io, say) {
   let version = go.version
   if (!number) {
     const list = JSON.parse(gh('pr', 'list', '--state', 'all', '--limit', '100', '--json', 'number,title,headRefName,state,mergedAt'))
-    const pick = pickPr(list, version, { mergedOnly: ffWord !== undefined })
+    const pick = pickPr(list, version, { mergedOnly: ffWord !== undefined, word: go.word })
     if (pick.refuse) stop(EXIT.SETUP, pick.refuse)
     number = pick.number
   }
