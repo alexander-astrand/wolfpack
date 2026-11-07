@@ -43,7 +43,11 @@
 // through guard-entry.mjs, which imports nothing and blocks the call (exit 2)
 // if this file fails to load. Not seen: git commands that rewrite the tree
 // without naming a path (pull, reset, switch), paths built at run time, and
-// code an interpreter reads from a file or stdin.
+// code an interpreter reads from a file or stdin. Kit 1.10 (H4): a literal
+// `VAR=/path` at the call's start is put in for each later `$VAR` before
+// any rule reads the call (resolveLiteralVars), so `S=<id>; node …` and
+// `K=/x; cd $K; …` are judged as the plain commands; and a plain `sed -i` on
+// files outside scripts/ is judged as an Edit of those files (sedEditsOnly).
 //
 // Known limits of a command-line guard (the arm prompt and the PR re-read
 // bound them; a person still arms every release):
@@ -316,7 +320,18 @@ function decideCall(input, env) {
 
   let result
   if (tool === 'Bash') {
+    // The rules read the call with its literal variables put in (H4); the
+    // allows below (the marker's exact list, ranjit's comment, the read list)
+    // and the logs keep the call as typed, so no allow widens.
+    const typed = ctx.source
+    const resolved = resolveLiteralVars(typed)
+    if (resolved !== null) {
+      ctx.source = resolved
+      ctx.visible = withoutHeredocBodies(resolved)
+    }
     result = checkShell(ctx.source, ctx)
+    ctx.source = typed
+    ctx.visible = withoutHeredocBodies(typed)
     // Only a call that would ask can become an allow: every deny stands, and
     // the unattended modes have already turned asks into denies.
     if (ctx.deployer && result?.decision === 'ask') result = underMarker(ctx.source, result, ctx)
@@ -2952,6 +2967,28 @@ function runsScript(cmd, words) {
   return at >= 0 && basename(rest[at]).toLowerCase() === 'full-auto.sh' && !rest.slice(0, at).some((w) => /^-[a-z]*c/.test(w))
 }
 
+// Whether the segment is a `sed -i` that edits only files outside scripts/
+// (kit 1.10, H4): run as itself (no VAR=value or wrapper, no redirect but to
+// /dev/), its script plain (no e, w or -f: textTool) and no shell in the call
+// that could run what it prints, every file a literal path in a known folder.
+// The arm script's name, the markers and the CLI link stay with the other
+// rules, as does anything in a folder named scripts.
+function sedEditsOnly(seg, words, head, where, ctx) {
+  if (seg.subshell || !['sed', 'gsed'].includes(head) || words.length !== seg.words.length) return false
+  if (seg.writes.some((w) => !w.startsWith('/dev/'))) return false
+  const tool = textTool(seg)
+  if (tool?.verdict !== 'plain' || !tool.inPlace || callFeedsShell(ctx)) return false
+  const files = sedFiles(words.slice(1))
+  return files.length > 0 && files.every((f) => sedEditFile(f, where))
+}
+
+function sedEditFile(f, where) {
+  if (!f || f.startsWith('-') || /[$`*?[\]{}~\\\s]/.test(f)) return false
+  if (f.includes(TEMP_DIR) || MARKER_WORD_RE.test(f) || SCRIPT_WORD_RE.test(f)) return false
+  const full = isAbsolute(f) ? f : where?.dir && !where.built && isAbsolute(where.dir) ? join(where.dir, f) : null
+  return full !== null && !dirname(normalize(full)).split('/').some((p) => p.toLowerCase() === 'scripts')
+}
+
 // The round 3 rules sit beside the others, and the strictest answer stands.
 // In interpreter code a leading `.` or `claude` is code, not a shell running
 // source or a nested claude (2.12.3); a string there that runs a shell is a
@@ -2988,7 +3025,11 @@ function segmentRules(seg, ctx) {
   const names = (w) => (prose && w === prose.word ? mentionsScript(prose.codeBare, { ...where, code: true }, false) : mentionsScript(w, where, patterns))
   // Redirects to /dev/null and the like write nothing (S1: `grep … 2>/dev/null`).
   const writes = seg.writes.filter((w) => !w.startsWith('/dev/'))
-  if (seg.words.some((w, i) => !isText(head, seg.words, i) && names(w)) || writes.some(names)) {
+  // A plain `sed -i` on files outside scripts/ is an Edit of those files
+  // (kit 1.10, H4): protectedWrite asks for a frozen one as an Edit would,
+  // and its script is text, not a name (` /* x */` in a CSS line read as a
+  // glob of the arm script, `arm-script` on app edits in Burrow).
+  if (!sedEditsOnly(seg, words, head, where, ctx) && (seg.words.some((w, i) => !isText(head, seg.words, i) && names(w)) || writes.some(names))) {
     if (head === 'full-auto.sh') {
       const top = parseShell(ctx.source)
       if (top.length !== 1 || top[0].subshell) return deny(SCRIPT_DENIED)
@@ -3606,6 +3647,153 @@ function stripPrefix(words) {
   return words.slice(i)
 }
 
+// ---------------------------------------------------------------- literal variables (kit 1.10, H4)
+
+// The fourth council on the guard's asks: `S=<id>; node …/step-done.mjs …
+// --session $S`, `D=…/step-done.mjs; node $D …` and the admiral's own
+// `K=/x; cd $K; grep …` asked or were refused, because `$S` and `cd $K` read
+// as built at run time. When a call starts with literal assignments, each
+// later `$NAME` or `${NAME}` is replaced by its value and the rules judge
+// that text, the command the shell runs. Only when the value is certain:
+//   - the assignments are the call's first segments (`NAME=v`, or `export`
+//     and assignments only), each ended by `;`, `&&` or a newline, so they
+//     ran before anything else; the run stops at the first word that isn't
+//     a literal assignment (`S=$(…)`, `S=\`…\``, `S="$x"`: judged as today);
+//   - the value is plain path text (no space, quote, glob, brace, `$` or `#`),
+//     so it can't split, glob or change how the rest parses; a leading `~`
+//     only when typed bare (`K=~/x`, which the shell expands) and nothing
+//     sets HOME;
+//   - the name is set nowhere else in the call, by any spelling (`read S`,
+//     `for S in`, `S+=x`, `${S:=x}`, `export s`): any other bare mention of
+//     it, case aside, leaves it unresolved; and it isn't one the shell sets
+//     itself (PWD after a cd, IFS, the zsh-tied PATH and path, …);
+//   - no backtick, heredoc, `$'…'` or IFS anywhere in the call, and no `$(`
+//     inside double quotes: the quoting there is beyond this small scan;
+//   - it is never a command word, nor anywhere in a call of gh, git,
+//     supabase, the production scripts, psql, claude, an HTTP client or a
+//     shell: `G=gh; $G pr merge` and `G=pr; gh $G view` stay built at run
+//     time, refused as the hardening rounds wrote them (yoda's must 1, round
+//     3 dropped the spelled-out exception). Arguments of other commands
+//     (`node $SD`, `cd $K`, `sed -i … $F`) are what this opens.
+// `$NAME[…]` and `$NAME:…` (zsh's subscripts and modifiers) stay unresolved.
+// Returns the resolved call, or null to judge the call as typed.
+const VAR_VALUE_RE = /^[A-Za-z0-9_./@%+=:,-]+$/
+const VAR_SHELL_SET = new Set(['IFS', 'PWD', 'OLDPWD', 'HOME', 'PATH', 'CDPATH', 'FPATH', 'MANPATH', 'PPID', 'UID', 'EUID', 'GID', 'EGID', 'RANDOM',
+  'SECONDS', 'LINENO', 'REPLY', 'OPTARG', 'OPTIND', 'SHELLOPTS', 'BASHOPTS', 'BASH_ENV', 'ENV', 'STATUS', 'PIPESTATUS', 'ARGV', 'PSVAR', 'HISTCMD', '_'])
+const VAR_OPS = new Set([';', '\n', '&&'])
+export function resolveLiteralVars(src) {
+  try {
+    return literalVars(String(src ?? ''))
+  } catch {
+    return null
+  }
+}
+
+function literalVars(src) {
+  if (!src.includes('$') || /`|<<(?!<)|\$['"]|(?<![\w$])IFS(?!\w)/.test(src)) return null
+  const vars = new Map()
+  const homeSet = /(?<![\w$])HOME(?!\w)/.test(src)
+  let first = true
+  for (const seg of parseShell(src)) {
+    if (seg.subshell || seg.writes.length || 'heredoc' in seg) break
+    if (first ? !['', '\n'].includes(seg.opBefore) : !VAR_OPS.has(seg.opBefore)) break
+    const lead = seg.words[0] === 'export' ? 1 : 0
+    const words = seg.words.slice(lead)
+    if (!words.length || !VAR_OPS.has(seg.opAfter)) break
+    let literal = true
+    for (let k = 0; k < words.length && literal; k++) {
+      const w = words[k]
+      literal = ASSIGNMENT_RE.test(w) && !(seg.marks[k + lead] ?? []).length
+      if (!literal) break
+      const name = w.slice(0, w.indexOf('='))
+      let value = w.slice(name.length + 1)
+      if (VAR_SHELL_SET.has(name.toUpperCase()) || !onlySetHere(src, name)) continue
+      if (value.startsWith('~')) {
+        // Bare in the call (`K=~/x`), so the shell expands it; quoted or escaped it stays `~`.
+        if (homeSet || !/^~(?:\/|$)/.test(value) || !new RegExp(`(?<![\\w$])${name}=~`).test(src)) continue
+        value = homedir() + value.slice(1)
+      }
+      if (VAR_VALUE_RE.test(value)) vars.set(name, value)
+    }
+    if (!literal) break
+    first = false
+  }
+  for (const name of commandVars(src)) vars.delete(name)
+  if (!vars.size) return null
+  const out = substituteVars(src, vars)
+  return out === null || out === src ? null : out
+}
+
+// The variables a command word holds, or any word of a call the guard judges
+// by name (RESCAN: gh, git, supabase, the production scripts, psql, claude,
+// HTTP clients, shells), in the call and in each substitution.
+const VAR_REF_RE = /^\$\{?([A-Za-z_]\w*)\}?$/
+function commandVars(src, out = new Set()) {
+  for (const seg of parseShell(src)) {
+    if (seg.subshell) { commandVars(seg.subshell, out); continue }
+    const lead = seg.words.length - stripPrefix(seg.words).length
+    if (lead >= seg.words.length) continue
+    const named = RESCAN.has(commandName(seg.words[lead]))
+    seg.words.forEach((w, k) => {
+      if (k < lead || (k > lead && !named)) return
+      for (const m of seg.marks?.[k] ?? []) {
+        const ref = m.kind === 'dyn' ? VAR_REF_RE.exec(w.slice(m.at, m.end)) : null
+        if (ref) out.add(ref[1])
+      }
+    })
+  }
+  return out
+}
+
+// The name's only bare mention is its one assignment; every other is `$NAME`
+// or `${NAME}` in the same case. Case aside, so zsh's tied `path` can't set PATH.
+function onlySetHere(src, name) {
+  let other = 0
+  for (const m of src.matchAll(new RegExp(`(?<![A-Za-z0-9_])${name}(?![A-Za-z0-9_])`, 'gi'))) {
+    const i = m.index
+    const same = m[0] === name
+    const ref = same && (src[i - 1] === '$' || (src[i - 1] === '{' && src[i - 2] === '$' && src[i + name.length] === '}'))
+    if (!ref) other++
+  }
+  return other === 1
+}
+
+// Each `$NAME` and `${NAME}` the shell would expand, outside single quotes
+// and not after a backslash, replaced by its value; a comment is copied.
+function substituteVars(src, vars) {
+  let out = ''
+  let dq = false
+  for (let i = 0; i < src.length;) {
+    const c = src[i]
+    if (c === '\\') { out += src.slice(i, i + 2); i += 2; continue }
+    if (!dq && c === "'") {
+      const end = src.indexOf("'", i + 1)
+      if (end < 0) return null
+      out += src.slice(i, end + 1)
+      i = end + 1
+      continue
+    }
+    if (c === '"') { dq = !dq; out += c; i++; continue }
+    if (!dq && c === '#' && (out === '' || /[\s;&|()<>]/.test(out.at(-1)))) {
+      const end = src.indexOf('\n', i)
+      const stop = end < 0 ? src.length : end
+      out += src.slice(i, stop)
+      i = stop
+      continue
+    }
+    if (c === '$') {
+      if (dq && src[i + 1] === '(') return null
+      // The lookahead holds a word character too, so a longer name never backs off to a shorter one.
+      const m = /^\$(?:\{([A-Za-z_]\w*)\}|([A-Za-z_]\w*)(?![\w[:]))/.exec(src.slice(i))
+      const name = m?.[1] ?? m?.[2]
+      if (name !== undefined && vars.has(name)) { out += vars.get(name); i += m[0].length; continue }
+    }
+    out += c
+    i++
+  }
+  return dq ? null : out
+}
+
 // ---------------------------------------------------------------- parser
 
 /**
@@ -3934,11 +4122,17 @@ export async function main() {
     result = deny(`guard-production failed (${String(err?.message ?? err).split('\n')[0]}); refusing to be safe.`)
   }
   if (result) {
+    // Kit 1.10 (F6): the refused agent reads the line that passes with the reason.
+    // Loaded here only and best effort, so a broken denied-log.mjs changes no verdict.
+    let told = result
+    if (result.decision === 'ask' || result.decision === 'deny') {
+      try { told = (await import('./denied-log.mjs')).withCarry(result) } catch { /* the plain reason */ }
+    }
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
         permissionDecision: result.decision,
-        permissionDecisionReason: result.reason,
+        permissionDecisionReason: told.reason,
       },
     }))
   }

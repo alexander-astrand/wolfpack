@@ -22,8 +22,11 @@
 // database changes only after a fresh, complete backup (prod-db.sh push
 // refuses without one). Anything that stops exits with a code below and one
 // `STOP` line saying what to fix; the session fixes it and runs this again.
-// A finished run prints a `COST` line (minutes, the step it waited on, the
-// baseline) just before its `DONE` line (kit 1.8, costLine).
+// A finished run prints the step it waited on longest and the baseline, then
+// one fixed cost line, `/one-ring <arg>: DONE | <min> min | <M> tokens`, the
+// tokens counted from his go (kit 1.10, costLine), just before its `DONE` line.
+// `deploy.mjs --expected <migrations> <functions> <waits>` prints the price
+// `/one-ring check` shows beside the baseline (expectedCost).
 //
 // Pure helpers are exported for the tests; `deploy` takes its runner (`io`)
 // so a test can play GitHub, git, Docker and the scripts.
@@ -34,6 +37,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { appliedMigrations } from './chain-arm.mjs'
+import { goArg, lastTypedGo } from './one-ring-go.mjs'
 import * as kit from './production-steps.mjs'
 
 export const EXIT = {
@@ -75,16 +79,48 @@ const stop = (code, why) => { throw new Stop(code, why) }
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/** `{ pr }` for a PR number, `{ version }` for a version, or null. */
+/**
+ * `{ pr }` for a PR number, `{ version }` for a version, or null. A word and a
+ * dotted version (`kit-1.10`) gives `{ version: '1.10', word: 'kit' }`: the
+ * kit's releases have no V<version> branch, so the word is part of the match.
+ */
 export function parseGo(arg) {
   const a = String(arg ?? '').trim().replace(/^[Vv#]/, '')
   if (/^\d+$/.test(a)) return { pr: Number(a) }
   if (/^\d+(?:\.\d+)+$/.test(a)) return { version: a }
+  const named = /^([A-Za-z][\w]*)-[Vv]?(\d+(?:\.\d+)+)$/.exec(String(arg ?? '').trim())
+  if (named) return { version: named[2], word: named[1].toLowerCase() }
   return null
 }
 
-/** Whether a PR is the release <version>: its branch V<version>, or the version as a word of its title. */
-export function namesVersion(pr, version) {
+/**
+ * Why the deploy's words can't start a run, or null when they can (kit 1.10,
+ * H5: a bare usage line left the session guessing why `kit-1.9` was refused).
+ */
+export function goProblem(goWord, ffWord, extra = []) {
+  if (goWord === undefined || !String(goWord).trim()) return 'no PR or version given'
+  if (!parseGo(goWord)) {
+    return `"${goWord}" is neither a PR nor a version: a PR is a number (54 or #54), a version is dotted numbers (1.2.3 or V1.2.3), or a word, a dash and a version (kit-1.10)`
+  }
+  if (ffWord !== undefined && !/^#?\d+$/.test(ffWord)) return `"${ffWord}" is no fix-forward PR: that is a PR number (55 or #55)`
+  if (extra.length) return `one go and at most one fix-forward PR, not also "${extra.join(' ')}"`
+  return null
+}
+
+/**
+ * Whether a PR is the release <version>: its branch V<version>, or the version
+ * as a word of its title. With a <word> (`kit-1.10`) the PR instead names the
+ * word and the version together: a title "Kit 1.10 ..." or "kit-1.10", or a
+ * branch like `claude/kit-1-10-ab12` (dots as dashes).
+ */
+export function namesVersion(pr, version, word) {
+  if (word) {
+    const w = escapeRe(word)
+    const v = escapeRe(version)
+    const title = new RegExp(`(?<![\\w])${w}[\\s-]+[Vv]?${v}(?![\\w]|\\.\\d)`, 'i').test(String(pr?.title ?? ''))
+    const branch = new RegExp(`(?<![\\w])${w}-${escapeRe(version.replace(/\./g, '-'))}(?![\\d])`, 'i').test(String(pr?.headRefName ?? ''))
+    return title || branch
+  }
   if (pr?.headRefName === `V${version}`) return true
   return new RegExp(`(?<![\\w.])[Vv]?${escapeRe(version)}(?![\\w]|\\.\\d)`).test(String(pr?.title ?? ''))
 }
@@ -101,15 +137,16 @@ export function versionOf(pr) {
  * The one PR a version names: an open one first; none open, a merged one
  * (the deploy merged it and stopped after). Two open is a setup stop.
  */
-export function pickPr(list, version, { mergedOnly = false } = {}) {
-  const hits = (Array.isArray(list) ? list : []).filter((p) => namesVersion(p, version))
+export function pickPr(list, version, { mergedOnly = false, word } = {}) {
+  const label = word ? `${word}-${version}` : `V${version}`
+  const hits = (Array.isArray(list) ? list : []).filter((p) => namesVersion(p, version, word))
   // A fix-forward follows the merged release, whatever else names it.
   const open = mergedOnly ? [] : hits.filter((p) => p.state === 'OPEN')
-  if (open.length > 1) return { refuse: `more than one open PR names V${version}: ${open.map((p) => `#${p.number}`).join(', ')}; type /one-ring <PR number>` }
+  if (open.length > 1) return { refuse: `more than one open PR names ${label}: ${open.map((p) => `#${p.number}`).join(', ')}; type /one-ring <PR number>` }
   if (open.length === 1) return { number: open[0].number }
   const merged = hits.filter((p) => p.state === 'MERGED').sort((a, b) => Date.parse(b.mergedAt) - Date.parse(a.mergedAt))
   if (merged.length) return { number: merged[0].number }
-  return { refuse: `no PR names V${version} (by its branch or its title); type /one-ring <PR number>` }
+  return { refuse: `no PR names ${label} (by its branch or its title); type /one-ring <PR number>` }
 }
 
 /**
@@ -175,7 +212,19 @@ const HOLD_WORD_RE = /(?:\b|_)(?:secrets?|passwords?|payments?|api[_\s-]?keys?|c
  * payment waits for me"). "Check the start page" or "tell Becky" is listed in
  * the PR comment and the deploy carries on.
  */
-export const holdsDeploy = (step) => HOLD_TAG_RE.test(step) || HOLD_WORD_RE.test(step)
+export const holdsDeploy = (step) => HOLD_TAG_RE.test(step) || heldByWord(step)
+
+// Kit 1.10 (H5): "Confirm the PR adds no secret" held a run. A hold word with
+// "no" or "not" up to three words before it says there is none, so it doesn't
+// count; any other hold word in the step still holds, so it still errs closed.
+const NEGATED_RE = /\b(?:no|not)\s+(?:\S+\s+){0,2}$/i
+function heldByWord(step) {
+  const text = String(step ?? '')
+  for (const m of text.matchAll(new RegExp(HOLD_WORD_RE.source, 'gi'))) {
+    if (!NEGATED_RE.test(text.slice(0, m.index))) return true
+  }
+  return false
+}
 
 // The deploy's comment on the PR for the steps left to after it; the marker
 // keeps a re-run from writing the same comment twice.
@@ -244,29 +293,74 @@ export function settingSteps(body, pr) {
 // Burrow's [deploy-cost] lesson: a no-migration deploy is about 4.5M tokens
 // and 12 minutes. The kit 1.7.1 council (M2, Feature 6) found deploys at 14x
 // that inside heavy sessions, unseen until a hand count.
+export const DEPLOY_BASE = { tokens: 4.5e6, min: 12 }
 export const DEPLOY_BASELINE = '4.5M tokens / 12 min'
 
+// What each thing `/one-ring check` counts adds to that baseline (kit 1.10,
+// F2), so a deploy is priced before it runs. Rough figures, rounded up from
+// the kit 1.9 council's deploys: a migration is its share of the backup, the
+// dry run and the push; a function is one deploy and its check; a step that
+// waits on Alexander is the ping, the wait and the context read again after.
+export const DEPLOY_ADDS = {
+  migration: { tokens: 0.5e6, min: 2 },
+  function: { tokens: 0.5e6, min: 2 },
+  wait: { tokens: 1.5e6, min: 15 },
+}
+
+const fmtM = (t) => `${(t / 1e6).toFixed(1)}M`
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
 /**
- * The COST line printed just before DONE (kit 1.8, Feature 6): this run's
- * minutes, the step it waited on (each progress line is said when its step
- * ends, so the longest gap ends at the line naming that step), and the
- * baseline beside it. Tokens are the session's, which this script can't see:
- * /car-wash or usage.mjs --timeline adds them. A re-run after a STOP counts
- * only its own run.
+ * `check`'s expected cost, one line: the baseline plus DEPLOY_ADDS per item,
+ * e.g. `expected: ~6.0M / 18 min (2 migrations, 1 function; baseline 4.5M / 12 min)`.
+ */
+export function expectedCost({ migrations = 0, functions = 0, waits = 0 } = {}) {
+  const n = { migration: migrations, function: functions, wait: waits }
+  let tokens = DEPLOY_BASE.tokens
+  let min = DEPLOY_BASE.min
+  for (const [k, add] of Object.entries(DEPLOY_ADDS)) { tokens += n[k] * add.tokens; min += n[k] * add.min }
+  const items = [
+    migrations && plural(migrations, 'migration'),
+    functions && plural(functions, 'function'),
+    waits && plural(waits, 'step waiting on Alexander', 'steps waiting on Alexander'),
+  ].filter(Boolean)
+  const base = `baseline ${fmtM(DEPLOY_BASE.tokens)} / ${DEPLOY_BASE.min} min`
+  return `expected: ~${fmtM(tokens)} / ${min} min (${items.length ? `${items.join(', ')}; ${base}` : `nothing beyond the ${base}`})`
+}
+
+const minutes = (ms) => (ms / 60_000).toFixed(1)
+
+/**
+ * The line before the COST line (kit 1.8, Feature 6): the step this run
+ * waited on longest (each progress line is said when its step ends, so the
+ * longest gap ends at the line naming that step), and the baseline beside it.
  * @param {number} start  ms
- * @param {number} end  ms
  * @param {[number, string][]} said  [time, line] in order
  */
-export function costLine(start, end, said) {
-  const min = (ms) => (ms / 60_000).toFixed(1)
+export function waitLine(start, said) {
   let longest = null
   let prev = start
   for (const [t, line] of said) {
     if (!longest || t - prev > longest.ms) longest = { ms: t - prev, line }
     prev = t
   }
-  const wait = longest ? `; longest wait ${min(longest.ms)} min, until "${longest.line.slice(0, 60)}"` : ''
-  return `COST: ${min(end - start)} min this run${wait}; baseline ${DEPLOY_BASELINE} (no migrations). Tokens: /car-wash or usage.mjs --timeline.`
+  const wait = longest ? `Longest wait ${minutes(longest.ms)} min, until "${longest.line.slice(0, 60)}"` : 'No wait'
+  return `${wait}; baseline ${DEPLOY_BASELINE} (no migrations).`
+}
+
+/**
+ * The COST line, printed just before DONE in one fixed shape a council's
+ * script reads (kit 1.10, F2 and H5): `/one-ring <arg>: DONE | <min> min | <M> tokens`.
+ * Minutes are this run's (a re-run after a STOP counts only its own); tokens
+ * are the session's since his go (usage.mjs --since go), or `?` when no
+ * transcript with that go was found.
+ * @param {string} arg  the go as typed
+ * @param {number} start  ms
+ * @param {number} end  ms
+ * @param {number | null} tokens
+ */
+export function costLine(arg, start, end, tokens) {
+  return `/one-ring ${String(arg ?? '').trim()}: DONE | ${minutes(end - start)} min | ${tokens === null || tokens === undefined ? '?' : fmtM(tokens)} tokens`
 }
 
 // ---------------------------------------------------------------- the run
@@ -275,7 +369,7 @@ export function costLine(start, end, said) {
  * Runs the deploy. Returns the exit code; prints as it goes.
  * @param {string[]} argv  [<go>, <fix-forward PR>?]
  * @param {object} io  run(cmd, args, { cwd, env, timeout }) → { status, stdout, stderr }, sleep(ms), now(), log(line),
- *   fetchOk(url, seconds) → '' or why, root, tmp
+ *   fetchOk(url, seconds) → '' or why, root, tmp, tokensSinceGo(arg) → tokens or null (optional)
  */
 export function deploy(argv, io) {
   const started = io.now()
@@ -283,7 +377,9 @@ export function deploy(argv, io) {
   const say = (line) => { said.push([io.now(), line]); io.log(line) }
   try {
     const out = run(argv, io, say)
-    say(costLine(started, io.now(), said))
+    const end = io.now()
+    say(waitLine(started, said))
+    say(costLine(argv[0], started, end, io.tokensSinceGo?.(argv[0]) ?? null))
     say(`DONE: ${out}`)
     return EXIT.DONE
   } catch (err) {
@@ -297,7 +393,8 @@ export function deploy(argv, io) {
 function run(argv, io, say) {
   const [goWord, ffWord, ...extra] = argv
   const go = parseGo(goWord)
-  if (!go || extra.length || (ffWord !== undefined && !/^#?\d+$/.test(ffWord))) stop(EXIT.SETUP, 'usage: scripts/full-auto.sh deploy <version or PR number> [<fix-forward PR number>]')
+  const why = goProblem(goWord, ffWord, extra)
+  if (why) stop(EXIT.SETUP, `${why}; usage: scripts/full-auto.sh deploy <version or PR number> [<fix-forward PR number>]`)
   const sh = (cmd, args, opts = {}) => io.run(cmd, args, { cwd: io.root, ...opts })
   const ok = (cmd, args, opts, code = EXIT.OTHER, what = `${cmd} ${args.join(' ')}`) => {
     const r = sh(cmd, args, opts)
@@ -317,7 +414,7 @@ function run(argv, io, say) {
   let version = go.version
   if (!number) {
     const list = JSON.parse(gh('pr', 'list', '--state', 'all', '--limit', '100', '--json', 'number,title,headRefName,state,mergedAt'))
-    const pick = pickPr(list, version, { mergedOnly: ffWord !== undefined })
+    const pick = pickPr(list, version, { mergedOnly: ffWord !== undefined, word: go.word })
     if (pick.refuse) stop(EXIT.SETUP, pick.refuse)
     number = pick.number
   }
@@ -595,13 +692,19 @@ function lastLines(r) {
 
 // ---------------------------------------------------------------- main
 
-function realIo(root) {
+function realIo(root, usage) {
   const tmp = mkdtempSync(join(tmpdir(), 'wolfpack-deploy-'))
   process.once('exit', () => rmSync(tmp, { recursive: true, force: true }))
   return {
     root,
     tmp,
     env: process.env,
+    // The session's tokens since his go, from its transcript folder (named
+    // after the cwd, which full-auto.sh sets to the project root).
+    tokensSinceGo: (arg) => {
+      if (!usage) return null
+      try { return usage.tokensSinceGo(usage.projectDir(), lastTypedGo, { arg: goArg(arg) })?.tokens ?? null } catch { return null }
+    },
     run: (cmd, args, { cwd = root, env = process.env, timeout = 10 * 60_000 } = {}) => {
       const r = spawnSync(cmd, args, { cwd, env, encoding: 'utf8', timeout, maxBuffer: 64 << 20 })
       return { status: r.status ?? 1, stdout: r.stdout ?? '', stderr: r.stderr ?? (r.error ? String(r.error.message) : '') }
@@ -617,10 +720,19 @@ function realIo(root) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+  // `--expected <migrations> <functions> <waits>`: /one-ring check's price,
+  // one line, nothing read or run (kit 1.10, F2).
+  if (process.argv[2] === '--expected') {
+    const [migrations, functions, waits] = process.argv.slice(3).map((s) => Math.max(0, Number.parseInt(s, 10) || 0))
+    process.stdout.write(`${expectedCost({ migrations, functions, waits })}\n`)
+    process.exit(0)
+  }
+  // The release plugin sits beside this one; without it the COST line says `?` tokens.
+  const usage = await import('../../release/scripts/usage.mjs').catch(() => null)
   const root = kit.projectRoot()
   if (!existsSync(join(root, '.git'))) {
     process.stderr.write(`deploy: ${root} isn't a git checkout\n`)
     process.exit(EXIT.SETUP)
   }
-  process.exit(deploy(process.argv.slice(2), realIo(root)))
+  process.exit(deploy(process.argv.slice(2), realIo(root, usage)))
 }

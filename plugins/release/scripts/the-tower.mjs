@@ -18,11 +18,11 @@
 //   node <release plugin>/scripts/the-tower.mjs --install   # adds the statusLine key to ~/.claude/settings.json (asks first)
 //   node <release plugin>/scripts/the-tower.mjs --headline <version>   # the plan's `Expected: ≈ <N>M` in tokens, tab, its file; nothing when none
 
-import { closeSync, copyFileSync, existsSync, fstatSync, openSync, readFileSync, readSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { closeSync, copyFileSync, existsSync, fstatSync, openSync, readFileSync, readSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { bareAgentType, DEFAULT_BUDGETS, kitBudgets, MODEL_DEFAULTS, OTHER_BUDGET, parseBudget } from '../hooks/budget-cap.mjs'
 import { agentName, parseEntries, readKit, tallyEntries, tokensPerPoint, totalTokens } from './usage.mjs'
 
@@ -406,7 +406,7 @@ async function install() {
   console.log(`Written. Backup: ${path}.bak-the-tower. Restart Claude Code to see it.`)
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   const at = process.argv.indexOf('--headline')
   if (process.argv.includes('--install')) {
     install().catch((err) => console.log(`Install failed: ${err?.message ?? err}. Nothing written.`))

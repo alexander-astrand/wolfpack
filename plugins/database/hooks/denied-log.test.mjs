@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { deniedLine, guardLine, guardReasons, guardTotals, reasonCode, run, sessionEnd, shapeOf, stepAsideOnce, summarize, summaryText, toolCalls } from './denied-log.mjs'
+import { deniedLine, guardLine, guardReasons, guardTotals, reasonCode, run, sessionEnd, shapeOf, stepAsideOnce, summarize, summaryText, toolCalls, withCarry } from './denied-log.mjs'
 import { GH_PR_READS, GIT_READS, PIPE_FILTERS, TEXT_READS, guardListedHead } from './read-list.mjs'
 
 const HOOK = fileURLToPath(new URL('./denied-log.mjs', import.meta.url))
@@ -230,6 +230,34 @@ describe('M12 (kit 1.8): reason codes, allows and the step-aside', () => {
     expect(reasonCode(reason)).toBe(code)
   })
 
+  it('F6: the reason the agent reads carries the line that passes, once, and the log keeps the first line', () => {
+    const psql = { decision: 'ask', reason: 'psql can reach any database. Check where it connects.' }
+    const told = withCarry(psql)
+    expect(told.decision).toBe('ask')
+    expect(told.reason.split('\n')[0]).toBe(psql.reason)
+    expect(told.reason).toMatch(/\nInstead: .*npm --prefix <lane> run <script>/)
+    expect(withCarry(told).reason).toBe(told.reason)
+    const workdir = withCarry({ decision: 'deny', reason: '--workdir can point the CLI at another link.' }).reason
+    expect(workdir).toContain('npm --prefix <lane> run <script>')
+    expect(workdir).not.toMatch(/\bsupabase from the lane/)
+    // no carry, no change
+    const prod = { decision: 'deny', reason: 'Something else entirely' }
+    expect(withCarry(prod)).toBe(prod)
+    expect(withCarry(null)).toBe(null)
+    // the log line's reason column is still the first line, so its code is unchanged
+    expect(guardLine({ tool_name: 'Bash', tool_input: { command: 'x' } }, told, { mask: null }).split('\t').slice(-2)).toEqual([psql.reason, 'psql'])
+  })
+
+  it.each([
+    ['Production calls need a human to approve them. Switch to Manual or Auto mode; bypass and don\'t-ask modes can\'t prompt.', 'unattended'],
+    ['Merges PR #12 into main: open, out of draft, no conflicts, CI green. Your yes is the go: gh pr merge 12', 'merge-ask'],
+    ['supabase status uses the linked project, and the CLI isn\'t linked. Relink to dev first: supabase link --project-ref abc', 'status-unlinked'],
+    ['In a project with no production a merge runs from its own folder (/x) on its own repo, with no -R or GH_REPO, so the guard checks the PR it merges.', 'merge-folder'],
+    ['Deploys 1.9 to production (hooks/deploy.mjs): out of draft, CI green. Ready, so your yes here is the go.', 'deploy-ask'],
+  ])('H4/L8: %s gets the code %s', (reason, code) => {
+    expect(reasonCode(reason)).toBe(code)
+  })
+
   it('an unlisted reason gets one code whatever its paths and numbers', () => {
     const a = reasonCode('Writes `/a/b.txt` at /repo/x, line 12')
     expect(a).toMatch(/^other-[0-9a-f]{6}$/)
@@ -293,7 +321,7 @@ describe('M12 (kit 1.8): reason codes, allows and the step-aside', () => {
     expect(reasons.map((r) => [r.code, r.count])).toEqual([['psql', 2], ['workdir', 1]])
     expect(reasons[0].rule).toMatch(/^guard-production\.mjs segmentRules/)
     const text = summaryText(summarize({ guard }), { reasons, totals: guardTotals(guard) })
-    expect(text).toMatch(/\n2\tpsql\tguard-production\.mjs segmentRules[^\n]*\tcarry: Read the local schema with `supabase db query --local`/)
+    expect(text).toMatch(/\n2\tpsql\tguard-production\.mjs segmentRules[^\n]*\tcarry: Read the local schema with `supabase db query --local "<sql>"`/)
     expect(text).not.toMatch(/\n1\tworkdir\t/)
     expect(text).toContain('1 sessions counted at their end, 10 guarded calls, 8 let through, 2 asked, 0 denied (asks 20.0 %')
     expect(text).toContain("1 sessions ran the project's own guard")

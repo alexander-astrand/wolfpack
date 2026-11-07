@@ -16,12 +16,18 @@
 // --chart writes that timeline as a self-contained swimlane page for wrap-ups.
 // --budget-table prints the PR's budget table instead (agent, step, budget,
 // used, stopped by Hank), one row per spawn; with --json, the rows.
+// --ceiling <M> <session-id> prints one line: `OVER <used>` when the session
+// (its subagents included) has passed M million tokens, else the figure used.
+// --since <ISO time | go> <session-id> prints the tokens from that time on,
+// `go` being the newest `/one-ring <arg>` he typed there: a deploy's own cost
+// in the session it was typed into (kit 1.10, F2). With --ceiling, the
+// ceiling reads the same count.
 //
 // Nickname: Skyler (she keeps the books). Hank, the budget hook
 // (this plugin's hooks/budget-cap.mjs), imports the counting functions below, so an
 // agent is stopped on the same numbers the PR's Usage section shows.
 
-import { readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
@@ -172,7 +178,7 @@ function readMeta(subDir, jsonlName) {
 // boba-fett and farbror-vattenmelon were retired in 3.3.3 (not in AGENTS below); the
 // two entries stay so old transcripts keep reading under the names they ran as.
 const RENAMED = {
-  scout: 'lorenzo-von-matterhorn', 'test-runner': 'romeo-olsson', planner: 'admiral-ackbar',
+  scout: 'lorenzo-von-matterhorn', planner: 'admiral-ackbar',
   builder: 'chris-de-kok', designer: 'mosbius-designs', 'db-engineer': 'the-playbook',
   debugger: 'boba-fett', qa: 'bengt-johansson', 'release-reviewer': 'kissochbajslowski',
   documenter: 'c-3po', 'prod-deployer': 'ranjit', 'senior-opus': 'yoda', 'senior-fable': 'farbror-vattenmelon',
@@ -184,13 +190,13 @@ const RENAMED = {
 // so that prefix names it instead.
 export const AGENTS = new Set([
   'lorenzo-von-matterhorn', 'admiral-ackbar', 'heisenberg', 'chris-de-kok', 'jesse-pinkman',
-  'mosbius-designs', 'the-playbook', 'romeo-olsson', 'kissochbajslowski', 'c-3po',
+  'mosbius-designs', 'the-playbook', 'kissochbajslowski', 'c-3po',
   'ranjit', 'yoda', 'bengt-johansson',
   // The builder pool beside chris-de-kok (2.10.2).
   'ahmed-och-ahmed', 'saul-goodman', 'jeff-winger', 'troy-and-abed',
   // Added since, so a generic spawn named by its description prefix still gets
   // its own Hank budget (2.12.2).
-  'dom-cobb', 'tomas-svensson', 'magnus-wislander', 'staffan-olsson',
+  'dom-cobb', 'magnus-wislander', 'staffan-olsson',
   'daredevil', 'mike-ehrmantraut', 'three-eyed-raven',
 ])
 
@@ -303,7 +309,83 @@ export function tallyEntries(entries) {
 }
 
 export const totalTokens = (b) => b.inp + b.cc + b.cr + b.out
-const fmtM = (t) => `${(t / 1_000_000).toFixed(1)}M`
+export const fmtM = (t) => `${(t / 1_000_000).toFixed(1)}M`
+
+// Every token a session spent: its own transcript and its subagents', each
+// message counted once across the files (the same count as the Usage table).
+// With `since` (ms), only the messages written at or after it: a deploy's
+// cost from his go, not the whole session it was typed into (kit 1.10, F2).
+export function sessionTokens(files, { since = null } = {}) {
+  const seen = new Set()
+  let tokens = 0
+  for (const file of files) {
+    const entries = since === null ? readEntries(file, seen) : entriesSince(readEntries(file, seen), since)
+    for (const b of tallyEntries(entries).values()) tokens += totalTokens(b)
+  }
+  return tokens
+}
+
+// The entries written at or after `since` (ms); one with no readable time is
+// left out, since nothing says it came after.
+export function entriesSince(entries, since) {
+  return entries.filter((e) => Date.parse(e?.timestamp) >= since)
+}
+
+/**
+ * `--since`'s word as ms: an ISO time, or `go` for the newest `/one-ring <arg>`
+ * Alexander typed in this transcript (the database plugin's finder, the one
+ * the deploy guard reads). Loaded only here, so Hank's import of this file
+ * never needs the database plugin. Throws when the word gives no time.
+ */
+export async function sinceTime(word, mainFile, sessionId) {
+  if (word === 'go') {
+    const { lastTypedGo } = await import('../../database/hooks/one-ring-go.mjs')
+    const go = lastTypedGo(readFileSync(mainFile, 'utf8'), { sessionId })
+    if (!go) throw new Error(`--since go: no /one-ring typed in ${basename(mainFile)}`)
+    return go.at
+  }
+  const at = Date.parse(word)
+  if (!Number.isFinite(at)) throw new Error(`--since takes an ISO time or "go", not "${word}"`)
+  return at
+}
+
+/**
+ * The deploy's tokens since his go, for its DONE line. The deploy has no
+ * session id, so it takes the newest transcript in `dir` (the project's
+ * folder) written in the last `hours` whose typed go names `arg`: a lane
+ * running beside it in the same project has no such go. `findGo` is
+ * one-ring-go.mjs's lastTypedGo, passed in so this file never imports the
+ * database plugin. Null when no transcript has that go.
+ * @returns {{ tokens: number, since: number, session: string } | null}
+ */
+export function tokensSinceGo(dir, findGo, { arg = null, now = Date.now(), hours = 12 } = {}) {
+  let files
+  try {
+    files = readdirSync(dir)
+      .filter((n) => n.endsWith('.jsonl'))
+      .map((n) => ({ n, mtime: statSync(join(dir, n)).mtimeMs }))
+      .filter((f) => now - f.mtime <= hours * 3600_000)
+      .sort((a, b) => b.mtime - a.mtime)
+  } catch {
+    return null
+  }
+  for (const { n } of files) {
+    const id = basename(n, '.jsonl')
+    let go
+    try { go = findGo(readFileSync(join(dir, n), 'utf8'), { sessionId: id }) } catch { continue }
+    if (!go || (arg !== null && go.arg !== arg)) continue
+    const { mainFile, subDir, subFiles } = resolveSession(dir, id)
+    return { tokens: sessionTokens([mainFile, ...subFiles.map((f) => join(subDir, f))], { since: go.at }), since: go.at, session: id }
+  }
+  return null
+}
+
+// The ceiling read (kit 1.10, F1): `OVER <used>` past `millions`, else the
+// figure used. The kit 1.8 ceilings were sentences nobody read (council H2);
+// one line a skill's round prints, or the ceiling hook reads, is the check.
+export function ceilingLine(tokens, millions) {
+  return tokens > millions * 1_000_000 ? `OVER ${fmtM(tokens)}` : fmtM(tokens)
+}
 const fmtPct = (part, whole) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : '0%')
 const shortModel = (m) => (/(haiku|sonnet|opus|fable)/i.exec(m || '') || ['?'])[0].toLowerCase()
 // UTC with a Z, so a timeline reads the same wherever it's printed.
@@ -358,10 +440,16 @@ function activeSpans(entries) {
 export function timelineRow(entries, label, type, sessionId) {
   const by = tallyEntries(entries)
   let tokens = 0
+  let inp = 0
+  let cc = 0
+  let cr = 0
   let topModel = '?'
   let topTokens = -1
   for (const [model, b] of by) {
     tokens += totalTokens(b)
+    inp += b.inp
+    cc += b.cc
+    cr += b.cr
     if (totalTokens(b) > topTokens) [topModel, topTokens] = [model, totalTokens(b)]
   }
   const spans = activeSpans(entries)
@@ -376,6 +464,11 @@ export function timelineRow(entries, label, type, sessionId) {
     minutes: Math.round(minutes),
     ...countCalls(entries),
     tokens,
+    // The split behind `tokens` (kit 1.10, F21): what a role reads from the cache
+    // against what it writes and what it sends fresh.
+    inp,
+    cc,
+    cr,
     spans,
   }
 }
@@ -495,9 +588,11 @@ export function budgetTableMarkdown(rows) {
 }
 
 function parseArgs(argv) {
-  const opts = { commits: null, json: false, dir: null, timeline: false, chart: null, decisions: null, budgetTable: false, hankLog: null, sessionIds: [] }
+  const opts = { ceiling: null, since: null, commits: null, json: false, dir: null, timeline: false, chart: null, decisions: null, budgetTable: false, hankLog: null, sessionIds: [] }
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--budget-table') opts.budgetTable = true
+    if (argv[i] === '--ceiling') opts.ceiling = Number(argv[++i])
+    else if (argv[i] === '--since') opts.since = argv[++i] ?? ''
+    else if (argv[i] === '--budget-table') opts.budgetTable = true
     else if (argv[i] === '--hank-log') opts.hankLog = argv[++i]
     else if (argv[i] === '--commits') opts.commits = Number(argv[++i])
     else if (argv[i] === '--json') opts.json = true
@@ -615,15 +710,24 @@ export async function hankBudgets(projectRoot = process.cwd()) {
 }
 
 async function main() {
-  const { commits, json, dir, timeline: wantTimeline, chart, decisions, budgetTable, hankLog, sessionIds } = parseArgs(process.argv.slice(2))
-  if (sessionIds.length === 0) {
+  const { ceiling, since, commits, json, dir, timeline: wantTimeline, chart, decisions, budgetTable, hankLog, sessionIds } = parseArgs(process.argv.slice(2))
+  if (sessionIds.length === 0 || (ceiling !== null && !(ceiling > 0)) || since === '') {
     console.error(
-      'Usage: node <release plugin>/scripts/usage.mjs [--commits N] [--json] [--timeline] [--chart out.html [--decisions file.md]] [--budget-table [--hank-log file]] <session-id> [<session-id>…]',
+      'Usage: node <release plugin>/scripts/usage.mjs [--ceiling <M>] [--since <ISO time | go>] [--commits N] [--json] [--timeline] [--chart out.html [--decisions file.md]] [--budget-table [--hank-log file]] <session-id> [<session-id>…]',
     )
     process.exit(1)
   }
 
   const baseDir = projectDir(dir)
+  if (ceiling !== null || since !== null) {
+    // One line, so a skill's round can read it as its first call.
+    const { id, mainFile, subDir, subFiles } = resolveSession(baseDir, sessionIds[0])
+    const from = since === null ? null : await sinceTime(since, mainFile, id)
+    const tokens = sessionTokens([mainFile, ...subFiles.map((f) => join(subDir, f))], { since: from })
+    const when = from === null ? '' : ` since ${new Date(from).toISOString().slice(0, 19)}Z${since === 'go' ? ' (the go)' : ''}`
+    console.log(`${ceiling === null ? fmtM(tokens) : ceilingLine(tokens, ceiling)}${when}`)
+    return
+  }
   if (budgetTable) {
     const rows = budgetRows(baseDir, sessionIds, { budgets: await hankBudgets(), hankLog })
     console.log(json ? JSON.stringify(rows, null, 2) : budgetTableMarkdown(rows))

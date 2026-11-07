@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -237,6 +238,41 @@ describe('run', () => {
     expect(() => readFileSync(join(dir, 'V8-steps.tsv'))).toThrow()
     run(opts(['--pr', '12', '--plan', failPlan]), { budgets, gh: fakeGh(BODY).gh, now, log: quiet })
     expect(readFileSync(join(dir, 'V8-steps.tsv'), 'utf8').trim().split('\n')).toHaveLength(2)
+  })
+
+  it('F5: past 1.3x the expected spend it prints a stop line after the writes; 129 % stays quiet', () => {
+    const over = join(dir, 'V10.md')
+    writeFileSync(over, 'Expected: ≈ 6.95M\n') // session total 9.1M = 131 %
+    const out = []
+    const r = run(opts(['--plan', over]), { budgets, now, log: (s) => out.push(s) })
+    expect(r.stop).toBe('STOP: 9.1M is past 1.3x the 7M expected (131 %): finish this step, no new spawn, ask Alexander.')
+    expect(out.at(-1)).toBe(r.stop)
+    expect(readFileSync(join(dir, 'V10-steps.tsv'), 'utf8').trim().split('\n')).toHaveLength(2)
+
+    const under = join(dir, 'V11.md')
+    writeFileSync(under, 'Expected: ≈ 7.05M\n') // 129 %
+    expect(run(opts(['--plan', under]), { budgets, now, log: quiet }).stop).toBeNull()
+  })
+
+  it('F5: under away mode the line says park, not ask', () => {
+    const over = join(dir, 'V12.md')
+    writeFileSync(over, 'Expected: ≈ 6.95M\n')
+    writeFileSync(join(dir, 'V12.away.md'), '## Decided\n')
+    const r = run(opts(['--plan', over]), { budgets, now, log: quiet })
+    expect(r.stop).toMatch(/park what is left/)
+    expect(r.stop).not.toMatch(/ask Alexander/)
+  })
+
+  it('F5: the script exits 1 past 1.3x, and 0 with --dry', () => {
+    const over = join(dir, 'V13.md')
+    writeFileSync(over, 'Expected: ≈ 6.95M\n')
+    const args = [new URL('./step-done.mjs', import.meta.url).pathname, 'jeff-winger', '--session', 'dddd4444', '--dir', dir, '--hank-log', join(dir, 'none.log'), '--plan', over]
+    const bad = spawnSync('node', args, { encoding: 'utf8' })
+    expect(bad.status).toBe(1)
+    expect(bad.stdout).toContain('STOP: 9.1M is past 1.3x')
+    const dry = spawnSync('node', [...args, '--dry'], { encoding: 'utf8' })
+    expect(dry.status).toBe(0)
+    expect(dry.stdout).toContain('STOP: 9.1M is past 1.3x')
   })
 
   it('names a missing agent', () => {

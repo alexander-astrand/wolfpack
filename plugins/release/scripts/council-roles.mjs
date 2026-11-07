@@ -53,9 +53,12 @@ export function roleTotals(dirs, from) {
     if (!row.tokens && !row.calls) return // a copy with nothing of its own
     // models counts runs per model, so a lens reads which of a role's runs
     // were Sonnet instead of guessing from a list (kit 1.6.1 council).
-    const r = roles.get(role) || { role, runs: 0, tokens: 0, calls: 0, minutes: 0, models: new Map() }
+    const r = roles.get(role) || { role, runs: 0, tokens: 0, inp: 0, cc: 0, cr: 0, calls: 0, minutes: 0, models: new Map() }
     r.runs += 1
     r.tokens += row.tokens
+    r.inp += row.inp || 0
+    r.cc += row.cc || 0
+    r.cr += row.cr || 0
     r.calls += row.calls
     r.minutes += row.minutes
     if (row.model !== '?') r.models.set(row.model, (r.models.get(row.model) || 0) + 1)
@@ -89,12 +92,15 @@ export const modelsOf = (models) => {
 
 export function tableOf(rows) {
   const total = rows.reduce((s, r) => s + r.tokens, 0)
-  const out = ['| Role | Runs | Tokens | Share | Calls | Active min | Models |', '|---|---|---|---|---|---|---|']
+  const sum = (k) => rows.reduce((s, r) => s + (r[k] || 0), 0)
+  // Input, cache-create and cache-read beside the total (kit 1.10, F21): the next
+  // council reads the cost of a long context from the cache column, not the calls.
+  const out = ['| Role | Runs | Tokens | Input | Cache create | Cache read | Share | Calls | Active min | Models |', '|---|---|---|---|---|---|---|---|---|---|']
   for (const r of rows) {
     const share = total ? `${Math.round((r.tokens / total) * 100)}%` : '0%'
-    out.push(`| ${r.role} | ${r.runs} | ${fmtM(r.tokens)} | ${share} | ${r.calls} | ${r.minutes} | ${modelsOf(r.models)} |`)
+    out.push(`| ${r.role} | ${r.runs} | ${fmtM(r.tokens)} | ${fmtM(r.inp)} | ${fmtM(r.cc)} | ${fmtM(r.cr)} | ${share} | ${r.calls} | ${r.minutes} | ${modelsOf(r.models)} |`)
   }
-  out.push(`| **Total** | ${rows.reduce((s, r) => s + r.runs, 0)} | ${fmtM(total)} | 100% | ${rows.reduce((s, r) => s + r.calls, 0)} | ${rows.reduce((s, r) => s + r.minutes, 0)} | |`)
+  out.push(`| **Total** | ${sum('runs')} | ${fmtM(total)} | ${fmtM(sum('inp'))} | ${fmtM(sum('cc'))} | ${fmtM(sum('cr'))} | 100% | ${sum('calls')} | ${sum('minutes')} | |`)
   return out.join('\n')
 }
 

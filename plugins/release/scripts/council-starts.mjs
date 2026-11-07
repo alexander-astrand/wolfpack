@@ -7,7 +7,7 @@
 //
 // Usage: node council-starts.mjs --since <YYYY-MM-DD> [--dir <transcripts>]…
 // Without --dir the transcripts are this project's (derived from the cwd).
-import { existsSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { projectDir, readEntries } from './usage.mjs'
@@ -85,4 +85,4 @@ function main() {
   console.log(startsTable(startRows(dirs.length ? dirs : [projectDir(null)], from)))
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main()

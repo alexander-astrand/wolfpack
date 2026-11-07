@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { EXIT, alreadyListed, ciState, costLine, deploy, holdsDeploy, leftStepsComment, migrationChanges, namesVersion, openHumanSteps, parseGo, pickPr, touchedFunctions, versionOf } from './deploy.mjs'
+import { EXIT, alreadyListed, ciState, costLine, deploy, expectedCost, goProblem, holdsDeploy, waitLine, leftStepsComment, migrationChanges, namesVersion, openHumanSteps, parseGo, pickPr, touchedFunctions, versionOf } from './deploy.mjs'
 
 const TMP = mkdtempSync(join(tmpdir(), 'deploy-test-'))
 afterAll(() => rmSync(TMP, { recursive: true, force: true }))
@@ -113,14 +113,32 @@ describe('a deploy that goes through', () => {
     }
     expect(w.lines.at(-1)).toMatch(/^DONE: PR #34 merged \(bbbbbbb\); backup \/b\/2026-10-21-V0\.14\.3\.1; migrations 0100; functions pay-feed; live at https:\/\/app\.example\.com/)
     expect(w.calls.filter((c) => c.startsWith('git worktree remove'))).toHaveLength(1)
-    // Kit 1.8 (Feature 6): the cost line comes just before DONE.
-    expect(w.lines.at(-2)).toMatch(/^COST: \d+\.\d min this run; longest wait \d+\.\d min, until "[^"]+"; baseline 4\.5M tokens \/ 12 min/)
+    // Kit 1.10 (F2): the wait line, then the fixed cost line, just before DONE.
+    expect(w.lines.at(-3)).toMatch(/^Longest wait \d+\.\d min, until "[^"]+"; baseline 4\.5M tokens \/ 12 min/)
+    expect(w.lines.at(-2)).toMatch(/^\/one-ring 0\.14\.3\.1: DONE \| \d+\.\d min \| \? tokens$/)
   })
 
-  it('costLine: the minutes, the step that took longest, and the baseline', () => {
-    const line = costLine(0, 15 * 60_000, [[60_000, 'PR #34 ready'], [11 * 60_000, 'CI green on bbbbbbb.'], [15 * 60_000, 'Smoke: ok']])
-    expect(line).toBe('COST: 15.0 min this run; longest wait 10.0 min, until "CI green on bbbbbbb."; baseline 4.5M tokens / 12 min (no migrations). Tokens: /car-wash or usage.mjs --timeline.')
-    expect(costLine(0, 0, [])).toMatch(/^COST: 0\.0 min this run; baseline/)
+  it('the cost line carries the tokens since his go when the io can count them', () => {
+    const w = world()
+    const asked = []
+    w.io.tokensSinceGo = (arg) => { asked.push(arg); return 3_300_000 }
+    expect(deploy(['0.14.3.1'], w.io)).toBe(EXIT.DONE)
+    expect(asked).toEqual(['0.14.3.1'])
+    expect(w.lines.at(-2)).toMatch(/^\/one-ring 0\.14\.3\.1: DONE \| \d+\.\d min \| 3\.3M tokens$/)
+  })
+
+  it('costLine and waitLine: one fixed shape, and the step that took longest', () => {
+    expect(costLine('kit-1.10', 0, 15 * 60_000, 6_240_000)).toBe('/one-ring kit-1.10: DONE | 15.0 min | 6.2M tokens')
+    expect(costLine(' 54 ', 0, 0, null)).toBe('/one-ring 54: DONE | 0.0 min | ? tokens')
+    expect(waitLine(0, [[60_000, 'PR #34 ready'], [11 * 60_000, 'CI green on bbbbbbb.'], [15 * 60_000, 'Smoke: ok']]))
+      .toBe('Longest wait 10.0 min, until "CI green on bbbbbbb."; baseline 4.5M tokens / 12 min (no migrations).')
+    expect(waitLine(0, [])).toBe('No wait; baseline 4.5M tokens / 12 min (no migrations).')
+  })
+
+  it('expectedCost: the baseline plus a fixed add per migration, function and wait', () => {
+    expect(expectedCost({ migrations: 2, functions: 1 })).toBe('expected: ~6.0M / 18 min (2 migrations, 1 function; baseline 4.5M / 12 min)')
+    expect(expectedCost({ waits: 1 })).toBe('expected: ~6.0M / 27 min (1 step waiting on Alexander; baseline 4.5M / 12 min)')
+    expect(expectedCost()).toBe('expected: ~4.5M / 12 min (nothing beyond the baseline 4.5M / 12 min)')
   })
 
   it('finds the PR by number too, and uses functions-touched when the project has it', () => {
@@ -283,11 +301,40 @@ describe('a fix-forward under the same go', () => {
 })
 
 describe('the helpers', () => {
+  it('goProblem: says why a word is neither a PR nor a version, and which shapes work', () => {
+    expect(goProblem('kit', undefined)).toBe('"kit" is neither a PR nor a version: a PR is a number (54 or #54), a version is dotted numbers (1.2.3 or V1.2.3), or a word, a dash and a version (kit-1.10)')
+    expect(goProblem(undefined, undefined)).toBe('no PR or version given')
+    expect(goProblem('1.2', 'next')).toBe('"next" is no fix-forward PR: that is a PR number (55 or #55)')
+    expect(goProblem('1.2', '55', ['more'])).toBe('one go and at most one fix-forward PR, not also "more"')
+    expect(goProblem('kit-1.10', '#55')).toBeNull()
+    const w = world()
+    expect(deploy(['kit'], w.io)).toBe(EXIT.SETUP)
+    expect(w.lines.find((l) => l.startsWith('STOP setup:'))).toMatch(/^STOP setup: "kit" is neither a PR nor a version: .*; usage: scripts\/full-auto\.sh deploy/)
+  })
+
   it('parseGo: a bare number is a PR, dotted is a version', () => {
     expect(parseGo('34')).toEqual({ pr: 34 })
     expect(parseGo('#34')).toEqual({ pr: 34 })
     expect(parseGo('V0.14.3.1')).toEqual({ version: '0.14.3.1' })
     expect(parseGo('kit')).toBeNull()
+  })
+
+  it('parseGo: a word and a dotted version (kit-1.10) is a named version', () => {
+    expect(parseGo('kit-1.9')).toEqual({ version: '1.9', word: 'kit' })
+    expect(parseGo('Kit-1.10')).toEqual({ version: '1.10', word: 'kit' })
+    expect(parseGo('kit-1')).toBeNull()
+    expect(parseGo('kit-')).toBeNull()
+  })
+
+  it('a named version finds the PR by its title or its dashed branch, and refuses an ambiguous one', () => {
+    const list = [
+      { number: 60, title: 'Kit 1.10: the council calls', headRefName: 'claude/kit-1-10-ff4f69', state: 'OPEN' },
+      { number: 54, title: 'Kit 1.9', headRefName: 'claude/kit-1-9-aa', state: 'MERGED', mergedAt: '2026-11-01T00:00:00Z' },
+      { number: 9, title: 'V1.10 Burrow', headRefName: 'V1.10', state: 'OPEN' },
+    ]
+    expect(pickPr(list, '1.10', { word: 'kit' })).toEqual({ number: 60 })
+    expect(pickPr(list, '1.9', { word: 'kit' })).toEqual({ number: 54 })
+    expect(pickPr([{ number: 7, title: 'x', headRefName: 'claude/kit-1-100-z', state: 'OPEN' }], '1.10', { word: 'kit' }).refuse).toMatch(/kit-1\.10/)
   })
 
   it('a version names a PR by its branch or as a word of its title, never a longer version', () => {
@@ -381,6 +428,23 @@ describe('the helpers', () => {
       '- [ ] Save the token in the dashboard',
     ]) expect(holdsDeploy(step), step).toBe(true)
     expect(holdsDeploy('- [ ] Check the token refresh page'), 'refresh after the token is no hand-over').toBe(false)
+  })
+
+  // Kit 1.10 (H5): "no secret" held a run; "no" or "not" within three words says there is none.
+  it('holdsDeploy: "no secret" within three words does not hold; any other hold word still does', () => {
+    for (const step of [
+      '- [ ] Confirm the PR adds no secret',
+      '- [ ] No new secrets needed',
+      '- [ ] Check there is no payment step left',
+      '- [ ] This is not a password change',
+    ]) expect(holdsDeploy(step), step).toBe(false)
+    for (const step of [
+      '- [ ] No need to wait, then set the API key in Vercel',
+      '- [ ] Do not forget to add the service role key',
+      '- [ ] No new secret, but store the database password',
+      '- [ ] [secret] no secret in the code, one in Vercel',
+      '- [ ] Set NO_SECRET_KEY',
+    ]) expect(holdsDeploy(step), step).toBe(true)
   })
 
   it('alreadyListed: a marked comment that names every step', () => {

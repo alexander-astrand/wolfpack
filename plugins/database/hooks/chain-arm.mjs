@@ -25,34 +25,10 @@ import { pathToFileURL } from 'node:url'
 import { readTimeout } from './read-clock.mjs'
 import { HOOKS_DIR, PROD_REF, pluginMode, projectRoot, armList, backupFirstWhyNot, checksNotGreen, ghFetchFiles, migrationsWhyNot, prFacts, withCompleteFiles } from './production-steps.mjs'
 
-// A folder ends in '/'. Repo-relative, as git ls-files prints them.
-export const FROZEN = [
-  '.claude/hooks/',
-  '.claude/settings.json',
-  '.claude/settings.local.json',
-  // The project's values (dev ref, deployer, Keychain items): the guard
-  // trusts them, so an agent that could edit refs.dev could make production
-  // look like dev (the kit, 2.14.7). Hashed by its trusted keys only
-  // (kitJsonForHash).
-  '.claude/kit.json',
-  'scripts/full-auto.sh',
-  'scripts/prod-db.sh',
-  'scripts/check.sh',
-  // Runs unprompted (settings.json's allow list), so an edit to it must move
-  // the hash like the guard's own files.
-  'scripts/chain-cover.mjs',
-  '.github/',
-  '.claude/agents/yoda.md',
-  '.claude/agents/ranjit.md',
-]
-
-const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-const FROZEN_ALT = FROZEN.map((p) => (p.endsWith('/') ? `${escapeRe(p.slice(0, -1))}(?:\\/|$)` : `${escapeRe(p)}$`)).join('|')
-// Any checkout, any depth: a worktree's copy counts as the guard's own too.
-// The disk ignores case, so the match does as well.
-export const FROZEN_RE = new RegExp(`(?:^|\\/)(?:${FROZEN_ALT})`, 'i')
-// The hash reads repo-relative paths only.
-const FROZEN_PATH_RE = new RegExp(`^(?:${FROZEN_ALT})`, 'i')
+// FROZEN, FROZEN_RE and projectRoot live in frozen.mjs (council M8);
+// re-exported here so no importer changes.
+import { FROZEN, FROZEN_PATH_RE } from './frozen.mjs'
+export { FROZEN, FROZEN_RE, projectRoot } from './frozen.mjs'
 // Ignored, so git never lists it; hashed when it exists.
 const LOCAL_SETTINGS = '.claude/settings.local.json'
 
@@ -403,8 +379,7 @@ export function doneLine(pr, marker, functionsJson) {
 
 // The project (projectRoot, production-steps.mjs): CLAUDE_PROJECT_DIR, which
 // Claude Code sets for hooks and the production scripts export, else the
-// folder two up from the hooks. Re-exported: the guard resolves it here.
-export { projectRoot }
+// folder two up from the hooks. Re-exported at the top: the guard resolves it here.
 const REPO_ROOT = projectRoot()
 const CLAUDE_DIR = join(REPO_ROOT, '.claude')
 

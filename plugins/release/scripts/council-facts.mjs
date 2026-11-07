@@ -11,7 +11,8 @@
 // diff (F20), a row per spawn, guard reasons per agent and the questions per
 // skill and session (F21, council-asks.mjs), the window's /one-ring runs
 // with their cost line (council-deploys.mjs), and main passes the real gh call so the cheaper lines include
-// the window's PR bodies (H3).
+// the window's PR bodies (H3). Kit 1.10 (F18, F21) adds the hooks log whole and in
+// the window, project file sizes read from `origin/main`, and cache reads per role.
 //
 // Usage: node council-facts.mjs --since <YYYY-MM-DD> --out <facts.md>
 //          [--project <name>=<repo path>]… [--git <repo> --from <commit>]
@@ -19,7 +20,7 @@
 // --project: one per project to read; none means the cwd. --retired: skill or
 // agent names that no longer exist, listed wherever a kit file still cites them.
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -173,6 +174,53 @@ export function permissionSection(projects, from) {
   return out.join('\n').trimEnd()
 }
 
+// ---- the hooks log, whole and in the window (F18, K14)
+
+// The 1.9 council counted 78 rows in the window where the lens counted 157 over
+// the whole log, and nobody reconciled them. Both numbers side by side, plus the
+// raw line count, so the gap is a window and not a mystery.
+export function hooksLogSection(projects, from, file = '.claude/session-hooks.log') {
+  const out = ['| Project | Log lines | Rows whole | Rows in the window | Top tools in the window |', '|---|---|---|---|---|']
+  for (const [project, repo] of Object.entries(projects)) {
+    const path = join(repo, file)
+    if (!existsSync(path)) {
+      out.push(`| ${project} | no log | – | – | – |`)
+      continue
+    }
+    const lines = readFileSync(path, 'utf8').split('\n').filter((l) => l.trim()).length
+    const whole = logRows(path, 0)
+    const win = logRows(path, from)
+    out.push(`| ${project} | ${lines} | ${whole.rows} | ${win.rows} | ${win.top || '–'} |`)
+  }
+  return out.join('\n')
+}
+
+// ---- project files as main has them (F18, K12)
+
+// Burrow's checkout sat on a side branch, so the sizes measured were that
+// branch's (74 KB against main's 82 KB). `git show origin/main:<path>` reads
+// what shipped whatever the working tree holds.
+export const PROJECT_FILES = ['CLAUDE.md', '.claude/taste.md', '.claude/lessons.md', '.claude/kit.json']
+
+export function mainFile(repo, path, run = git) {
+  try {
+    return run(['-C', repo, 'show', `origin/main:${path}`])
+  } catch {
+    return null
+  }
+}
+
+export function projectFilesSection(projects, run = git) {
+  const out = ['Read with `git show origin/main:<path>`, not the working tree (which may be on a branch).', '', '| Project | File | Bytes | Lines |', '|---|---|---|---|']
+  for (const [project, repo] of Object.entries(projects)) {
+    for (const f of PROJECT_FILES) {
+      const text = mainFile(repo, f, run)
+      out.push(text === null ? `| ${project} | ${f} | not on origin/main | – |` : `| ${project} | ${f} | ${Buffer.byteLength(text)} | ${text.split('\n').length - (text.endsWith('\n') ? 1 : 0)} |`)
+    }
+  }
+  return out.join('\n')
+}
+
 // ---- the stale-reference pre-grep
 
 const HISTORY = /^(CHANGELOG|lessons.*)\.md$/i
@@ -281,6 +329,8 @@ export function buildFacts(o, { run = git, prBodies } = {}) {
   out.push('## /one-ring runs', '', deploysTable(deployRuns(allDirs, from)), '')
   out.push('## Lessons and taste changes', '', learningSection(o.projects, o.since, run), '')
   out.push('## Permission logs, by source', '', permissionSection(o.projects, from), '')
+  out.push('## Hooks log (.claude/session-hooks.log), whole and in the window', '', hooksLogSection(o.projects, from), '')
+  out.push('## Project files on origin/main', '', projectFilesSection(o.projects, run), '')
   out.push('## Stale references', '', staleSection(staleRefs(kitFiles(kitRoot), kitRoot, o.retired), o.retired), '')
   return { facts: out.join('\n'), cards, cheaper }
 }
@@ -298,4 +348,4 @@ function main() {
   console.log(`Wrote ${o.out} (${facts.split('\n').length} lines) and skills-cards.md beside it.`)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main()

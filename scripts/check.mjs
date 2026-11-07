@@ -26,10 +26,10 @@
 // project's guard drift and its `.claude/lessons.md` line cap.
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { checkDrift } from './drift.mjs'
 import { sync as syncBuilders } from '../plugins/release/scripts/make-builders.mjs'
 import { DEFAULT_MAP, replacementTable, sweep as sweepNames } from '../plugins/release/scripts/rename-sweep.mjs'
@@ -382,7 +382,7 @@ function defaultGit(dir, args) {
   return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   const args = process.argv.slice(2)
   const at = args.indexOf('--project')
   const project = at >= 0 ? resolve(args[at + 1] ?? '.') : undefined

@@ -250,14 +250,14 @@ describe('screenshots', () => {
   })
 
   it('stops the 13th frame shot', () => {
-    agent('f3', { type: 'tomas-svensson', description: 'tomas-svensson: wheel', tokens: 1 * M })
+    agent('f3', { type: 'magnus-wislander', description: 'magnus-wislander: wheel', tokens: 1 * M })
     spendFrames('f3', 12)
-    const r = decideFor('f3', 'tomas-svensson', 'mcp__Claude_Browser__computer', { action: 'screenshot', scale: 0.2 })
+    const r = decideFor('f3', 'magnus-wislander', 'mcp__Claude_Browser__computer', { action: 'screenshot', scale: 0.2 })
     expect(r).toMatchObject({ decision: 'deny' })
     expect(r.reason).toMatch(/Frame-shot cap reached: 12 of 12/)
     expect(r.reason).toMatch(/Text and geometry checks still work/)
     // Full-size shots are a separate count and still go through.
-    expect(call('f3', 'tomas-svensson', 'mcp__Claude_Browser__computer', { action: 'screenshot' })).toBe('allow')
+    expect(call('f3', 'magnus-wislander', 'mcp__Claude_Browser__computer', { action: 'screenshot' })).toBe('allow')
   })
 
   it('leaves the builders uncapped', () => {
@@ -382,7 +382,7 @@ describe('the 2.12.2 roster', () => {
 
   // Kit 1.8 (council M7): 6M, near the 3.5M median, so a resume habit shows sooner than at 14M.
   it("gives the QA pool bengt-johansson's 6M and 5 screenshots", () => {
-    for (const name of ['bengt-johansson', 'tomas-svensson', 'magnus-wislander', 'staffan-olsson']) {
+    for (const name of ['bengt-johansson', 'magnus-wislander', 'staffan-olsson']) {
       withModel(`a-${name}`, name, 'claude-opus-5', 5.9 * M)
       expect(call(`a-${name}`, name)).not.toBe('deny')
       withModel(`b-${name}`, name, 'claude-opus-5', 6.1 * M)

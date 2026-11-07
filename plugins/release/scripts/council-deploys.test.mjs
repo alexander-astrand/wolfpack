@@ -38,6 +38,24 @@ describe('runsIn', () => {
   })
 })
 
+describe('the time prefix and the fixed cost line (kit 1.10, F19)', () => {
+  it('reads DONE, STOP and both cost shapes after deploy.mjs\'s HH:MM:SSZ prefix', () => {
+    const runs = runsIn([
+      cmd('kit-1.10', '2026-11-08T10:00:00Z'),
+      out('10:01:02Z  PR #62 "Kit 1.10" ready\n10:14:40Z  Longest wait 9.0 min, until "CI green"; baseline 4.5M tokens / 12 min (no migrations).\n10:14:40Z  /one-ring kit-1.10: DONE | 14.6 min | 3.3M tokens\n10:14:40Z  DONE: PR #62 merged (abc1234)', '2026-11-08T10:15:00Z'),
+      cmd('54', '2026-11-03T01:02:06Z'),
+      out(`01:20:00Z  ${COST}\n01:20:00Z  DONE: PR #54 merged`, '2026-11-03T01:20:00Z'),
+      cmd('1.5', '2026-11-04T09:00:00Z'),
+      out('09:03:11Z  STOP ci-red: CI is red\n09:03:11Z  NEXT: fix it', '2026-11-04T09:03:11Z'),
+    ], 'abcd1234')
+    expect(runs.map((r) => [r.ended, r.cost])).toEqual([
+      ['DONE: PR #62 merged (abc1234)', '/one-ring kit-1.10: DONE | 14.6 min | 3.3M tokens'],
+      ['DONE: PR #54 merged', COST],
+      ['STOP ci-red: CI is red', null],
+    ])
+  })
+})
+
 describe('deployRuns and deploysTable', () => {
   it('keeps runs in the window and prints a table with a count line', () => {
     const dir = mkdtempSync(join(tmpdir(), 'council-deploys-'))

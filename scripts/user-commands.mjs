@@ -4,10 +4,10 @@
 // --write it replaces the block between the two marker comments under
 // "## Commands only I type" in ~/.claude/CLAUDE.md. future-ted runs it when a
 // skill is added or renamed, so that list never drifts from the kit.
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const START = '<!-- user-commands:start -->'
 export const END = '<!-- user-commands:end -->'
@@ -30,6 +30,48 @@ export function firstSentence(description = '') {
   return (m ? m[0] : description).trim()
 }
 
+// The index of the first of these marks outside brackets and quotes, or -1.
+function cutAt(s, marks) {
+  let depth = 0
+  let quoted = false
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (c === '"') quoted = !quoted
+    else if (quoted) continue
+    else if (c === '(' || c === '[') depth++
+    else if (c === ')' || c === ']') depth = Math.max(0, depth - 1)
+    else if (!depth && marks.some((m) => s.startsWith(m, i))) return i
+  }
+  return -1
+}
+const words = (s) => s.split(/\s+/).filter(Boolean).length
+
+// One whole clause of a description (Alexander's call 3, kit 1.10: "the global file's command
+// list cut to one clause each"). The first sentence, cut at the first " - ", ";" or ": " outside
+// brackets and quotes. A lead of under five words ("The audit conductor") is a title, so it keeps
+// the next piece too (to its first top-level comma); a clause still over 12 words is cut at its first top-level ", and", ", or" or ", then".
+export function clause(description = '') {
+  let s = firstSentence(description).replace(/[.!?]$/, '')
+  const marks = [' - ', ';', ': ']
+  let i = cutAt(s, marks)
+  if (i >= 0) {
+    const lead = s.slice(0, i)
+    const rest = s.slice(i).replace(/^(?: - |;|: )\s*/, '')
+    if (words(lead) >= 5) s = lead
+    else {
+      const j = cutAt(rest, marks)
+      const next = j >= 0 ? rest.slice(0, j) : rest
+      const k = cutAt(next, [', '])
+      s = `${lead} - ${k >= 0 ? next.slice(0, k) : next}`
+    }
+  }
+  if (words(s) > 12) {
+    i = cutAt(s, [', and ', ', or ', ', then '])
+    if (i > 0) s = s.slice(0, i)
+  }
+  return s.trim()
+}
+
 export function collect(kitRoot) {
   const skills = []
   const plugins = join(kitRoot, 'plugins')
@@ -41,7 +83,7 @@ export function collect(kitRoot) {
       if (!existsSync(file)) continue
       const fm = parseFrontmatter(readFileSync(file, 'utf8'))
       if (fm['disable-model-invocation'] !== 'true') continue
-      skills.push({ name: fm.name || skill, hint: fm['argument-hint'] || '', sentence: firstSentence(fm.description) })
+      skills.push({ name: fm.name || skill, hint: fm['argument-hint'] || '', sentence: clause(fm.description) })
     }
   }
   return skills.sort((a, b) => a.name.localeCompare(b.name))
@@ -60,7 +102,7 @@ export function replaceBlock(text, block) {
   return `${text.slice(0, a + START.length)}\n${block}\n${text.slice(b)}`
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   const kitRoot = fileURLToPath(new URL('..', import.meta.url))
   const block = renderBlock(collect(kitRoot))
   if (process.argv.includes('--write')) {

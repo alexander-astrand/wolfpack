@@ -8,12 +8,16 @@
 //
 // Returns:
 //   prs          the release's PRs (number, title, state, draft, merge sha), from `gh`, read-only
-//   sessions     the session ids named in the plan and the PRs' bodies and comments,
+//   sessions     the session ids the plan, build log and PRs name as sessions, and the
+//                transcripts titled `<project> · <kind> · <version>` (release-sessions.mjs),
 //                with the transcript folder each was found in, and the ones not found
 //   budgetTable  `usage.mjs --budget-table` for those sessions (markdown and rows)
 //   rework       commits on the PRs after the draft whose subject reads as a fix
 //   usage        Skyler's totals and lines (models, Week) for those sessions
 //   timeline     Skyler's wall-clock lines, one per session
+//   notInRelease the plan's `## Not in this release` section, copied as written
+//   stepSpend    the steps log beside the plan (<plan>-steps.tsv): `<step>: <used> of <budget> (<agent>)`
+//                per step in `lines`, and a `total`
 //   missing      what it couldn't find, so the wrap fetches only that by hand
 //
 // usage.mjs is the release plugin's: beside this plugin in the repo
@@ -25,8 +29,12 @@ import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { bareVersion, projectFolders, releaseSessionIds, sessionIds, titleHas } from './release-sessions.mjs'
+
+// Kept as exports here: callers and tests read them from wrap-facts.
+export { bareVersion, sessionIds, titleHas }
+
 const CORE_ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
-const UUID = /\b(?:local_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi
 // A commit that fixes what the draft shipped: the rework a wrap counts.
 const FIX = /\b(fix(es|ed)?|rework|review|address(es|ed)?|repair)\b/i
 
@@ -75,32 +83,15 @@ export function planFiles(project, version) {
   return { dir, plan: find('.md'), draftDone: find('.draft-done'), build: find('-build.md') }
 }
 
-/** "V1.8", "Kit 1.8", "kit-1.8" and "1.8" all mean 1.8 (the kit 1.8 wrap found no PR: the title says "Kit 1.8"). */
-export const bareVersion = (version) => String(version).trim().replace(/^(v|kit[ -]?)/i, '')
-
-// "1.7" in a title, but not "1.7.1" or "11.7".
-export const titleHas = (title, version) => {
-  const v = bareVersion(version).replace(/\./g, '\\.')
-  return new RegExp(`(^|[^0-9.])v?${v}(?![0-9]|\\.[0-9])`, 'i').test(title ?? '')
-}
-
-/** Session ids named in some texts, in order, once each. */
-export const sessionIds = (...texts) => [...new Set(texts.join('\n').match(UUID) ?? [])]
-
 /**
  * The transcript folder that holds a session: the project's own folder or one
  * of its worktrees' (Claude Code names them after the path, so they share its prefix).
  * Run from a worktree, the prefix is the main checkout's, so its sibling
- * worktrees count too (Burrow 1.2: 57fbab9d sat in one and needed --dir).
+ * worktrees count too (Burrow 1.2: 57fbab9d sat in one and needed --dir); run
+ * from a lane outside the repo, git names the main checkout (kit 1.10).
  */
-export function locate(ids, project, projectsDir = join(homedir(), '.claude', 'projects')) {
-  const prefix = project.replace(/[^A-Za-z0-9]/g, '-').replace(/--claude-worktrees-.*$/, '')
-  let dirs = []
-  try {
-    dirs = readdirSync(projectsDir).filter((d) => d === prefix || d.startsWith(`${prefix}-`)).map((d) => join(projectsDir, d))
-  } catch {
-    // no transcripts at all: every id is missing
-  }
+export function locate(ids, project, projectsDir = join(homedir(), '.claude', 'projects'), git) {
+  const dirs = projectFolders(project, { projectsDir, git })
   const found = []
   const missing = []
   for (const id of ids) {
@@ -123,6 +114,35 @@ export function reworkCandidates(prs, since) {
     }
   }
   return out
+}
+
+/** The plan's `## Not in this release` section, copied as written (the wrap's opening lines); '' when there is none. */
+export function notInThisRelease(planText) {
+  const m = /^##\s+Not in this release\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(planText ?? '')
+  return m ? m[1].trim() : ''
+}
+
+/**
+ * The spend per step from the steps log beside the plan (`<plan>-steps.tsv`, the
+ * columns step-done.mjs writes): one line per step and a total. Reads the header
+ * for the column positions, so a column added later does not shift them.
+ */
+export function stepSpend(tsvText) {
+  const rows = String(tsvText ?? '').split('\n').filter((l) => l.trim()).map((l) => l.split('\t'))
+  if (rows.length < 2) return { lines: [], totalM: 0, total: '' }
+  const head = rows[0]
+  const col = (n) => head.indexOf(n)
+  const [iAgent, iStep, iBudget, iUsed] = ['agent', 'step', 'budget', 'used'].map(col)
+  const num = (s) => Number.parseFloat(String(s ?? '').replace(/[^\d.]/g, '')) || 0
+  let totalM = 0
+  let budgetM = 0
+  const lines = rows.slice(1).map((r) => {
+    totalM += num(r[iUsed])
+    budgetM += num(r[iBudget])
+    return `${r[iStep]}: ${r[iUsed]} of ${r[iBudget]} (${r[iAgent]})`
+  })
+  const round = (n) => `${Math.round(n * 10) / 10}M`
+  return { lines, totalM, total: `Total: ${round(totalM)} of ${round(budgetM)}` }
 }
 
 const defaultGh = (project) => (args) => execFileSync('gh', args, { cwd: project, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
@@ -164,7 +184,8 @@ export async function wrapFacts(version, env = {}) {
   const { plan, draftDone, build } = planFiles(project, version)
   if (!plan) missing.push(`the plan file for ${version}`)
   const texts = [plan ? readFileSync(plan, 'utf8') : '', build ? readFileSync(build, 'utf8') : '', ...prs.flatMap((p) => [p.body ?? '', ...(p.comments ?? []).map((c) => c.body ?? '')])]
-  let ids = sessionIds(...texts)
+  // Named as sessions in those texts, plus the transcripts titled `<project> · <kind> · <version>`
+  let ids = releaseSessionIds(project, version, { texts, projectsDir: env.projectsDir, git: env.git }).ids
   const usagePath = env.usage === undefined ? findUsage() : env.usage
   if (!usagePath) missing.push("the release plugin's usage.mjs")
   // local_<uuid> (get_session self) to the transcript id, through Skyler's own resolver
@@ -177,8 +198,8 @@ export async function wrapFacts(version, env = {}) {
       return id
     }
   }))]
-  const located = locate(ids, project, env.projectsDir)
-  if (!ids.length) missing.push('session ids (none in the plan or the PRs)')
+  const located = locate(ids, project, env.projectsDir, env.git)
+  if (!ids.length) missing.push('session ids (none in the plan, the PRs or a session title)')
   if (located.missing.length) missing.push(`transcripts for ${located.missing.join(', ')}`)
 
   // Skyler, once per transcript folder
@@ -212,10 +233,18 @@ export async function wrapFacts(version, env = {}) {
   else if (prs.length) [since, from] = [Math.min(...prs.map((p) => Date.parse(p.createdAt)).filter((t) => !Number.isNaN(t))), 'PR opened']
   if (!draftDone) missing.push('the draft-done marker (rework counted from the PR opening)')
 
+  // Not in this release, and what each step spent (the steps log beside the plan)
+  const stepsFile = plan ? plan.replace(/\.md$/, '-steps.tsv') : null
+  const steps = stepsFile && existsSync(stepsFile) ? stepSpend(readFileSync(stepsFile, 'utf8')) : { lines: [], totalM: 0, total: '' }
+  const notInRelease = plan ? notInThisRelease(readFileSync(plan, 'utf8')) : ''
+  if (plan && !steps.lines.length) missing.push('the steps log (<plan>-steps.tsv) for the per-step spend')
+
   return {
     version,
     project,
     plan,
+    notInRelease,
+    stepSpend: steps,
     prs: prs.map((p) => ({ number: p.number, title: p.title, state: p.state, isDraft: Boolean(p.isDraft), mergeSha: p.mergeCommit?.oid ?? null, url: p.url })),
     sessions: located,
     budgetTable: { markdown, rows: budgetRows },

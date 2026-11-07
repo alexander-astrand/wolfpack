@@ -36,7 +36,7 @@ const SANDBOX = realpathSync(mkdtempSync(join(tmpdir(), 'guard-sandbox-')))
 process.once('exit', () => rmSync(SANDBOX, { recursive: true, force: true }))
 mkdirSync(join(SANDBOX, '.claude', 'hooks'), { recursive: true })
 const sandboxed = (file) => join(SANDBOX, '.claude', 'hooks', file)
-for (const f of ['guard-entry.mjs', 'guard-production.mjs', 'guard-vercel.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs', 'denied-log.mjs', 'step-aside.mjs']) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), sandboxed(f))
+for (const f of ['guard-entry.mjs', 'guard-production.mjs', 'guard-vercel.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'frozen.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs', 'denied-log.mjs', 'step-aside.mjs']) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), sandboxed(f))
 // Rows that only say "not refused": a listed read comes back allow (2.12.3),
 // anything else passes to the permission rules.
 const OPEN = /^(?:pass|allow)$/
@@ -969,11 +969,13 @@ describe('full auto: the marker', () => {
 describe('known gaps', () => {
   // Round 3 closed five rows (a name and arm built at run time, the copy run
   // with arm, `gh $G view`, git config on disk and GIT_CONFIG_*): they are
-  // tests under "round 3" below.
+  // tests under "round 3" below. Kit 1.10 (H4) closed a sixth: a literal
+  // `F=full-auto.json; … .claude/$F` is read with its value put in, so it is refused.
   const rows = [
     ['Write', '/r/scripts/fa.sh', 'pass', 'a copy of the arm script written by an editor: file content isn\'t followed'],
     ['Bash', 'scripts/fa.sh $A 2.12.2', 'pass', 'that copy, run with arm built at run time (spelled out, arm is refused anywhere since round 3)'],
-    ['Bash', 'F=full-auto.json; echo {} > .claude/$F', 'pass', 'a marker path built at run time; a forged marker still has to match the PR and its list'],
+    ['Bash', 'F=$(printf full-auto.json); echo {} > .claude/$F', 'pass', 'a marker path built at run time; a forged marker still has to match the PR and its list'],
+    ['Bash', 'F=full-auto.json; echo {} > .claude/$F', 'deny', 'closed in kit 1.10 (H4): a literal value is put in before the rules read the call'],
   ]
   it.each(rows)('%s %s → %s (%s)', (tool, input, want) => {
     expect(run(tool, tool === 'Bash' ? { command: input } : { file_path: input, content: '#!/bin/sh\n' })).toBe(want)
@@ -2672,7 +2674,7 @@ describe('2.12.4 review: refused as on main', () => {
   beforeAll(async () => {
     mainDir = mkdtempSync(join(tmpdir(), 'guard-main-'))
     try {
-      for (const f of ['guard-production.mjs', 'guard-vercel.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs']) {
+      for (const f of ['guard-production.mjs', 'guard-vercel.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'frozen.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs']) {
         writeFileSync(join(mainDir, f), execFileSync('git', ['show', `main:.claude/hooks/${f}`], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))
       }
       mainDecide = (await import(pathToFileURL(join(mainDir, 'guard-production.mjs')).href)).decide
@@ -3228,7 +3230,7 @@ describe('2.14.9.1: the values from kit.json, and the project root', () => {
     const own = realpathSync(mkdtempSync(join(tmpdir(), 'own-hooks-')))
     try {
       mkdirSync(join(own, '.claude', 'hooks'), { recursive: true })
-      for (const f of ['guard-production.mjs', 'guard-vercel.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'chain-exclusions.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs']) {
+      for (const f of ['guard-production.mjs', 'guard-vercel.mjs', 'production-steps.mjs', 'chain-arm.mjs', 'frozen.mjs', 'chain-exclusions.mjs', 'one-ring-go.mjs', 'read-clock.mjs', 'read-list.mjs']) {
         if (existsSync(fileURLToPath(new URL(`./${f}`, import.meta.url)))) copyFileSync(fileURLToPath(new URL(`./${f}`, import.meta.url)), join(own, '.claude', 'hooks', f))
       }
       copyFileSync(fileURLToPath(new URL('./fixtures/kit.json', import.meta.url)), join(own, '.claude', 'kit.json'))

@@ -53,8 +53,10 @@ const ROWS = [
   ['chain', `S=${T}; grep -n "x" $S/notes.md`, 'pass'],
   ['chain', `sed -i '' 's/a → b/a → c/' ${T}/notes.md`, 'pass'],
   ['chain', `cd ${T}/c-3po && cp a.html b.html`, 'pass'],
-  // A cd into a folder built at run time, then a relative write: still refused.
-  ['chain', `P=${T}/c-3po; cd $P && cp a.html b.html`, 'deny'],
+  // A cd into a literal folder is that folder (kit 1.10, H4); one built at
+  // run time, then a relative write: still refused.
+  ['chain', `P=${T}/c-3po; cd $P && cp a.html b.html`, 'pass'],
+  ['chain', `P=$(ls -d ${T}/c-*); cd $P && cp a.html b.html`, 'deny'],
   ['chain', `grep -c armed ${R}/.claude/full-auto-chain.log`, 'pass'],
   ['chain', 'node -e "console.log([].length)"', 'pass'],
   // [frozen] and [guard-noise] 2.14.7: a nested claude, script copies, shell edits of guard files.

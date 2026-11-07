@@ -10,7 +10,7 @@
 // Usage: node council-speed.mjs [--dir <transcripts>] <session-id>…
 //        node council-speed.mjs [--dir <transcripts>] --since <YYYY-MM-DD>
 // Without --dir the transcripts are this project's (derived from the cwd).
-import { readdirSync, statSync } from 'node:fs'
+import { readdirSync, realpathSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { dropCounted, hhmm, projectDir, readEntries, resolveSession, sessionCommand, timelineRow } from './usage.mjs'
@@ -65,7 +65,19 @@ export function sessionLabel(entries) {
   const title = sessionTitle(entries)
   if (cmd === '(none)') return title ? `title: ${title}` : '(none)'
   if (BADGER.test(cmd) && title && !/badger/i.test(title)) return `title: ${title} (started ${cmd.replace(/[()]/g, '')})`
+  // F18 (kit 1.9 council, L7): a session whose first command was a Skill call (the
+  // bracketed form: no typed slash command opened it) is labelled by its title kind
+  // when the title parses, so a release or setup session that ran /one-ring is
+  // not counted as a one-ring session.
+  if (cmd.startsWith('(') && titleKind(title)) return `title: ${title} (ran ${cmd.replace(/[()]/g, '')})`
   return cmd
+}
+
+// The kind of a `project · kind · subject` title (release, setup, wrap, side,
+// memento, talk...), or null when the title does not have that shape.
+export function titleKind(title) {
+  const parts = String(title || '').split(' · ')
+  return parts.length >= 3 && parts[1].trim() ? parts[1].trim().toLowerCase() : null
 }
 
 // The skill a label counts under on the cards: `/release:captain-call` and
@@ -195,4 +207,4 @@ function main() {
   if (all.length > sessions.length) console.log(`\n${all.length - sessions.length} transcript(s) were only copies of an earlier one (same message ids) and are left out.`)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main()

@@ -4,12 +4,15 @@
 //
 // Usage: node scripts/seed.mjs up <name> [--dry-run] [--root <project>]
 //        node scripts/seed.mjs down <name> [--dry-run] [--root <project>]
-//        node scripts/seed.mjs list [--root <project>]
+//        node scripts/seed.mjs list [--sheet] [--root <project>]
 //   up / down   runs scripts/qa/seeds/<name>.up.sql or .down.sql as one
 //               `supabase db query <flag> -f`; --dry-run prints the target and
 //               the SQL and runs nothing
 //   list        every seed pair with its last up or down, and every real-mode
 //               receipt (written by the skill) with its row count
+//   list --sheet  the seed sheet an order pastes: each seed's name, what it
+//               makes (the up file's first `--` comment, else its tables),
+//               its undo file and the command that runs it
 //   exit 0      done (or listed)
 //   exit 1      the CLI failed, or an up with no PASS-like confirmation
 //   exit 2      usage, a missing file, or it can't tell that the target is dev
@@ -132,20 +135,23 @@ export function devTarget(root, { db = null, allowHost = null, pick = target } =
 export function parseArgs(argv) {
   let root = process.env.CLAUDE_PROJECT_DIR || process.cwd()
   let dryRun = false
+  let sheet = false
   const rest = []
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--root') {
       if (!argv[i + 1]) return { error: '--root needs a folder' }
       root = argv[++i]
     } else if (argv[i] === '--dry-run') dryRun = true
+    else if (argv[i] === '--sheet') sheet = true
     else rest.push(argv[i])
   }
   const [cmd, name, extra] = rest
-  if (extra !== undefined || !['up', 'down', 'list'].includes(cmd)) return { error: 'usage: seed.mjs up|down <name> [--dry-run] | list  [--root <project>]' }
+  if (extra !== undefined || !['up', 'down', 'list'].includes(cmd)) return { error: 'usage: seed.mjs up|down <name> [--dry-run] | list [--sheet]  [--root <project>]' }
   if (cmd === 'list') {
     if (name !== undefined) return { error: 'list takes no name' }
   } else if (!name || !NAME_RE.test(name)) return { error: 'a seed name is lower-case letters, digits and dashes, e.g. groceries-full' }
-  return { cmd, name: name ?? null, dryRun, root: resolve(root) }
+  else if (sheet) return { error: '--sheet goes with list' }
+  return { cmd, name: name ?? null, dryRun, sheet, root: resolve(root) }
 }
 
 export function stateDir() {
@@ -247,6 +253,38 @@ export function list(root) {
   return { code: 0, lines }
 }
 
+/**
+ * What an up file makes: its first `--` comment line, else the tables its inserts name.
+ * The comment wins because the author knows "three households with a shared card" better
+ * than a list of table names does.
+ */
+export function makes(up) {
+  const comment = up.split('\n').map((l) => l.trim()).find((l) => /^--\s*\S/.test(l))
+  if (comment) return comment.replace(/^--\s*/, '')
+  const tables = [...new Set([...up.matchAll(/\binsert\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi)].map((m) => m[1]))]
+  return tables.length ? `rows in ${tables.join(', ')}` : '(no insert found)'
+}
+
+/**
+ * The seed sheet: one block an order pastes (kit 1.10, F3), so a builder never opens
+ * the seeds folder to find which seed makes what and how to take it out again.
+ */
+export function sheet(root) {
+  const dir = join(root, SEEDS)
+  const files = existsSync(dir) ? readdirSync(dir) : []
+  const names = files.filter((f) => f.endsWith('.up.sql')).map((f) => f.slice(0, -'.up.sql'.length)).sort()
+  const lines = [`Seed sheet (${SEEDS}, dev only):`]
+  if (!names.length) lines.push(`- none: no ${SEEDS}/*.up.sql`)
+  for (const n of names) {
+    const up = readFileSync(join(dir, `${n}.up.sql`), 'utf8')
+    const lane = up.includes('{{LANE}}')
+    const undo = files.includes(`${n}.down.sql`) ? `${SEEDS}/${n}.down.sql` : 'no down file (it will not run)'
+    const how = lane ? `qa-seed.mjs up ${n} --lane <lane>` : `seed.mjs up ${n}`
+    lines.push(`- ${n}${lane ? ' (lane seed)' : ''}: ${makes(up)}; undo ${undo}; run \`${how}\``)
+  }
+  return { code: 0, lines }
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const args = parseArgs(process.argv.slice(2))
   if (args.error) {
@@ -254,7 +292,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
     process.exit(2)
   }
   let out
-  if (args.cmd === 'list') out = list(args.root)
+  if (args.cmd === 'list') out = args.sheet ? sheet(args.root) : list(args.root)
   else {
     const t = devTarget(args.root)
     if (t.error) {

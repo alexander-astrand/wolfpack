@@ -21,7 +21,19 @@ describe('roleTotals', () => {
     const by = Object.fromEntries(rows.map((r) => [r.role, r]))
     expect(by.navigator).toMatchObject({ runs: 1, tokens: 100, calls: 1 })
     expect(by['r2-d2']).toMatchObject({ runs: 1, tokens: 200, calls: 1, minutes: 2 })
-    expect(tableOf(rows)).toContain('| r2-d2 | 1 | 0.0M | 67% | 1 | 2 | sonnet |')
+    expect(tableOf(rows)).toContain('| r2-d2 | 1 | 0.0M | 0.0M | 0.0M | 0.0M | 67% | 1 | 2 | sonnet |')
+  })
+
+  it('counts input, cache-create and cache-read per role beside the total (F21)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'council-roles-'))
+    const big = { input_tokens: 1_000_000, cache_creation_input_tokens: 2_000_000, cache_read_input_tokens: 30_000_000, output_tokens: 500_000 }
+    writeFileSync(join(dir, 's1.jsonl'), jsonl([{ type: 'assistant', timestamp: '2026-10-17T10:00:00Z', message: { id: 'n1', model: 'claude-opus-x', usage: big, content: [{ type: 'text', text: 'x' }] } }]))
+    const rows = roleTotals([dir], Date.parse('2026-10-01'))
+    expect(rows[0]).toMatchObject({ role: 'navigator', tokens: 33_500_000, inp: 1_000_000, cc: 2_000_000, cr: 30_000_000 })
+    const table = tableOf(rows)
+    expect(table.split('\n')[0]).toBe('| Role | Runs | Tokens | Input | Cache create | Cache read | Share | Calls | Active min | Models |')
+    expect(table).toContain('| navigator | 1 | 33.5M | 1.0M | 2.0M | 30.0M | 100% |')
+    expect(table).toContain('| **Total** | 1 | 33.5M | 1.0M | 2.0M | 30.0M | 100% |')
   })
 
   it('counts runs per model, most first', () => {
