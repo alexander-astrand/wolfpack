@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { EXIT, alreadyListed, ciState, costLine, deploy, expectedCost, holdsDeploy, waitLine, leftStepsComment, migrationChanges, namesVersion, openHumanSteps, parseGo, pickPr, touchedFunctions, versionOf } from './deploy.mjs'
+import { EXIT, alreadyListed, ciState, costLine, deploy, expectedCost, goProblem, holdsDeploy, waitLine, leftStepsComment, migrationChanges, namesVersion, openHumanSteps, parseGo, pickPr, touchedFunctions, versionOf } from './deploy.mjs'
 
 const TMP = mkdtempSync(join(tmpdir(), 'deploy-test-'))
 afterAll(() => rmSync(TMP, { recursive: true, force: true }))
@@ -301,6 +301,17 @@ describe('a fix-forward under the same go', () => {
 })
 
 describe('the helpers', () => {
+  it('goProblem: says why a word is neither a PR nor a version, and which shapes work', () => {
+    expect(goProblem('kit', undefined)).toBe('"kit" is neither a PR nor a version: a PR is a number (54 or #54), a version is dotted numbers (1.2.3 or V1.2.3), or a word, a dash and a version (kit-1.10)')
+    expect(goProblem(undefined, undefined)).toBe('no PR or version given')
+    expect(goProblem('1.2', 'next')).toBe('"next" is no fix-forward PR: that is a PR number (55 or #55)')
+    expect(goProblem('1.2', '55', ['more'])).toBe('one go and at most one fix-forward PR, not also "more"')
+    expect(goProblem('kit-1.10', '#55')).toBeNull()
+    const w = world()
+    expect(deploy(['kit'], w.io)).toBe(EXIT.SETUP)
+    expect(w.lines.find((l) => l.startsWith('STOP setup:'))).toMatch(/^STOP setup: "kit" is neither a PR nor a version: .*; usage: scripts\/full-auto\.sh deploy/)
+  })
+
   it('parseGo: a bare number is a PR, dotted is a version', () => {
     expect(parseGo('34')).toEqual({ pr: 34 })
     expect(parseGo('#34')).toEqual({ pr: 34 })
@@ -417,6 +428,23 @@ describe('the helpers', () => {
       '- [ ] Save the token in the dashboard',
     ]) expect(holdsDeploy(step), step).toBe(true)
     expect(holdsDeploy('- [ ] Check the token refresh page'), 'refresh after the token is no hand-over').toBe(false)
+  })
+
+  // Kit 1.10 (H5): "no secret" held a run; "no" or "not" within three words says there is none.
+  it('holdsDeploy: "no secret" within three words does not hold; any other hold word still does', () => {
+    for (const step of [
+      '- [ ] Confirm the PR adds no secret',
+      '- [ ] No new secrets needed',
+      '- [ ] Check there is no payment step left',
+      '- [ ] This is not a password change',
+    ]) expect(holdsDeploy(step), step).toBe(false)
+    for (const step of [
+      '- [ ] No need to wait, then set the API key in Vercel',
+      '- [ ] Do not forget to add the service role key',
+      '- [ ] No new secret, but store the database password',
+      '- [ ] [secret] no secret in the code, one in Vercel',
+      '- [ ] Set NO_SECRET_KEY',
+    ]) expect(holdsDeploy(step), step).toBe(true)
   })
 
   it('alreadyListed: a marked comment that names every step', () => {

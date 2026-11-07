@@ -94,6 +94,20 @@ export function parseGo(arg) {
 }
 
 /**
+ * Why the deploy's words can't start a run, or null when they can (kit 1.10,
+ * H5: a bare usage line left the session guessing why `kit-1.9` was refused).
+ */
+export function goProblem(goWord, ffWord, extra = []) {
+  if (goWord === undefined || !String(goWord).trim()) return 'no PR or version given'
+  if (!parseGo(goWord)) {
+    return `"${goWord}" is neither a PR nor a version: a PR is a number (54 or #54), a version is dotted numbers (1.2.3 or V1.2.3), or a word, a dash and a version (kit-1.10)`
+  }
+  if (ffWord !== undefined && !/^#?\d+$/.test(ffWord)) return `"${ffWord}" is no fix-forward PR: that is a PR number (55 or #55)`
+  if (extra.length) return `one go and at most one fix-forward PR, not also "${extra.join(' ')}"`
+  return null
+}
+
+/**
  * Whether a PR is the release <version>: its branch V<version>, or the version
  * as a word of its title. With a <word> (`kit-1.10`) the PR instead names the
  * word and the version together: a title "Kit 1.10 ..." or "kit-1.10", or a
@@ -198,7 +212,19 @@ const HOLD_WORD_RE = /(?:\b|_)(?:secrets?|passwords?|payments?|api[_\s-]?keys?|c
  * payment waits for me"). "Check the start page" or "tell Becky" is listed in
  * the PR comment and the deploy carries on.
  */
-export const holdsDeploy = (step) => HOLD_TAG_RE.test(step) || HOLD_WORD_RE.test(step)
+export const holdsDeploy = (step) => HOLD_TAG_RE.test(step) || heldByWord(step)
+
+// Kit 1.10 (H5): "Confirm the PR adds no secret" held a run. A hold word with
+// "no" or "not" up to three words before it says there is none, so it doesn't
+// count; any other hold word in the step still holds, so it still errs closed.
+const NEGATED_RE = /\b(?:no|not)\s+(?:\S+\s+){0,2}$/i
+function heldByWord(step) {
+  const text = String(step ?? '')
+  for (const m of text.matchAll(new RegExp(HOLD_WORD_RE.source, 'gi'))) {
+    if (!NEGATED_RE.test(text.slice(0, m.index))) return true
+  }
+  return false
+}
 
 // The deploy's comment on the PR for the steps left to after it; the marker
 // keeps a re-run from writing the same comment twice.
@@ -367,7 +393,8 @@ export function deploy(argv, io) {
 function run(argv, io, say) {
   const [goWord, ffWord, ...extra] = argv
   const go = parseGo(goWord)
-  if (!go || extra.length || (ffWord !== undefined && !/^#?\d+$/.test(ffWord))) stop(EXIT.SETUP, 'usage: scripts/full-auto.sh deploy <version or PR number> [<fix-forward PR number>]')
+  const why = goProblem(goWord, ffWord, extra)
+  if (why) stop(EXIT.SETUP, `${why}; usage: scripts/full-auto.sh deploy <version or PR number> [<fix-forward PR number>]`)
   const sh = (cmd, args, opts = {}) => io.run(cmd, args, { cwd: io.root, ...opts })
   const ok = (cmd, args, opts, code = EXIT.OTHER, what = `${cmd} ${args.join(' ')}`) => {
     const r = sh(cmd, args, opts)
