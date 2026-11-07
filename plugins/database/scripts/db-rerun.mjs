@@ -179,7 +179,9 @@ export function findMigration(cfg, arg) {
 /**
  * Splits SQL into statements, honouring -- and block comments, '...' and E'...'
  * strings, "..." names and $tag$ bodies. Each: { text } as written (comments
- * kept), { bare } with comments gone and whitespace collapsed, { line } where it starts.
+ * kept), { bare } with comments gone and whitespace collapsed, { line } where it starts,
+ * and { meta } the line of the first backslash outside strings, names, bodies and
+ * comments (psql reads that as a meta-command such as \c or \!; SQL itself has none).
  */
 export function splitSql(sql) {
   const out = []
@@ -187,13 +189,15 @@ export function splitSql(sql) {
   let start = 0
   let bare = ''
   let firstLine = null
+  let metaLine = null
   let line = 1
   const push = (end) => {
     const text = sql.slice(start, end).trim()
     const b = bare.replace(/\s+/g, ' ').trim()
-    if (b) out.push({ text, bare: b, line: firstLine })
+    if (b) out.push({ text, bare: b, line: firstLine, ...(metaLine !== null ? { meta: metaLine } : {}) })
     bare = ''
     firstLine = null
+    metaLine = null
   }
   const mark = () => {
     if (firstLine === null) firstLine = line
@@ -243,6 +247,7 @@ export function splitSql(sql) {
       i++
     } else {
       if (!/\s/.test(c)) mark()
+      if (c === '\\' && metaLine === null) metaLine = line
       bare += c
       i++
     }
@@ -465,13 +470,26 @@ export function buildUndo(file, sql, earlier = [], { now = new Date(), rel = bas
 export function assertNoTxControl(file, sql) {
   const hit = splitSql(sql).find((st) => TX_CONTROL.test(st.bare))
   if (hit) throw new Refusal(`${basename(file)}:${hit.line} has its own ${hit.bare.split(' ')[0].toUpperCase()}: db-rerun wraps every run in one transaction, so it refuses (inside proof a COMMIT would keep the reset)`)
+  assertNoMeta(file, sql)
+}
+
+/**
+ * Refuses a file with a psql meta-command (`\c <url>`, `\! <shell>`, `\i`): the
+ * files go to psql on stdin, so one would leave the local stack (and the guard's
+ * psql ask) behind. Checked for every file before anything runs (R1 S1).
+ */
+export function assertNoMeta(file, sql) {
+  const hit = splitSql(sql).find((st) => st.meta !== undefined)
+  if (hit) throw new Refusal(`${basename(file)}:${hit.meta} has a psql backslash command: db-rerun sends plain SQL only (a \\c or \\! would leave the local stack), so it refuses`)
 }
 
 /** The reset proof starts with: drop public and the schemas the migrations make, then a bare public. */
 export function resetSql(cfg, sqls) {
   if (cfg.reset) {
     if (!existsSync(cfg.reset)) throw new Refusal(`no reset file ${cfg.reset}`)
-    return read(cfg.reset)
+    const sql = read(cfg.reset)
+    assertNoMeta(cfg.reset, sql)
+    return sql
   }
   const made = new Set()
   for (const sql of sqls) for (const st of splitSql(sql)) {

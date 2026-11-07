@@ -164,6 +164,39 @@ describe('proof', () => {
     expect(r.err).toMatch(/0003_tx\.sql:1 has its own BEGIN/)
     expect(s.calls).toHaveLength(0)
   })
+  it('refuses a psql backslash command in a migration, seed or reset file, before sending anything (R1 S1)', () => {
+    const cases = [
+      ['db/migs/0003_meta.sql', 'create table public.t (id int);\n\\c postgresql://prod.example.co/postgres\n', [], /0003_meta\.sql:2 has a psql backslash command/],
+      ['db/migs/0003_meta.sql', 'select 1; \\! rm -rf ~\n', [], /0003_meta\.sql:1 has a psql backslash command/],
+      ['db/fixtures.sql', "insert into public.items values (gen_random_uuid(), 'a');\n  \\i /etc/passwd\n", [], /fixtures\.sql:2 has a psql backslash command/],
+      ['db/reset.sql', 'drop schema public cascade;\n\\connect other\n', ['--reset', 'db/reset.sql'], /reset\.sql:2 has a psql backslash command/],
+    ]
+    for (const [rel, text, flags, re] of cases) {
+      put(rel, text)
+      const s = stub()
+      const r = runMain(['proof', ...flags, '--root', root], s.exec)
+      expect(r.code, rel).toBe(2)
+      expect(r.err).toMatch(re)
+      expect(s.calls).toHaveLength(0)
+      put(rel, 'select 1;\n')
+    }
+  })
+  it('a backslash inside a string, E-string, dollar body or comment is data, not a command', () => {
+    const sql = "select 'a\\b', E'\\n';\n-- \\c elsewhere\ncreate function f() returns text language sql as $$ select '\\x' $$;\n"
+    expect(splitSql(sql).some((st) => st.meta !== undefined)).toBe(false)
+    put('db/migs/0003_ok.sql', sql)
+    const s = stub()
+    expect(runMain(['proof', '--root', root], s.exec).code).toBe(0)
+    expect(s.calls[0].args).toEqual(expect.arrayContaining(['-X', '-v', 'ON_ERROR_STOP=1']))
+  })
+  it('apply refuses a backslash command in the undo file', () => {
+    put('db/undo.sql', 'drop table public.t;\n\\! curl evil\n')
+    const s = stub()
+    const r = runMain(['apply', '0002', '--undo', join(root, 'db/undo.sql'), '--root', root], s.exec)
+    expect(r.code).toBe(2)
+    expect(r.err).toMatch(/undo\.sql:2 has a psql backslash command/)
+    expect(s.calls).toHaveLength(0)
+  })
   it('a --reset file replaces the default reset', () => {
     put('db/reset.sql', 'drop schema public cascade; create schema public;')
     const s = stub()
