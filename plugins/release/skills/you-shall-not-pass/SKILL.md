@@ -1,10 +1,7 @@
 ---
 name: you-shall-not-pass
-description: Run the checks - type-check, lint, Vitest, knip, build and the SQL tests on dev - and report failures only, in a cheap Haiku fork. For a person's use; autopilot runs scripts/check.sh directly.
+description: Run the checks - type-check, lint, Vitest, knip, build and the SQL tests on dev - and report failures only. For a person's use; autopilot runs scripts/check.sh directly.
 argument-hint: "[app|db|local|all]"
-context: fork
-agent: core:romeo-olsson
-background: false
 ---
 
 ## Voice
@@ -19,4 +16,6 @@ you-shall-not-pass · the checks (Gandalf on the bridge) · "you shall not pass"
 
 Run `scripts/check.sh $ARGUMENTS` (no argument means `app`; `db` runs the SQL tests on dev; `local` runs them on a fresh migrated local database (needs Docker); `all` runs app + dev).
 
-It prints one ✅/❌ line per check, then only the failing checks' output. Report those lines as they are. If something failed, add the file:line of each error and nothing else. Don't re-run the tools one by one unless a failure's cause isn't clear from what the script printed.
+It prints one ✅/❌ line per check, then only the failing checks' output. Run it once, with the output redirected to a file in the scratchpad, and read the whole file; never pipe it to `tail` or `head` (that cuts the per-check lines and costs a second run). You never fix anything.
+
+Report one line per check (✅ or ❌, with counts, e.g. "Vitest ✅ 77 passed"), and for each failure the file:line and the error trimmed to what's needed to fix it. Nothing else: no passing output, no advice. Don't re-run the tools one by one unless a failure's cause isn't clear from what the script printed.
