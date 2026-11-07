@@ -20,7 +20,7 @@
 // (default ~/.claude/plans/). --no-npm: skip npm outdated, npm audit and knip (they
 // reach the registry).
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, extname, join, relative } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -493,4 +493,5 @@ function main() {
   for (const h of headers(facts)) console.log(h)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+// The standing main guard (A18): through a symlinked plugin path the bare argv[1] form never ran main.
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main()
