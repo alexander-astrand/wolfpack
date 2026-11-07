@@ -108,12 +108,14 @@ function sessionFiles(input) {
  */
 export function decide(input, env = {}) {
   if (!input || input.stop_hook_active || !input.transcript_path) return null
+  // The marker first: once the line is sent, a later stop reads no transcript at
+  // all (the whole read is seconds in a big /inception or /memento session, R1 S3).
+  const marker = markerFor(input, env)
+  if (existsSync(marker)) return null
   const skill = activeSkill(headEntries(input.transcript_path))
   if (!skill) return null
   const tokens = sessionTokens(sessionFiles(input))
   if (tokens <= CEILINGS[skill]) return null
-  const marker = markerFor(input, env)
-  if (existsSync(marker)) return null
   const reason = reasonFor(skill, tokens)
   try {
     mkdirSync(dirname(marker), { recursive: true })

@@ -72,6 +72,15 @@ describe('ceiling hook', () => {
     expect(decide(session([typed('mr-miyagi'), spend('m1', 30_000_000)]), env)?.decision).toBe('block')
   })
 
+  it('with the marker set, reads no transcript at all (R1 S3)', () => {
+    // A transcript path that throws on any read: a folder (readSync gives EISDIR).
+    const input = { session_id: `sess-${++n}`, transcript_path: mkdtempSync(join(tmpdir(), 'ceiling-unreadable-')) }
+    expect(() => decide(input, env)).toThrow()
+    mkdirSync(env.markerDir, { recursive: true })
+    writeFileSync(markerFor(input, env), 'sent\n')
+    expect(decide(input, env)).toBeNull()
+  })
+
   it('fails open on a missing transcript', () => {
     expect(decide({ session_id: 'x', transcript_path: join(tmpdir(), 'no-such-ceiling.jsonl') }, env)).toBeNull()
     expect(decide(null, env)).toBeNull()
