@@ -29,17 +29,16 @@ Usually run together with the others by `/avengers-assemble`. Once per big versi
 ## 1. Prepare
 - Check `git branch --show-current` and a clean tree; the reports go on the release branch.
 - The current baseline: the advisors' standing findings at the last deploy (V2.13.6's First commit item 2: about 90, by category). A diff against that list is cheaper than reading it whole.
-- **The facts step, before any lane** (kit 1.5, lens Must 3: the lanes and `lorenzo-von-matterhorn` can't run these, and 3 of 4 barney lines asked for them). You run each command yourself and write the results to `~/.claude/plans/audits-<version>/facts.md`, one section each, summaries not full output:
-  - the diff since the last audit: `git log --oneline <last audit's commit>..HEAD` and `git diff --stat <same>..HEAD`;
-  - `npm outdated` and `npm audit --omit=dev` (counts by severity, the packages named);
-  - the advisors on dev (the Supabase MCP's read-only advisor tool, through ToolSearch), diffed against the baseline; "no database" when the project has none;
-  - `npx knip` and the 20 biggest source files by line count (`wc -l`).
-  Every lane's order names `facts.md`; a lane reads it and doesn't re-run a command in it. `lorenzo-von-matterhorn` only greps for what's left.
+- **The facts step, before any lane** (kit 1.5, lens Must 3: the lanes can't run these, and 3 of 4 barney lines asked for them). One call since kit 1.10 (F7; the by-hand step was part of why the audit skipped two windows):
+  `node ${CLAUDE_PLUGIN_ROOT}/scripts/black-box-facts.mjs --version <version> --budgets db=25,sec=15,infra=15`
+  It writes `<plans>audits-<version>/black-box-facts.md` and prints its section headers: lanes and budgets, the git range since the last audit (`--from <commit>` to override), database and access from the migrations, security and auth, infrastructure and plans (npm outdated and audit, CI, free tiers, outside hosts), the 20 biggest files and knip. Budgets are in millions; pass this version's.
+  - You add the one section a script can't: the advisors on dev (the Supabase MCP's read-only advisor tool, through ToolSearch), diffed against the baseline; "no database" when the project has none.
+  Every lane's order names `black-box-facts.md`; a lane reads it and doesn't re-run a command in it. `lorenzo-von-matterhorn` only greps for what's left.
 
 ## 2. Audit: three lanes, side by side (wave 1)
 Each lane is a `barney-stinson` spawn with the version, its lane, the baseline and its private report path. Lanes 2 and 3 set `model: opus` on the spawn; only lane 1 counts as a star.
 
-| Lane | Model | Budget (2.13.6) | Covers |
+| Lane | Model | Budget (default) | Covers |
 |---|---|---|---|
 | 1. Database and access | Fable high (star) | 25M | every RLS policy and `security definer` function (`search_path`, the caller's group role, the project's visibility helpers for private rows); grants (the project's grants test), storage policies, `pg_cron`/`pg_net` jobs, `app_settings`; the advisors on dev and production, diffed against the baseline; gaps in `supabase/tests/*.sql` |
 | 2. Security and auth | Opus high | 15M | Auth settings (password rules, leaked-password check, MFA, email confirmation, rate limits, JWT and session lifetimes); where keys live; `_shared/caller.ts`, CORS, Vercel headers (CSP, HSTS); `npm audit`, secrets in git history, the guard hook read as code |
