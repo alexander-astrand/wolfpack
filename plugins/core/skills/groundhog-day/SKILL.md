@@ -1,6 +1,6 @@
 ---
 name: groundhog-day
-description: The daily project note for Nestor's 08:00 brief - open PRs and their CI, yesterday's commits on main, the roadmap's next card, the weekly meter - written as plain facts to ~/pylos/inbox/<date>-<project>.md. Run by a scheduled task at 07:45 with this repo as cwd, or by hand.
+description: The daily project note for Nestor's 08:00 brief - open PRs and their CI, yesterday's commits on main, the roadmap's next card, the CI minutes flags, the weekly meter - written as plain facts to ~/pylos/inbox/<date>-<project>.md. Run by a scheduled task at 07:45 with this repo as cwd, or by hand.
 model: haiku
 effort: low
 ---
@@ -26,7 +26,7 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 ## Steps
 
-**Only what changed** (kit 1.8, F13: HutzUp's notes repeated "No commits on main yesterday" and "Not available: kit.json names no roadmap record" every day, noise the brief read each morning). Read yesterday's note (`~/pylos/inbox/<yesterday>-<project>.md`, the Read tool; none means every section is new). A section with nothing in it (no commits, no roadmap kept) is left out, and so is one whose lines match yesterday's note word for word (the same PRs with the same CI, the same next card). The meter is always written. A note left with only the meter says `No change since yesterday.` above it.
+**Only what changed** (kit 1.8, F13: HutzUp's notes repeated "No commits on main yesterday" and "Not available: kit.json names no roadmap record" every day, noise the brief read each morning). Read yesterday's note (`~/pylos/inbox/<yesterday>-<project>.md`, the Read tool; none means every section is new). A section with nothing in it (no commits, no roadmap kept, CI minutes on pace) is left out, and so is one whose lines match yesterday's note word for word (the same PRs with the same CI, the same next card); a flagged CI minutes line is the exception (step 5). The meter is always written. A note left with only the meter says `No change since yesterday.` above it.
 
 Times are Europe/Stockholm. `<date>` is today as `yyyy-mm-dd`, taken from your context, never from a shell command. A scheduled run is unattended: one plain command per call (no pipes, chained commands, heredocs or redirections), the Read, Glob and Grep tools for reading and the Write tool for the note (Pylos's routine rules: `~/pylos/.claude/skills/nestor`).
 
@@ -34,7 +34,8 @@ Times are Europe/Stockholm. `<date>` is today as `yyyy-mm-dd`, taken from your c
 2. **Yesterday on main:** `git fetch -q`, then `git log origin/main --since=yesterday.midnight --until=today.midnight --oneline`. Copy the lines as they are. None: no section.
 3. **Next on the roadmap:** the record `the-trail` names ("Which roadmap is the record", kit.json `roadmap`; lens Must 9, kit 1.5). `file`: Grep `<plans>roadmap.md` (`<plans>` is kit.json's `plans`) for its `## Next` heading and copy the row under it. `page`: ArtifactData `list` the `cards/*` rows and copy the lowest-`order` card whose `status` is `in-progress` or `planned` (`ver` and `title`). `none`, or kit.json naming no roadmap record at all: no section (never a "Not available" line; a project with no roadmap is not a failure). Never a project's `project_roadmap.md` memory, which only Hutzup has.
 4. **The meter:** `mcp__ccd_session_mgmt__get_usage` (week all models, week Fable, 5-hour, when the week resets). If the tool isn't there (scheduled runs may not have it), the section reads `Meter not available (no get_usage in this run)`. An old table is never shown as the current meter; if you do quote the newest row of the table under `## Baseline for I3` in `~/.claude/plans/legendary-2026-10-04.md`, give that row's date beside it.
-5. **Write** `~/pylos/inbox/<date>-<project>.md`, overwriting a note from earlier today. Shape (`~/pylos/routines/daily-note/TEMPLATE.md`):
+5. **CI minutes** (4 Nov 2026, the global rule "GitHub Actions minutes, a hard budget"): `node ${CLAUDE_PLUGIN_ROOT}/scripts/tier-readers.mjs minutes`, run in the repo (it reads this repo from `origin`; cached hourly, read-only). It prints one line: the month's private-repo minutes of the 2,000, this project's against its `ci.minutesBudget`, and the flags for the account and this project (`!` ahead of pace or past 50 %, `!!` past 70 %, 90 % or the project's budget). Copy it as it stands under `## CI minutes` whenever it carries a flag or says `not read`, even when yesterday's said the same: a flag stays in the brief until it clears. A line ending `on pace` is no section.
+6. **Write** `~/pylos/inbox/<date>-<project>.md`, overwriting a note from earlier today. Shape (`~/pylos/routines/daily-note/TEMPLATE.md`):
 
 ```
 # <Project>, <weekday> <d> <Month>
@@ -48,10 +49,13 @@ Times are Europe/Stockholm. `<date>` is today as `yyyy-mm-dd`, taken from your c
 ## Next on the roadmap
 2.14.6.2 New skills → 2.14.7 the kit
 
+## CI minutes
+CI minutes: 383 of 2,000 this month (19 %) · burrow 286 of its 700 · ! ahead of pace: 383 by day 4, the pace is 200 · ! burrow ahead of its pace: 286 of 700, the pace is 70
+
 ## Meter
 Week 37% (Fable 20%) · 5-hour 38% · resets Sat 10 Oct 12:00 · from get_usage at 07:45
 ```
 
-6. **If a step fails** (`gh` not signed in, no network; a project with no roadmap is not a failure, step 3), write the note anyway with that section reading `Not available: <the error, one line>`. A note with a gap is worth more to the brief than no note.
+7. **If a step fails** (`gh` not signed in, no network; a project with no roadmap is not a failure, step 3), write the note anyway with that section reading `Not available: <the error, one line>`. A note with a gap is worth more to the brief than no note.
 
 Report one line: the path written and any section that was unavailable.

@@ -8,6 +8,10 @@
 // are working against, github minutes for example".
 //
 //   node tier-readers.mjs [--spool <dir>]   every reading as JSON
+//   node tier-readers.mjs minutes [--repo <name>] [--spool <dir>]
+//                                           the month's CI minutes and their
+//                                           flags as one line, for this repo
+//                                           (cwd's origin) unless --repo names one
 //   node tier-readers.mjs supabase --spool <dir>
 //                                           the Supabase reading alone (dev-hq
 //                                           runs it as a child, so the token
@@ -19,7 +23,7 @@
 // here changes a plan or a project.
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -96,18 +100,123 @@ function readVercel() {
 // renamed) counts as private. `billed` is what the month's summary says is
 // owed so far.
 export function actionsMonth(days, visibility) {
-  const byRepo = {}
-  for (const items of Object.values(days)) for (const [repo, n] of Object.entries(items)) byRepo[repo] = (byRepo[repo] || 0) + n
+  const all = {}
+  for (const items of Object.values(days)) for (const [repo, n] of Object.entries(items)) all[repo] = (all[repo] || 0) + n
   let minutes = 0
   let open = 0
-  for (const [repo, n] of Object.entries(byRepo)) {
+  const byRepo = {}
+  for (const [repo, n] of Object.entries(all)) {
     if (visibility[repo] === 'public') open += n
-    else minutes += n
+    else {
+      minutes += n
+      byRepo[repo] = n
+    }
   }
-  const top = Object.entries(byRepo)
-    .filter(([repo]) => visibility[repo] !== 'public')
-    .sort((a, b) => b[1] - a[1])[0]
-  return { minutes, public: open, top: top ? { repo: top[0], minutes: top[1] } : null }
+  const top = Object.entries(byRepo).sort((a, b) => b[1] - a[1])[0]
+  return { minutes, public: open, top: top ? { repo: top[0], minutes: top[1] } : null, byRepo }
+}
+
+// --- GitHub Actions: the month's budget flags --------------------------------------------
+
+// Alexander, 4 Nov 2026: "We need to very strictly make sure we don't hit the
+// usage limit early like we did last month." October ran 2,246 of the 2,000
+// and every private repo's CI stopped until the 1st. The rule and the budgets:
+// ~/.claude/global/CLAUDE.md, Costs, "GitHub Actions minutes, a hard budget".
+export const FREE_MINUTES = 2000
+// Each project's monthly share, by kit.json's project.name; the project's own
+// kit.json `ci.minutesBudget` wins, and a repo with neither gets a new
+// project's 100 until its plan says more.
+export const BUDGETS = { burrow: 700, hejtide: 150, 'job-hunt': 150, svardsvik: 150, kastalia: 100, portfolio: 100, 'reel-helper': 100 }
+export const NEW_PROJECT_BUDGET = 100
+
+const whole = (n) => Math.round(n).toLocaleString('en-US')
+
+// The repo's name from a remote URL, as the billing report names it.
+export function repoName(url) {
+  const m = String(url ?? '').trim().match(/[/:]([^/:]+?)(?:\.git)?\/?$/)
+  return m ? m[1].toLowerCase() : null
+}
+
+// repo → { project, budget }, from each project's kit.json and its git remote
+// (a repo's name isn't always the project's: portfolio's is
+// alexander-astrand-portfolio). The first checkout of a repo wins.
+export function budgetsByRepo(kits) {
+  const out = {}
+  for (const { remote, kit } of kits) {
+    const repo = repoName(remote)
+    if (!repo || out[repo]) continue
+    const project = String(kit?.project?.name || repo).toLowerCase()
+    out[repo] = { project, budget: Number(kit?.ci?.minutesBudget) || BUDGETS[project] || BUDGETS[repo] || NEW_PROJECT_BUDGET }
+  }
+  return out
+}
+
+// Every project with a kit.json, in ~/Desktop and ~ (Kastalia, Pylos and the
+// kit live in ~).
+function readKits(home = homedir()) {
+  const kits = []
+  for (const base of [join(home, 'Desktop'), home]) {
+    let names = []
+    try {
+      names = readdirSync(base).sort()
+    } catch {
+      continue
+    }
+    for (const name of names) {
+      const dir = join(base, name)
+      const file = join(dir, '.claude', 'kit.json')
+      if (!existsSync(file)) continue
+      const r = spawnSync('git', ['-C', dir, 'config', '--get', 'remote.origin.url'], { encoding: 'utf8', timeout: 5_000 })
+      if (r.status === 0) kits.push({ remote: r.stdout, kit: readJson(file, {}) })
+    }
+  }
+  return kits
+}
+
+// The flags, most urgent first: 50 %, 70 % and 90 % of the 2,000 (at 70 %
+// only merges in flight get CI, at 90 % nothing more is pushed to a ready
+// PR), the month ahead of its pace (minutes above the share of the month
+// gone), and each project past its budget or ahead of its own pace. A
+// project's pace counts once it has used a tenth of its budget, so the 1st's
+// first run is no flag. `project` is set on a project's flags.
+export function actionsFlags({ minutes, byRepo = {} }, budgets, now, cap = FREE_MINUTES) {
+  const d = new Date(now)
+  const start = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)
+  const gone = (now - start) / (Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) - start)
+  const flags = []
+  const pct = (minutes / cap) * 100
+  const step = [90, 70, 50].find((p) => pct >= p)
+  const what = { 90: 'stop pushing to ready PRs', 70: 'CI only for merges in flight', 50: 'half the month gone in minutes' }
+  if (step) flags.push({ level: step >= 70 ? 'alert' : 'warn', text: `${Math.floor(pct)} % of the ${whole(cap)}: ${what[step]}` })
+  const pace = cap * gone
+  if (minutes > pace) flags.push({ level: 'warn', text: `ahead of pace: ${whole(minutes)} by day ${d.getUTCDate()}, the pace is ${whole(pace)}` })
+  for (const [repo, n] of Object.entries(byRepo).sort((a, b) => b[1] - a[1])) {
+    const { project, budget } = budgets?.[repo] ?? { project: repo, budget: NEW_PROJECT_BUDGET }
+    if (n > budget) flags.push({ level: 'alert', project, text: `${project} past its budget: ${whole(n)} of ${whole(budget)}` })
+    else if (n > budget * gone && n >= budget / 10) flags.push({ level: 'warn', project, text: `${project} ahead of its pace: ${whole(n)} of ${whole(budget)}, the pace is ${whole(budget * gone)}` })
+  }
+  return flags
+}
+
+// The reading with its flags, worked out on each read (the minutes are
+// cached hourly, the clock isn't).
+export function withFlags(reading, budgets, now) {
+  if (!reading || reading.need || reading.minutes == null) return reading
+  return { ...reading, budgets: budgets || {}, flags: actionsFlags(reading, budgets || {}, now) }
+}
+
+// One line for a project's daily note (groundhog-day): the month's minutes,
+// this repo's against its budget, and the flags for the whole account and for
+// this project; another project's flags are its own note's.
+export function minutesLine(reading, repo) {
+  if (!reading) return 'CI minutes: not read (gh gave no reading)'
+  if (reading.need) return `CI minutes: not read (needs ${reading.need})`
+  const own = repo ? reading.budgets?.[repo] : null
+  const used = repo ? reading.byRepo?.[repo] : null
+  const mine = own ? ` · ${own.project} ${whole(used || 0)} of its ${whole(own.budget)}` : used != null ? ` · ${repo} ${whole(used)}` : ''
+  const flags = (reading.flags || []).filter((f) => !f.project || f.project === own?.project || f.project === repo)
+  const head = `CI minutes: ${whole(reading.minutes)} of ${whole(FREE_MINUTES)} this month (${Math.floor((reading.minutes / FREE_MINUTES) * 100)} %)${mine}`
+  return flags.length ? `${head} · ${flags.map((f) => `${f.level === 'alert' ? '!!' : '!'} ${f.text}`).join(' · ')}` : `${head} · on pace`
 }
 
 function readActions(spool, now) {
@@ -268,8 +377,14 @@ export function readings(spool, now = Date.now()) {
     vercel: cached(spool, 'vercel', now, readVercel),
     supabase: cached(spool, 'supabase', now, () => readSupabaseChild(spool)),
     netlify: cached(spool, 'netlify', now, readNetlify),
-    'github actions': cached(spool, 'actions', now, () => readActions(spool, now)),
+    'github actions': actionsReading(spool, now),
   }
+}
+
+// The Actions reading with its budget flags; the budgets are read hourly too.
+export function actionsReading(spool, now = Date.now()) {
+  const reading = cached(spool, 'actions', now, () => readActions(spool, now))
+  return withFlags(reading, cached(spool, 'minute-budgets', now, () => budgetsByRepo(readKits())), now)
 }
 
 async function main(argv) {
@@ -277,6 +392,13 @@ async function main(argv) {
   const spool = i >= 0 ? argv[i + 1] : join(homedir(), '.local', 'state', 'burrow-dev', 'kit')
   if (argv[0] === 'supabase') {
     console.log(JSON.stringify(await readSupabase(spool)))
+    return
+  }
+  if (argv[0] === 'minutes') {
+    const r = argv.indexOf('--repo')
+    const origin = spawnSync('git', ['config', '--get', 'remote.origin.url'], { encoding: 'utf8', timeout: 5_000 })
+    const repo = r >= 0 ? String(argv[r + 1] ?? '').toLowerCase() : origin.status === 0 ? repoName(origin.stdout) : null
+    console.log(minutesLine(actionsReading(spool), repo))
     return
   }
   console.log(JSON.stringify(readings(spool), null, 2))

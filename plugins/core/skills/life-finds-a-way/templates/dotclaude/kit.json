@@ -8,7 +8,7 @@
   "production": "on-merge", <!-- on-merge -->
   "keychain": { "dev": "{{keychain.dev}}", "prod": "{{keychain.prod}}" },
   "backupRoot": "",
-  "ci": { "workflow": ".github/workflows/ci.yml", "jobs": ["Checks"] },
+  "ci": { "workflow": ".github/workflows/ci.yml", "jobs": ["Checks"], "minutesBudget": 100 },
   "reviewer": "{{reviewer}}",
   "pages": { "roadmap": "", "teamMap": "https://claude.ai/artifact/FYfMpboL4tv4bGYBTdPQEg", "commandDeck": "https://claude.ai/artifact/PVFEK3fFPJ2bhYxMDqbgjJ" },
   "conventions": "",
