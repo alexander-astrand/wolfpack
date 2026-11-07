@@ -16,6 +16,8 @@
 // --chart writes that timeline as a self-contained swimlane page for wrap-ups.
 // --budget-table prints the PR's budget table instead (agent, step, budget,
 // used, stopped by Hank), one row per spawn; with --json, the rows.
+// --ceiling <M> <session-id> prints one line: `OVER <used>` when the session
+// (its subagents included) has passed M million tokens, else the figure used.
 //
 // Nickname: Skyler (she keeps the books). Hank, the budget hook
 // (this plugin's hooks/budget-cap.mjs), imports the counting functions below, so an
@@ -303,7 +305,23 @@ export function tallyEntries(entries) {
 }
 
 export const totalTokens = (b) => b.inp + b.cc + b.cr + b.out
-const fmtM = (t) => `${(t / 1_000_000).toFixed(1)}M`
+export const fmtM = (t) => `${(t / 1_000_000).toFixed(1)}M`
+
+// Every token a session spent: its own transcript and its subagents', each
+// message counted once across the files (the same count as the Usage table).
+export function sessionTokens(files) {
+  const seen = new Set()
+  let tokens = 0
+  for (const file of files) for (const b of tallyEntries(readEntries(file, seen)).values()) tokens += totalTokens(b)
+  return tokens
+}
+
+// The ceiling read (kit 1.10, F1): `OVER <used>` past `millions`, else the
+// figure used. The kit 1.8 ceilings were sentences nobody read (council H2);
+// one line a skill's round prints, or the ceiling hook reads, is the check.
+export function ceilingLine(tokens, millions) {
+  return tokens > millions * 1_000_000 ? `OVER ${fmtM(tokens)}` : fmtM(tokens)
+}
 const fmtPct = (part, whole) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : '0%')
 const shortModel = (m) => (/(haiku|sonnet|opus|fable)/i.exec(m || '') || ['?'])[0].toLowerCase()
 // UTC with a Z, so a timeline reads the same wherever it's printed.
@@ -495,9 +513,10 @@ export function budgetTableMarkdown(rows) {
 }
 
 function parseArgs(argv) {
-  const opts = { commits: null, json: false, dir: null, timeline: false, chart: null, decisions: null, budgetTable: false, hankLog: null, sessionIds: [] }
+  const opts = { ceiling: null, commits: null, json: false, dir: null, timeline: false, chart: null, decisions: null, budgetTable: false, hankLog: null, sessionIds: [] }
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--budget-table') opts.budgetTable = true
+    if (argv[i] === '--ceiling') opts.ceiling = Number(argv[++i])
+    else if (argv[i] === '--budget-table') opts.budgetTable = true
     else if (argv[i] === '--hank-log') opts.hankLog = argv[++i]
     else if (argv[i] === '--commits') opts.commits = Number(argv[++i])
     else if (argv[i] === '--json') opts.json = true
@@ -615,15 +634,21 @@ export async function hankBudgets(projectRoot = process.cwd()) {
 }
 
 async function main() {
-  const { commits, json, dir, timeline: wantTimeline, chart, decisions, budgetTable, hankLog, sessionIds } = parseArgs(process.argv.slice(2))
-  if (sessionIds.length === 0) {
+  const { ceiling, commits, json, dir, timeline: wantTimeline, chart, decisions, budgetTable, hankLog, sessionIds } = parseArgs(process.argv.slice(2))
+  if (sessionIds.length === 0 || (ceiling !== null && !(ceiling > 0))) {
     console.error(
-      'Usage: node <release plugin>/scripts/usage.mjs [--commits N] [--json] [--timeline] [--chart out.html [--decisions file.md]] [--budget-table [--hank-log file]] <session-id> [<session-id>…]',
+      'Usage: node <release plugin>/scripts/usage.mjs [--ceiling <M>] [--commits N] [--json] [--timeline] [--chart out.html [--decisions file.md]] [--budget-table [--hank-log file]] <session-id> [<session-id>…]',
     )
     process.exit(1)
   }
 
   const baseDir = projectDir(dir)
+  if (ceiling !== null) {
+    // One line, so a skill's round can read it as its first call.
+    const { mainFile, subDir, subFiles } = resolveSession(baseDir, sessionIds[0])
+    console.log(ceilingLine(sessionTokens([mainFile, ...subFiles.map((f) => join(subDir, f))]), ceiling))
+    return
+  }
   if (budgetTable) {
     const rows = budgetRows(baseDir, sessionIds, { budgets: await hankBudgets(), hankLog })
     console.log(json ? JSON.stringify(rows, null, 2) : budgetTableMarkdown(rows))
