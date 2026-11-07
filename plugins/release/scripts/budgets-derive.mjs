@@ -31,7 +31,7 @@
 // any other run. Rate = fix rounds per step. PR bodies are not read: their
 // send-back notes are free text with no agent column to count by.
 
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -318,7 +318,7 @@ function main() {
   if (o.write && !o.json) console.log(`\nWrote ${writable(rows).length} budgets to ${join(o.project, '.claude', 'kit.json')}.`)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   try {
     main()
   } catch (err) {

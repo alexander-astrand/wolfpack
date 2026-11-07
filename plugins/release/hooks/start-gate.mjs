@@ -27,7 +27,7 @@
 // Fails open like Hank: any error of its own allows the call.
 
 import { execFile } from 'node:child_process'
-import { appendFileSync, closeSync, existsSync, fstatSync, openSync, readSync } from 'node:fs'
+import { appendFileSync, closeSync, existsSync, fstatSync, openSync, readSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -229,4 +229,4 @@ async function main() {
   )
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main()

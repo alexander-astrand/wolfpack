@@ -10,7 +10,7 @@
 // Usage: node council-speed.mjs [--dir <transcripts>] <session-id>…
 //        node council-speed.mjs [--dir <transcripts>] --since <YYYY-MM-DD>
 // Without --dir the transcripts are this project's (derived from the cwd).
-import { readdirSync, statSync } from 'node:fs'
+import { readdirSync, realpathSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { dropCounted, hhmm, projectDir, readEntries, resolveSession, sessionCommand, timelineRow } from './usage.mjs'
@@ -207,4 +207,4 @@ function main() {
   if (all.length > sessions.length) console.log(`\n${all.length - sessions.length} transcript(s) were only copies of an earlier one (same message ids) and are left out.`)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main()

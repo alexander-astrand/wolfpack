@@ -27,10 +27,22 @@ const SCRIPTS = [
   ['database/scripts/seed.mjs', [], ''],
   ['database/scripts/scope.mjs', [], ''],
   ['database/scripts/sync-ranjit.mjs', [], ''],
+  // A18: the `process.argv[1] ?? ''` form, moved to the standing form. Each of these prints
+  // a usage line or a result without writing a file (make-builders only checks without --write).
+  ['database/scripts/run-tests.mjs', ['--x'], ''],
+  ['release/scripts/make-builders.mjs', [], ''],
+  ['release/scripts/budgets-derive.mjs', ['--help'], ''],
+  ['release/scripts/council-facts.mjs', ['--help'], ''],
+  ['release/scripts/council-skills.mjs', ['--help'], ''],
+  ['release/scripts/council-speed.mjs', ['--help'], ''],
+  ['release/scripts/council-spawns.mjs', ['--help'], ''],
+  ['release/scripts/council-starts.mjs', ['--help'], ''],
+  ['release/scripts/meter-calibrate.mjs', ['--help'], ''],
 ]
 
-// Hooks read a payload on stdin; an empty one must exit 0.
-const HOOKS = ['release/hooks/ask-to-start.mjs']
+// Hooks read a payload on stdin; an empty one must exit 0. start-gate and budget-cap print
+// nothing for an empty payload, so for them this only proves the file loads and exits cleanly.
+const HOOKS = ['release/hooks/ask-to-start.mjs', 'release/hooks/start-gate.mjs', 'release/hooks/budget-cap.mjs']
 
 // These two exit 0 on an empty payload, which a skipped main does too, so each gets
 // args that only a running main answers with a non-zero exit and a known message.

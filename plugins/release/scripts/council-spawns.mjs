@@ -6,7 +6,7 @@
 // A call with no `model` runs on the agent file's frontmatter model.
 //
 // Usage: node council-spawns.mjs --since <YYYY-MM-DD> [--dir <transcripts>]…
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { projectDir, readEntries } from './usage.mjs'
@@ -109,4 +109,4 @@ function main() {
   console.log(spawnsTable(spawnTally(dirs.length ? dirs : [projectDir(null)], from)))
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main()

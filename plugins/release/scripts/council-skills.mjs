@@ -13,7 +13,7 @@
 // path, its lessons and permission log in its .claude/); none means the cwd.
 // --transcripts: the folder of per-project transcript folders (~/.claude/projects).
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -562,4 +562,4 @@ function main() {
   console.log(`${r.skills.length} skills, ${r.agents.length} agents, ${r.sessionsRead} sessions, ${r.subRead} agent runs -> ${o.out}`)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main()

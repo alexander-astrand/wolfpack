@@ -20,7 +20,7 @@
 // --project: one per project to read; none means the cwd. --retired: skill or
 // agent names that no longer exist, listed wherever a kit file still cites them.
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -348,4 +348,4 @@ function main() {
   console.log(`Wrote ${o.out} (${facts.split('\n').length} lines) and skills-cards.md beside it.`)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main()

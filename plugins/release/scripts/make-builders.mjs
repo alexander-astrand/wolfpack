@@ -6,7 +6,7 @@
 //
 // Usage: node <release plugin>/scripts/make-builders.mjs [--check]
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -37,7 +37,7 @@ export function sync({ write = false, dir = root } = {}) {
   return stale
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   const check = process.argv.includes('--check')
   const stale = sync({ write: !check })
   if (check && stale.length) {
