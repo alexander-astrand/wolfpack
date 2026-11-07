@@ -41,7 +41,7 @@ Don't build it, and don't touch the open release's branch. **Never write the che
 
    **With kit.json `roadmap: file`:** first add the idea to `<plans>roadmap.md` in place, one line under its release, "Later" or "Parked" heading (ending "(Alexander, 4 Oct)" or whoever asked), in the shape of its neighbours. Then, when kit.json `pages.roadmap` is set, the same idea goes on that page now: a data page as the rows below, a static page (`pages.roadmapSource` set) by editing its source and republishing to the same URL (`the-trail`, "A static page"). No `pages.roadmap`: the file alone.
 
-   **On a data page** (the record with `roadmap: page`, or the page beside the file), **write one row** (ArtifactData, the rows and fields are in the `the-trail` skill), never a republish:
+   **On a data page** (the record with `roadmap: page`, or the page beside the file), **write one row** (ArtifactData, the rows and fields are in the `the-trail` skill), never a republish, each write pinned with `if_version` set to the `version` the `get` showed (`the-trail`, "Pin every write"):
    - **onto a release:** `get` `cards/<anchor>`, add one `<li>` to its "What's in it" list in `body_html` (ending "(Alexander, 4 Oct)" or whoever asked), `update` `body_html` and `updated_at`;
    - **a new release card:** one `set` `cards/<new-anchor>` with `order` between its neighbours;
    - **parked or an open question:** `get` `sections/parked` (or `sections/open-questions`), add one `.parked-item` (or `.question`) block in the same shape as its neighbours, `update` `body_html` and `updated_at`.

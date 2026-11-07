@@ -60,6 +60,7 @@ With `roadmap: page` the page is the record and the table changes nothing. A mem
 - `updated_at` is an ISO time; set it on every write.
 
 ## Steps (ArtifactData, on the page's id)
+**Pin every write:** `ArtifactData` refuses an `update`, `set` over an existing row or `str_replace` without `if_version`. Pass the `version` the `get` just showed (a `batch` item carries its own); on a version refusal, `get` again and redo the edit on the fresh copy, once.
 1. **Change a status:** `get` `cards/<anchor>` (to see the badge's PR number), then `update` `cards/<anchor>` with `status`, `badge` and `updated_at`. No full read, no republish.
 2. **Add a card:** `get` the two neighbours' `order`, then `set` `cards/<new-anchor>` with every field above (`order` = the midpoint). Copy a neighbour's shape for `body_html` (`<h4>What's in it</h4><ul><li>…</li></ul>`, notes as `<p class="note">`, facts as `<div class="tech">`).
 3. **Edit a card's text:** `get` it, change the one field in your copy, `update` only that field (`body_html` is replaced whole, so start from the text you just read).
