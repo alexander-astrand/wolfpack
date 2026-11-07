@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
@@ -6,10 +7,16 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   CLOSE_ASK,
   CLOSE_ASK_PLAYBOOK,
+  SHELL_SHAPE,
   agentsIn,
   budgetFor,
+  checkCommand,
   compose,
+  conventionsSection,
   dbNames,
+  lanePort,
+  laneSeeds,
+  readmeAnchor,
   designRoute,
   factsFor,
   filesIn,
@@ -327,5 +334,74 @@ describe('arguments', () => {
     expect(parseArgs(['--plan', 'p.md', '--step', 'B4', '--json'])).toMatchObject({ plan: 'p.md', step: 'B4', json: true })
     expect(parseArgs(['--plan', 'p.md', '--step', 'D3', '--dry'])).toMatchObject({ dry: true })
     expect(parseArgs(['--nope']).error).toMatch(/unknown/)
+    expect(parseArgs(['--plan', 'p.md', '--step', 'B4', '--lane', '/x/a'])).toMatchObject({ lane: '/x/a' })
+    expect(parseArgs(['--plan', 'p.md', '--step', 'B4', '--lane']).error).toMatch(/--lane needs a path/)
+  })
+})
+
+describe('the lane block (F3, M3)', () => {
+  let lane
+  const w = (p, s) => {
+    mkdirSync(dirname(join(lane, p)), { recursive: true })
+    writeFileSync(join(lane, p), s)
+  }
+  beforeAll(() => {
+    lane = mkdtempSync(join(tmpdir(), 'compose-lane-'))
+    w('package.json', JSON.stringify({ scripts: { check: 'sh scripts/check.sh', test: 'vitest run' } }))
+    w('.claude/kit.json', JSON.stringify({ project: { devPort: 5180 } }))
+    w('.claude/standing-facts.md', '# Standing facts\n')
+    w('CLAUDE.md', '# Proj\n\n## Stack\n\nx\n\n## Code conventions\n\n- one\n')
+    w('README.md', '# Proj\n\n## Install\n\nnpm i\n\n## Places & trips\n\n`lib/places.ts` finds places.\n')
+    w('scripts/qa/seeds/lane-trips.up.sql', "insert into t (label) values ('TEST QA seed {{LANE}}');\n")
+    w('scripts/qa/seeds/lane-trips.down.sql', "delete from t where label = 'TEST QA seed {{LANE}}';\n")
+    w('scripts/qa/seeds/shared.up.sql', "insert into t (label) values ('TEST QA seed gale:shared');\n")
+    w('scripts/qa/shot.mjs', '// shot\n')
+    w('lib/places.ts', 'export const x = 1\n')
+  })
+  afterAll(() => rmSync(lane, { recursive: true, force: true }))
+
+  it('prefers run check, then test, never --workdir', () => {
+    expect(checkCommand(lane)).toBe(`npm --prefix ${lane} run check`)
+    const kit = mkdtempSync(join(tmpdir(), 'compose-kit-'))
+    writeFileSync(join(kit, 'package.json'), JSON.stringify({ scripts: { test: 'vitest run' } }))
+    expect(checkCommand(kit)).toBe(`npm --prefix ${kit} test`)
+    rmSync(join(kit, 'package.json'))
+    expect(checkCommand(kit)).toBeNull()
+    rmSync(kit, { recursive: true, force: true })
+  })
+
+  it('finds the port, the lane seeds, the README section and the conventions heading', () => {
+    expect(lanePort(lane, { project: { devPort: 5180 } })).toEqual({ port: 5180, from: 'kit.json project.devPort' })
+    expect(laneSeeds(lane)).toEqual(['lane-trips'])
+    expect(readmeAnchor(lane, ['lib/places.ts:67'])).toEqual({ heading: 'Places & trips', anchor: 'README.md#places--trips' })
+    expect(conventionsSection(lane)).toEqual({ path: join(lane, 'CLAUDE.md'), heading: '## Code conventions' })
+  })
+
+  it('takes the port from lane.mjs registry when the lane is registered', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'compose-reg-'))
+    execFileSync('git', ['init', '-q', repo])
+    const common = execFileSync('git', ['-C', repo, 'rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8' }).trim()
+    writeFileSync(join(common, 'wolfpack-lanes.json'), JSON.stringify({ a: { path: repo, port: 5191 } }))
+    expect(lanePort(repo, { project: { devPort: 5180 } })).toEqual({ port: 5191, from: 'lane.mjs registry' })
+    rmSync(repo, { recursive: true, force: true })
+  })
+
+  it('prints the block in the order, with the shell shape after it', () => {
+    const o = compose({ planText: PLAN, stepId: 'O1', root: lane, lane, budgets })
+    const text = render(o)
+    expect(o.lane_block.seeds[0].up).toMatch(new RegExp(`qa-seed\\.mjs up lane-trips --lane ${basename(lane)} --root ${lane}$`))
+    expect(text).toMatch('Lane block:')
+    expect(text).toMatch(`- Check: npm --prefix ${lane} run check`)
+    expect(text).toMatch('- Dev port: 5180 (kit.json project.devPort)')
+    expect(text).toMatch(`scripts/qa/shot.mjs <page> --base http://localhost:5180 --width 375|1024`)
+    expect(text).toMatch('README.md#places--trips ("Places & trips")')
+    expect(text).toMatch(`section "## Code conventions"`)
+    expect(text).toMatch(join(lane, '.claude', 'standing-facts.md'))
+    expect(text.indexOf('Lane block:')).toBeLessThan(text.indexOf(SHELL_SHAPE))
+    expect(SHELL_SHAPE).toMatch(/never `--workdir`/)
+  })
+
+  it('leaves the block out without --lane', () => {
+    expect(render(compose({ planText: PLAN, stepId: 'O1', root: lane, budgets }))).not.toMatch('Lane block:')
   })
 })

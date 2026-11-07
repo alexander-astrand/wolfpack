@@ -4,7 +4,11 @@
 // budgets file and the routing rules, so the navigator writes only the half
 // that needs judgment (the why, the taste lines, the shared parts).
 //
-// Usage: node compose-order.mjs --plan <plan file> --step <id> [--project <dir>] [--json] [--dry]
+// Usage: node compose-order.mjs --plan <plan file> --step <id> [--project <dir>] [--lane <path>] [--json] [--dry]
+//   --lane   adds the lane block (kit 1.10, F3): lane path, the check line
+//            (`npm --prefix <lane> run check`, or `test`), dev port, the lane's
+//            seed, the shot.mjs flags, the README anchor, the CLAUDE.md
+//            conventions section and standing-facts.md by path
 //   prints   one block: agent, model, effort, the `[budget NM]` tag (never
 //            absent), mode, the step, for a mosbius-designs step the dealt
 //            directions (design/scripts/deal.mjs, logged as the deal of record
@@ -32,6 +36,7 @@
 // Check). kit.json `budgets` win over budgets.json, as for Hank; kit.json
 // `database.{test,apply,schema,types}` win over the guessed lane commands.
 
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -73,8 +78,10 @@ export const DESIGN_STOP = '12M'
 // sets it from the first runs. budgets.json byModel.mosbius-designs.sonnet wins.
 export const SCRIPTED_DEFAULT = '4M'
 
-export const SHELL_LINE =
-  'Shell: zsh, so spell every path out one per line (a `$P` list is not split); one command per Bash call, `git -C <repo>` with absolute paths, no `cd <dir> &&`, no `VAR=value` prefix; edit tracked files with Edit or Write, never a heredoc or `node -e`; scratch files by absolute path; never run a command that does not exit on its own; a refused call is never retried in another spelling. A shell line naming `prod-db.sh`, `full-auto.sh`, a plugin\'s `hooks/` folder, or writing `${...}`, is refused: use Read, Grep or Edit for those. Commit path-scoped: `git -C <repo> commit -F <msg file> -- <paths>`.'
+// The shell shape, the one copy: skills and agents point here instead of carrying their own
+// (kit 1.9 council F3 and M3; captain-call's order section names `SHELL_SHAPE`).
+export const SHELL_SHAPE =
+  'Shell: zsh, so spell every path out one per line (a `$P` list is not split); one command per Bash call, `git -C <repo>` with absolute paths, no `cd <dir> &&`, no `VAR=value` prefix; checks run as `npm --prefix <lane> ...`, never `--workdir`; edit tracked files with Edit or Write, never a heredoc, `sed -i` or `node -e`; scratch files by absolute path; never run a command that does not exit on its own; a refused call is never retried in another spelling. A shell line naming `prod-db.sh`, `full-auto.sh`, a plugin\'s `hooks/` folder, or writing `${...}`, is refused: use Read, Grep or Edit for those. Commit path-scoped: `git -C <repo> commit -F <msg file> -- <paths>`.'
 
 export const CLOSE_ASK = 'End with "Cheaper next time:" as the report\'s last line.'
 export const CLOSE_ASK_PLAYBOOK = 'Put "Cheaper next time:" as the report\'s first field, or "Cheaper next time: none".'
@@ -449,9 +456,122 @@ export function docsNaming(root, name, all) {
     })
 }
 
+// ---------------------------------------------------------------- the lane block (--lane)
+//
+// Kit 1.9 council F3 and M3: a builder spent turns finding its lane's port, seeding by hand
+// and running check.sh in the wrong tree (≈ 25 of 87 cheaper lines), and with omitClaudeMd
+// (call 3) it no longer sees the project's CLAUDE.md, so the order names the conventions
+// section and standing-facts.md by path.
+
+/** The lane's check command: `npm --prefix <lane> run check`, else its `test` script; never `--workdir` (M3). */
+export function checkCommand(lane) {
+  const scripts = readJson(join(lane, 'package.json'))?.scripts ?? {}
+  if (scripts.check) return `npm --prefix ${lane} run check`
+  if (scripts.test) return `npm --prefix ${lane} test`
+  return null
+}
+
+/** The lane's own port from lane.mjs's registry (<git common dir>/wolfpack-lanes.json), else kit.json project.devPort. */
+export function lanePort(lane, kit = {}) {
+  try {
+    const common = execFileSync('git', ['-C', lane, 'rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    const reg = readJson(join(common, 'wolfpack-lanes.json')) ?? {}
+    const mine = Object.values(reg).find((l) => l?.path && resolve(l.path) === resolve(lane))
+    if (mine?.port) return { port: Number(mine.port), from: 'lane.mjs registry' }
+  } catch {}
+  const p = Number(kit?.project?.devPort)
+  return p ? { port: p, from: 'kit.json project.devPort' } : null
+}
+
+/** Lane seeds: scripts/qa/seeds/<name>.up.sql files whose SQL carries {{LANE}} (qa-seed.mjs fills it with the lane name). */
+export function laneSeeds(lane) {
+  const dir = join(lane, 'scripts', 'qa', 'seeds')
+  if (!existsSync(dir)) return []
+  return readdirSync(dir)
+    .filter((f) => f.endsWith('.up.sql') && readFileSync(join(dir, f), 'utf8').includes('{{LANE}}'))
+    .map((f) => f.slice(0, -'.up.sql'.length))
+    .sort()
+}
+
+/** GitHub's heading anchor: lower case, punctuation dropped, spaces to dashes. */
+export const slug = (h) => h.trim().toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, '').replace(/\s/g, '-')
+
+/** The README section a step updates: the `##`/`###` heading whose section names most of the step's files (by base name). */
+export function readmeAnchor(lane, files = []) {
+  const file = join(lane, 'README.md')
+  if (!existsSync(file)) return null
+  const lines = readFileSync(file, 'utf8').split('\n')
+  const sections = []
+  for (const l of lines) {
+    const m = l.match(/^(#{2,3})\s+(.+?)\s*$/)
+    if (m) sections.push({ heading: m[2], text: '' })
+    else if (sections.length) sections.at(-1).text += `${l}\n`
+  }
+  if (!sections.length) return null
+  const names = [...new Set(files.map((f) => basename(barePath(f))).filter(Boolean))]
+  let best = null
+  let score = 0
+  for (const s of sections) {
+    const n = names.filter((x) => s.text.includes(x)).length
+    if (n > score) [best, score] = [s, n]
+  }
+  return best ? { heading: best.heading, anchor: `README.md#${slug(best.heading)}` } : { heading: null, anchor: 'README.md (no section names the step\'s files: pick the closest)' }
+}
+
+/** The project CLAUDE.md's conventions heading, by name and path (the builders run with omitClaudeMd). */
+export function conventionsSection(lane) {
+  for (const rel of ['CLAUDE.md', join('.claude', 'CLAUDE.md')]) {
+    const file = join(lane, rel)
+    if (!existsSync(file)) continue
+    const h = readFileSync(file, 'utf8').split('\n').find((l) => /^#{1,4}\s+.*conventions?\b/i.test(l))
+    if (h) return { path: file, heading: h.trim() }
+  }
+  return null
+}
+
+/** The lane block: everything a builder used to find by hand in its first turns. */
+export function laneBlock(laneArg, { root = laneArg, files = [], step = '<step>' } = {}) {
+  const lane = resolve(laneArg)
+  const kit = readJson(join(lane, '.claude', 'kit.json')) ?? readJson(join(root, '.claude', 'kit.json')) ?? {}
+  const port = lanePort(lane, kit)
+  const design = resolve(HERE, '../../design')
+  const shotScript = join(lane, 'scripts', 'qa', 'shot.mjs')
+  let shot
+  if (existsSync(shotScript) && port) shot = `node ${shotScript} <page> --base http://localhost:${port.port} --width 375|1024 [--theme dark] --out <scratch>/${step}-<width>-<theme>.png`
+  else if (existsSync(shotScript)) shot = `node ${shotScript} <page> --base http://localhost:<port> --width 375|1024 --out <scratch>/${step}-<width>-<theme>.png (no port known: set kit.json project.devPort)`
+  else if (port) shot = `no scripts/qa/shot.mjs in the project: one shot in the pane on http://localhost:${port.port}, saved with ${design}/scripts/qa/save-shot.mjs`
+  else shot = 'no dev server (no project.devPort): no shots'
+  const facts = join(lane, '.claude', 'standing-facts.md')
+  return {
+    path: lane,
+    name: basename(lane),
+    check: checkCommand(lane),
+    port,
+    seeds: laneSeeds(lane).map((s) => ({ name: s, up: `node ${design}/scripts/qa-seed.mjs up ${s} --lane ${basename(lane)} --root ${lane}` })),
+    shot,
+    readme: readmeAnchor(lane, files),
+    conventions: conventionsSection(lane),
+    facts: existsSync(facts) ? facts : null,
+  }
+}
+
+/** The lane block as order lines. */
+export function renderLane(b) {
+  const L = ['Lane block:', `- Lane: ${b.path} (work, test and commit here only)`]
+  L.push(`- Check: ${b.check ?? '(no check or test script in package.json: ask the navigator)'}; report its first failure or "pass"`)
+  L.push(`- Dev port: ${b.port ? `${b.port.port} (${b.port.from})` : 'none (no project.devPort)'}`)
+  if (b.seeds.length) for (const s of b.seeds) L.push(`- Seed ${s.name}: \`${s.up}\` (down the same with \`down\`)`)
+  else L.push('- Seed: none (no scripts/qa/seeds/*.up.sql carries {{LANE}})')
+  L.push(`- Shots: ${b.shot}`)
+  L.push(`- README: ${b.readme ? (b.readme.heading ? `${b.readme.anchor} ("${b.readme.heading}")` : b.readme.anchor) : 'no README.md'}`)
+  L.push(`- Conventions: ${b.conventions ? `${b.conventions.path}, section "${b.conventions.heading}" (read that section only)` : 'no conventions heading in CLAUDE.md'}`)
+  L.push(`- Standing facts: ${b.facts ?? 'none yet (.claude/standing-facts.md)'}`)
+  return L
+}
+
 // ---------------------------------------------------------------- composing
 
-const readJson = (p) => {
+function readJson(p) {
   try {
     return JSON.parse(readFileSync(p, 'utf8'))
   } catch {
@@ -479,7 +599,7 @@ export function dealFor(root, mode, { log = false, args = [] } = {}) {
  * The order for one step, as data. Paths are passed in, so tests never touch the real ~/.claude.
  * `deal` goes to dealFor: `{ log, args }` (args carry deal.mjs's --library and --log-dir in tests).
  */
-export function compose({ planText, stepId, root, budgets = readJson(join(HERE, '..', 'budgets.json')) ?? {}, deal = {} }) {
+export function compose({ planText, stepId, root, lane = null, budgets = readJson(join(HERE, '..', 'budgets.json')) ?? {}, deal = {} }) {
   const row = findStep(planText, stepId)
   if (!row) return { error: `no row for step ${stepId} in the plan's tables` }
   const kit = readJson(join(root, '.claude', 'kit.json')) ?? {}
@@ -545,7 +665,7 @@ export function compose({ planText, stepId, root, budgets = readJson(join(HERE, 
     tests: found.length ? testsReading(root, found.map(barePath), all) : [],
     facts: factsText ? factsFor(factsText, stepText, planFiles) : null,
     rules: planRulesFor(planText, row, planFiles),
-    shell: SHELL_LINE,
+    shell: SHELL_SHAPE,
     close: agent === 'the-playbook' ? CLOSE_ASK_PLAYBOOK : CLOSE_ASK,
     notes,
   }
@@ -556,6 +676,10 @@ export function compose({ planText, stepId, root, budgets = readJson(join(HERE, 
   }
   for (const r of order.rules) if (!r.check) notes.push(`plan rule with no check: "${r.rule}"; add the grep or shot that proves it before the spawn`)
   if (!factsText) notes.push('no .claude/standing-facts.md yet: the first preflight copies the release plugin\'s templates/standing-facts.md')
+  if (lane) {
+    order.lane_block = laneBlock(lane, { root, files: planFiles, step: row.step })
+    if (!order.lane_block.conventions) notes.push('the lane has no CLAUDE.md conventions heading: a builder with omitClaudeMd sees no conventions, so name them in the order')
+  }
 
   if (agent === 'the-playbook') {
     const cmd = laneCommands(root, kit)
@@ -604,6 +728,7 @@ export function render(o) {
     }
     if (!b.names.length) L.push('- (no table or function named in the row; run scope.mjs per name the step touches)')
   }
+  if (o.lane_block) L.push('', ...renderLane(o.lane_block))
   L.push('', o.shell, '', o.close)
   if (o.notes.length) L.push('', 'Composer notes (for the navigator, not the order):', ...o.notes.map((n) => `- ${n}`))
   return L.join('\n')
@@ -615,10 +740,11 @@ export function parseArgs(argv) {
     const k = argv[i]
     if (k === '--json') a.json = true
     else if (k === '--dry') a.dry = true
-    else if (k === '--plan' || k === '--step' || k === '--project') a[k.slice(2)] = argv[++i]
+    else if (k === '--plan' || k === '--step' || k === '--project' || k === '--lane') a[k.slice(2)] = argv[++i]
     else return { error: `unknown argument ${k}` }
   }
-  if (!a.plan || !a.step) return { error: 'usage: node compose-order.mjs --plan <plan file> --step <id> [--project <dir>] [--json] [--dry]' }
+  if (!a.plan || !a.step) return { error: 'usage: node compose-order.mjs --plan <plan file> --step <id> [--project <dir>] [--lane <path>] [--json] [--dry]' }
+  if ('lane' in a && !a.lane) return { error: '--lane needs a path' }
   return a
 }
 
@@ -633,7 +759,11 @@ function main() {
     process.exit(2)
   }
   const root = resolve(a.project ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd())
-  const o = compose({ planText: readFileSync(a.plan, 'utf8'), stepId: a.step, root, deal: { log: !a.dry } })
+  if (a.lane && !existsSync(a.lane)) {
+    console.error(`no lane at ${a.lane}`)
+    process.exit(2)
+  }
+  const o = compose({ planText: readFileSync(a.plan, 'utf8'), stepId: a.step, root, lane: a.lane ? resolve(a.lane) : null, deal: { log: !a.dry } })
   if (o.error) {
     console.error(o.error)
     process.exit(2)
