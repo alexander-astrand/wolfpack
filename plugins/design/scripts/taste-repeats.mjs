@@ -15,6 +15,12 @@
 //   +1  it is in the project's file, the more specific of the two
 // A rule needs a tag or a repeat word to count. Prints the top three (or --top n) as file:line, the
 // score's reasons and the rule, so tomas-svensson and the builders check those first. Exit 0 always.
+//
+//   node <design>/scripts/taste-repeats.mjs --file <new file> [--top <n>] [--kit ...] [--project ...]
+//
+// Instead of pages, scores a new file's lines (a rule about to be added) against the existing rule
+// lines: a line sharing three or more meaningful words and 40% of its words with a rule prints as
+// `line N repeats <file>:<line>`, so the repeat check is one command (kit 1.10, PR 54).
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -89,11 +95,48 @@ export function format(hits) {
   return hits.map((h, i) => `${i + 1}. ${h.at} (${h.score}: ${h.reasons.join('; ')})\n   ${h.rule.length > 220 ? `${h.rule.slice(0, 220)}...` : h.rule}`).join('\n')
 }
 
+// --file: a new file's lines (a rule about to be added, a brief) against the rules already in the
+// taste files. A line that shares most of its meaningful words with an existing rule is a repeat of it
+// (heisenberg's rule line, PR 54: "one command"). Words of four letters or more, common ones dropped;
+// a pair counts at three shared words and a Jaccard of 0.4 or more.
+const STOP = new Set('that this with from have when then than they them their there which would should could about into only also does done each must never always every where what your will been being were just more most some such these those over under after before while'.split(' '))
+const words = (s) => new Set((s.toLowerCase().match(/[a-z][a-z-]{3,}/g) ?? []).filter((w) => !STOP.has(w)))
+
+export function similar(files, text, { top = 3, minShared = 3, minJaccard = 0.4 } = {}) {
+  const rules = []
+  for (const { path, text: t, project } of files) {
+    for (const [i, line] of t.split('\n').entries()) {
+      if (/^\s*- /.test(line)) rules.push({ at: `${path}:${i + 1}`, rule: line.replace(/^\s*- /, '').trim(), w: words(line), project })
+    }
+  }
+  const out = []
+  for (const [i, line] of text.split('\n').entries()) {
+    const w = words(line)
+    if (w.size < minShared) continue
+    const best = rules
+      .map((r) => {
+        const shared = [...w].filter((x) => r.w.has(x))
+        return { r, shared, j: shared.length / (w.size + r.w.size - shared.length) }
+      })
+      .filter((m) => m.shared.length >= minShared && m.j >= minJaccard)
+      .sort((a, b) => b.j - a.j)[0]
+    if (best) out.push({ line: i + 1, text: line.replace(/^\s*- /, '').trim(), at: best.r.at, rule: best.r.rule, shared: best.shared, j: best.j })
+  }
+  return out.sort((a, b) => b.j - a.j).slice(0, top)
+}
+
+export function formatSimilar(hits) {
+  if (!hits.length) return 'No line of the file repeats a taste rule.'
+  const cut = (s) => (s.length > 160 ? `${s.slice(0, 160)}...` : s)
+  return hits.map((h, i) => `${i + 1}. line ${h.line} repeats ${h.at} (${h.shared.length} shared words: ${h.shared.join(', ')})\n   new: ${cut(h.text)}\n   old: ${cut(h.rule)}`).join('\n')
+}
+
 export function parseArgs(argv, cwd = process.cwd()) {
   const o = { pages: [], top: 3, kit: resolve(here, '..', 'taste.md'), project: join(cwd, '.claude', 'taste.md') }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '--top') o.top = Number(argv[++i])
+    if (a === '--file') o.file = resolve(argv[++i] ?? '')
+    else if (a === '--top') o.top = Number(argv[++i])
     else if (a === '--kit') o.kit = resolve(argv[++i])
     else if (a === '--project') o.project = resolve(argv[++i])
     else if (a === '--help' || a === '-h') o.help = true
@@ -107,6 +150,7 @@ export function parseArgs(argv, cwd = process.cwd()) {
 export function run(o) {
   const files = []
   for (const [path, project] of [[o.kit, false], [o.project, true]]) if (existsSync(path)) files.push({ path, text: readFileSync(path, 'utf8'), project })
+  if (o.file) return formatSimilar(similar(files, readFileSync(o.file, 'utf8'), { top: o.top }))
   return format(repeats(files, o.pages, o.top))
 }
 
@@ -118,8 +162,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
     console.error(e.message)
     process.exit(2)
   }
-  if (o.help || !o.pages.length) {
-    console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 17).join('\n'))
+  if (o.file && !existsSync(o.file)) {
+    console.error(`no such file: ${o.file}`)
+    process.exit(2)
+  }
+  if (o.help || (!o.pages.length && !o.file)) {
+    console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 23).join('\n'))
     process.exit(o.help ? 0 : 2)
   }
   console.log(run(o))
