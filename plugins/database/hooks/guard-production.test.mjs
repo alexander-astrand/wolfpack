@@ -969,11 +969,13 @@ describe('full auto: the marker', () => {
 describe('known gaps', () => {
   // Round 3 closed five rows (a name and arm built at run time, the copy run
   // with arm, `gh $G view`, git config on disk and GIT_CONFIG_*): they are
-  // tests under "round 3" below.
+  // tests under "round 3" below. Kit 1.10 (H4) closed a sixth: a literal
+  // `F=full-auto.json; … .claude/$F` is read with its value put in, so it is refused.
   const rows = [
     ['Write', '/r/scripts/fa.sh', 'pass', 'a copy of the arm script written by an editor: file content isn\'t followed'],
     ['Bash', 'scripts/fa.sh $A 2.12.2', 'pass', 'that copy, run with arm built at run time (spelled out, arm is refused anywhere since round 3)'],
-    ['Bash', 'F=full-auto.json; echo {} > .claude/$F', 'pass', 'a marker path built at run time; a forged marker still has to match the PR and its list'],
+    ['Bash', 'F=$(printf full-auto.json); echo {} > .claude/$F', 'pass', 'a marker path built at run time; a forged marker still has to match the PR and its list'],
+    ['Bash', 'F=full-auto.json; echo {} > .claude/$F', 'deny', 'closed in kit 1.10 (H4): a literal value is put in before the rules read the call'],
   ]
   it.each(rows)('%s %s → %s (%s)', (tool, input, want) => {
     expect(run(tool, tool === 'Bash' ? { command: input } : { file_path: input, content: '#!/bin/sh\n' })).toBe(want)
