@@ -25,6 +25,7 @@ const SCRIPTS = [
   // database (P4(a)): no args reaches each one's usage path, never a database or the network.
   ['database/hooks/deploy.mjs', [], ''],
   ['database/scripts/seed.mjs', [], ''],
+  ['database/scripts/chain-cover.mjs', [], ''],
   ['database/scripts/scope.mjs', [], ''],
   ['database/scripts/sync-ranjit.mjs', [], ''],
   // A18: the `process.argv[1] ?? ''` form, moved to the standing form. Each of these prints
@@ -72,10 +73,8 @@ const REFUSING_HOOKS = ['database/hooks/chain-arm.mjs', 'database/hooks/producti
 const run = (link, args, input) => spawnSync('node', [link, ...args], { encoding: 'utf8', input, timeout: 20000, env: { ...process.env, HOME: mkdtempSync(join(tmpdir(), 'guard-home-')) } })
 
 // R1 S5: a new script with the weak form slipped past the list above, so scan for it too.
-// Allowed, with why: chain-cover.mjs is a frozen file (the production guard refuses a
-// builder's edit), so its guard waits for a session that may change frozen files; drop
-// the entry when it moves to the standing form and add it to SCRIPTS.
-const WEAK_ALLOWED = ['database/scripts/chain-cover.mjs']
+// None allowed: chain-cover.mjs, the last one, moved at the kit-1.10 wrap (7 Nov 2026).
+const WEAK_ALLOWED = []
 describe('no script keeps the weak main guard', () => {
   it('no plugins/**/*.mjs uses pathToFileURL(process.argv[1] ?? ...)', () => {
     const weak = readdirSync(PLUGINS, { recursive: true })
