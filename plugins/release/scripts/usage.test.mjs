@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { budgetRows, budgetTableMarkdown, ceilingLine, sessionTokens, stepOf, stoppedInLog, stoppedInTranscript, countCalls, hhmm, projectFolderName, readEntries, resolveLocalId, resolveSession, sessionCommand, tallyEntries, tokensPerPoint, totalTokens, transcriptDirs } from './usage.mjs'
+import { budgetRows, budgetTableMarkdown, ceilingLine, sessionTokens, tokensSinceGo, stepOf, stoppedInLog, stoppedInTranscript, countCalls, hhmm, projectFolderName, readEntries, resolveLocalId, resolveSession, sessionCommand, tallyEntries, tokensPerPoint, totalTokens, transcriptDirs } from './usage.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
 const line = (id, block) => ({
@@ -239,5 +239,53 @@ describe('--ceiling (kit 1.10, F1)', () => {
   it('the script prints one line, OVER or the figure', () => {
     expect(run('3')).toBe('OVER 3.6M')
     expect(run('4')).toBe('3.6M')
+  })
+})
+
+describe('--since (kit 1.10, F2)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'usage-since-'))
+  const at = (min) => `2026-11-03T01:${String(min).padStart(2, '0')}:00.000Z`
+  const msg = (id, min) => ({ type: 'assistant', timestamp: at(min), message: { id, model: 'claude-opus-x', usage: { cache_read_input_tokens: 1_000_000 }, content: [{ type: 'text', text: 'x' }] } })
+  const typed = (args, min, kind = 'human') => ({
+    type: 'user', sessionId: 'eeee5555-deploy', timestamp: at(min), origin: { kind }, turnOrigin: kind,
+    message: { content: `<command-name>/one-ring</command-name>\n<command-args>${args}</command-args>` },
+  })
+  const jsonl = (entries) => `${entries.map((e) => JSON.stringify(e)).join('\n')}\n`
+  // A release session the deploy was typed into: two messages before the go,
+  // a peer's /one-ring (no go), then his go at :10 and three messages after,
+  // one of them a subagent's.
+  writeFileSync(join(dir, 'eeee5555-deploy.jsonl'), jsonl([msg('m1', 1), msg('m2', 5), typed('99', 8, 'peer'), typed('kit-1.10', 10), msg('m3', 11), msg('m4', 20)]))
+  mkdirSync(join(dir, 'eeee5555-deploy', 'subagents'), { recursive: true })
+  writeFileSync(join(dir, 'eeee5555-deploy', 'subagents', 'agent-1.jsonl'), jsonl([msg('m5', 15)]))
+  const script = fileURLToPath(new URL('./usage.mjs', import.meta.url))
+  const run = (...args) => execFileSync(process.execPath, [script, ...args, '--dir', dir, 'eeee5555'], { encoding: 'utf8' }).trim()
+
+  it('counts from his typed go, subagents included, whatever its argument', () => {
+    expect(run('--since', 'go')).toBe('3.0M since 2026-11-03T01:10:00Z (the go)')
+  })
+
+  it('counts from an ISO time, and the ceiling reads the same count', () => {
+    expect(run('--since', at(12))).toBe('2.0M since 2026-11-03T01:12:00Z')
+    expect(run('--ceiling', '1', '--since', at(12))).toBe('OVER 2.0M since 2026-11-03T01:12:00Z')
+  })
+
+  it('sessionTokens leaves out what came before', () => {
+    const files = [join(dir, 'eeee5555-deploy.jsonl'), join(dir, 'eeee5555-deploy', 'subagents', 'agent-1.jsonl')]
+    expect(sessionTokens(files)).toBe(5_000_000)
+    expect(sessionTokens(files, { since: Date.parse(at(10)) })).toBe(3_000_000)
+  })
+
+  it('tokensSinceGo reads the newest transcript in the folder', async () => {
+    expect(await tokensSinceGo(dir)).toEqual({ tokens: 3_000_000, since: Date.parse(at(10)) })
+  })
+
+  it('says so when there is no go or the word is no time', () => {
+    const noGo = mkdtempSync(join(tmpdir(), 'usage-since-none-'))
+    writeFileSync(join(noGo, 'ffff6666.jsonl'), jsonl([msg('m1', 1)]))
+    const fail = (args, d) => {
+      try { execFileSync(process.execPath, [script, ...args, '--dir', d, 'ffff6666'], { encoding: 'utf8', stdio: 'pipe' }); return '' } catch (e) { return String(e.stderr) }
+    }
+    expect(fail(['--since', 'go'], noGo)).toContain('no /one-ring typed')
+    expect(fail(['--since', 'yesterday'], noGo)).toContain('ISO time or "go"')
   })
 })

@@ -49,6 +49,21 @@ function entryText(message) {
  * @returns {{ arg: string, at: number, uuid: string | null } | null}
  */
 export function humanGo(text, { sessionId, now, hours = GO_HOURS }) {
+  const go = lastTypedGo(text, { sessionId })
+  if (!go || STOP_WORDS.has(go.arg.toLowerCase()) || !ARG_RE.test(go.arg)) return null
+  if (now - go.at > hours * 3600_000 || go.at - now > SKEW_MS) return null
+  return go
+}
+
+/**
+ * The newest `/one-ring <arg>` he typed in this session, whatever its argument
+ * or age, or null. humanGo adds the checks a go needs; `usage.mjs --since go`
+ * reads only its time, to count a deploy's tokens from the go (kit 1.10, F2).
+ * @param {string} text  the transcript (JSON lines)
+ * @param {{ sessionId?: string }} [opts]
+ * @returns {{ arg: string, at: number, uuid: string | null } | null}
+ */
+export function lastTypedGo(text, { sessionId } = {}) {
   let go = null
   for (const line of String(text ?? '').split('\n')) {
     // Most lines never name the command; JSON.parse only the ones that might.
@@ -65,8 +80,6 @@ export function humanGo(text, { sessionId, now, hours = GO_HOURS }) {
     // File order is time order: the last one he typed is the one that counts.
     go = { arg: goArg(m[2]), at, uuid: typeof e.uuid === 'string' ? e.uuid : null }
   }
-  if (!go || STOP_WORDS.has(go.arg.toLowerCase()) || !ARG_RE.test(go.arg)) return null
-  if (now - go.at > hours * 3600_000 || go.at - now > SKEW_MS) return null
   return go
 }
 

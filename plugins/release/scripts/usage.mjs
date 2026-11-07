@@ -18,12 +18,16 @@
 // used, stopped by Hank), one row per spawn; with --json, the rows.
 // --ceiling <M> <session-id> prints one line: `OVER <used>` when the session
 // (its subagents included) has passed M million tokens, else the figure used.
+// --since <ISO time | go> <session-id> prints the tokens from that time on,
+// `go` being the newest `/one-ring <arg>` he typed there: a deploy's own cost
+// in the session it was typed into (kit 1.10, F2). With --ceiling, the
+// ceiling reads the same count.
 //
 // Nickname: Skyler (she keeps the books). Hank, the budget hook
 // (this plugin's hooks/budget-cap.mjs), imports the counting functions below, so an
 // agent is stopped on the same numbers the PR's Usage section shows.
 
-import { readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
@@ -309,11 +313,71 @@ export const fmtM = (t) => `${(t / 1_000_000).toFixed(1)}M`
 
 // Every token a session spent: its own transcript and its subagents', each
 // message counted once across the files (the same count as the Usage table).
-export function sessionTokens(files) {
+// With `since` (ms), only the messages written at or after it: a deploy's
+// cost from his go, not the whole session it was typed into (kit 1.10, F2).
+export function sessionTokens(files, { since = null } = {}) {
   const seen = new Set()
   let tokens = 0
-  for (const file of files) for (const b of tallyEntries(readEntries(file, seen)).values()) tokens += totalTokens(b)
+  for (const file of files) {
+    const entries = since === null ? readEntries(file, seen) : entriesSince(readEntries(file, seen), since)
+    for (const b of tallyEntries(entries).values()) tokens += totalTokens(b)
+  }
   return tokens
+}
+
+// The entries written at or after `since` (ms); one with no readable time is
+// left out, since nothing says it came after.
+export function entriesSince(entries, since) {
+  return entries.filter((e) => Date.parse(e?.timestamp) >= since)
+}
+
+/**
+ * `--since`'s word as ms: an ISO time, or `go` for the newest `/one-ring <arg>`
+ * Alexander typed in this transcript (the database plugin's finder, the one
+ * the deploy guard reads). Loaded only here, so Hank's import of this file
+ * never needs the database plugin. Throws when the word gives no time.
+ */
+export async function sinceTime(word, mainFile, sessionId) {
+  if (word === 'go') {
+    const { lastTypedGo } = await import('../../database/hooks/one-ring-go.mjs')
+    const go = lastTypedGo(readFileSync(mainFile, 'utf8'), { sessionId })
+    if (!go) throw new Error(`--since go: no /one-ring typed in ${basename(mainFile)}`)
+    return go.at
+  }
+  const at = Date.parse(word)
+  if (!Number.isFinite(at)) throw new Error(`--since takes an ISO time or "go", not "${word}"`)
+  return at
+}
+
+// The newest transcript in a project's folder: the running session's, since
+// it is writing to it right now. The deploy has no session id to go by.
+export function newestTranscript(dir) {
+  let best = null
+  try {
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith('.jsonl')) continue
+      const mtime = statSync(join(dir, name)).mtimeMs
+      if (!best || mtime > best.mtime) best = { name, mtime }
+    }
+  } catch {
+    return null
+  }
+  return best && join(dir, best.name)
+}
+
+/**
+ * This session's tokens since his go, for the deploy's DONE line: the newest
+ * transcript in `dir` (the folder of the cwd's project by default) and its
+ * subagents. Null when there is no transcript or no go in it.
+ */
+export async function tokensSinceGo(dir = projectDir()) {
+  const mainFile = newestTranscript(dir)
+  if (!mainFile) return null
+  const id = basename(mainFile, '.jsonl')
+  let since
+  try { since = await sinceTime('go', mainFile, id) } catch { return null }
+  const { subDir, subFiles } = resolveSession(dir, id)
+  return { tokens: sessionTokens([mainFile, ...subFiles.map((f) => join(subDir, f))], { since }), since }
 }
 
 // The ceiling read (kit 1.10, F1): `OVER <used>` past `millions`, else the
@@ -513,9 +577,10 @@ export function budgetTableMarkdown(rows) {
 }
 
 function parseArgs(argv) {
-  const opts = { ceiling: null, commits: null, json: false, dir: null, timeline: false, chart: null, decisions: null, budgetTable: false, hankLog: null, sessionIds: [] }
+  const opts = { ceiling: null, since: null, commits: null, json: false, dir: null, timeline: false, chart: null, decisions: null, budgetTable: false, hankLog: null, sessionIds: [] }
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--ceiling') opts.ceiling = Number(argv[++i])
+    else if (argv[i] === '--since') opts.since = argv[++i] ?? ''
     else if (argv[i] === '--budget-table') opts.budgetTable = true
     else if (argv[i] === '--hank-log') opts.hankLog = argv[++i]
     else if (argv[i] === '--commits') opts.commits = Number(argv[++i])
@@ -634,19 +699,22 @@ export async function hankBudgets(projectRoot = process.cwd()) {
 }
 
 async function main() {
-  const { ceiling, commits, json, dir, timeline: wantTimeline, chart, decisions, budgetTable, hankLog, sessionIds } = parseArgs(process.argv.slice(2))
-  if (sessionIds.length === 0 || (ceiling !== null && !(ceiling > 0))) {
+  const { ceiling, since, commits, json, dir, timeline: wantTimeline, chart, decisions, budgetTable, hankLog, sessionIds } = parseArgs(process.argv.slice(2))
+  if (sessionIds.length === 0 || (ceiling !== null && !(ceiling > 0)) || since === '') {
     console.error(
-      'Usage: node <release plugin>/scripts/usage.mjs [--ceiling <M>] [--commits N] [--json] [--timeline] [--chart out.html [--decisions file.md]] [--budget-table [--hank-log file]] <session-id> [<session-id>…]',
+      'Usage: node <release plugin>/scripts/usage.mjs [--ceiling <M>] [--since <ISO time | go>] [--commits N] [--json] [--timeline] [--chart out.html [--decisions file.md]] [--budget-table [--hank-log file]] <session-id> [<session-id>…]',
     )
     process.exit(1)
   }
 
   const baseDir = projectDir(dir)
-  if (ceiling !== null) {
+  if (ceiling !== null || since !== null) {
     // One line, so a skill's round can read it as its first call.
-    const { mainFile, subDir, subFiles } = resolveSession(baseDir, sessionIds[0])
-    console.log(ceilingLine(sessionTokens([mainFile, ...subFiles.map((f) => join(subDir, f))]), ceiling))
+    const { id, mainFile, subDir, subFiles } = resolveSession(baseDir, sessionIds[0])
+    const from = since === null ? null : await sinceTime(since, mainFile, id)
+    const tokens = sessionTokens([mainFile, ...subFiles.map((f) => join(subDir, f))], { since: from })
+    const when = from === null ? '' : ` since ${new Date(from).toISOString().slice(0, 19)}Z${since === 'go' ? ' (the go)' : ''}`
+    console.log(`${ceiling === null ? fmtM(tokens) : ceilingLine(tokens, ceiling)}${when}`)
     return
   }
   if (budgetTable) {
