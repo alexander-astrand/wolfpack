@@ -6,8 +6,11 @@
 //
 //   node <design>/scripts/mock-scaffold.mjs <mock folder> --topic <topic> --tokens <css>[,<css>]
 //        [--options a,b] [--widths 375,1024] [--themes dark,light] [--light-at 375]
-//        [--bg <--token>] [--fg <--token>] [--out <shot folder>] [--base <url>]
+//        [--bg <--token>] [--fg <--token>] [--out <shot folder>] [--base <url>] [--no-shell]
 //
+// --no-shell (kit 1.10, F4) leaves out the app's shell (the top bar and the tab bar), for a
+// component mock: the component sits alone on the page background, so its shots show it and
+// nothing the designer was not asked to draw. Not with --base, where the app draws the shell.
 // Writes into <mock folder>:
 //   mock.html   tokens + shell; reads ?option= and ?theme= (sets data-theme and the class)
 //   page.js     yours: window.mockOptions = { a: () => '<html>', b: … } (never overwritten)
@@ -78,7 +81,14 @@ export function shotList({ topic, base, out, options, widths, themes, lightAt })
   return { base, out, themeVia: 'param:theme', shots }
 }
 
-export function mockHtml({ topic, tokens, sources, bg, fg }) {
+const SHELL_CSS = `.mock-bar { position: static; display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 16px; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
+.mock-tabs { position: static; display: flex; justify-content: space-around; height: 64px; border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
+.mock-tabs span { padding: 20px 8px; opacity: 0.7; }
+@media (min-width: 1024px) { .mock-tabs { display: none; } }`
+// Without the shell the component gets the page's padding, so it never touches the shot's edge.
+const BARE_CSS = '#page { padding: 16px; }'
+
+export function mockHtml({ topic, tokens, sources, bg, fg, shell = true }) {
   const body = [bg && `background: var(${bg});`, fg && `color: var(${fg});`].filter(Boolean).join(' ')
   return `<!doctype html>
 <html lang="en">
@@ -89,19 +99,14 @@ export function mockHtml({ topic, tokens, sources, bg, fg }) {
 <style>
 /* The project's tokens, from ${sources.join(', ')} (mock-scaffold.mjs; run it again to refresh). */
 ${tokens}
-/* The shell. Bars are static: a sticky bar painted over the content in portfolio's shots. */
+/* ${shell ? "The shell. Bars are static: a sticky bar painted over the content in portfolio's shots." : 'No shell (--no-shell): a component mock.'} */
 * { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, sans-serif; ${body} }
-.mock-bar { position: static; display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 16px; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
-.mock-tabs { position: static; display: flex; justify-content: space-around; height: 64px; border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
-.mock-tabs span { padding: 20px 8px; opacity: 0.7; }
-@media (min-width: 1024px) { .mock-tabs { display: none; } }
+${shell ? SHELL_CSS : BARE_CSS}
 </style>
 </head>
 <body>
-<header class="mock-bar"><strong>${topic}</strong></header>
-<main id="page"></main>
-<nav class="mock-tabs"><span>Home</span><span>Tab</span><span>Tab</span><span>Me</span></nav>
+${shell ? `<header class="mock-bar"><strong>${topic}</strong></header>\n<main id="page"></main>\n<nav class="mock-tabs"><span>Home</span><span>Tab</span><span>Tab</span><span>Me</span></nav>` : '<main id="page"></main>'}
 <!-- A classic script, not a module: Chromium refuses module imports over file://. -->
 <script>
   const q = new URLSearchParams(location.search)
@@ -134,7 +139,7 @@ ${lines.join('\n')}
 }
 
 export function parseArgs(argv) {
-  const o = { dir: null, topic: null, tokens: [], options: ['a', 'b'], widths: [375, 1024], themes: ['dark', 'light'], lightAt: null, bg: null, fg: null, out: null, base: null }
+  const o = { dir: null, topic: null, tokens: [], options: ['a', 'b'], widths: [375, 1024], themes: ['dark', 'light'], lightAt: null, bg: null, fg: null, out: null, base: null, shell: true }
   const list = (v) => v.split(',').map((s) => s.trim()).filter(Boolean)
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -152,6 +157,7 @@ export function parseArgs(argv) {
     else if (a === '--fg') o.fg = v()
     else if (a === '--out') o.out = v()
     else if (a === '--base') o.base = v()
+    else if (a === '--no-shell') o.shell = false
     else if (a === '--help' || a === '-h') o.help = true
     else if (!o.dir && !a.startsWith('--')) o.dir = a
     else throw new Error(`unknown argument ${a}`)
@@ -159,6 +165,7 @@ export function parseArgs(argv) {
   if (o.help) return o
   if (!o.dir || !o.topic) throw new Error('give a mock folder and --topic')
   if (!o.base && !o.tokens.length) throw new Error('give --tokens <the project CSS file with its theme variables>, or --base for a mock route in the app')
+  if (o.base && !o.shell) throw new Error('--no-shell builds mock.html without the shell; with --base the app draws its own, so drop one of them')
   if (o.widths.some((w) => !Number.isInteger(w))) throw new Error('--widths takes whole numbers')
   o.lightAt ??= o.widths[0]
   o.out ??= join(homedir(), '.claude/plans/design', o.topic)
@@ -176,8 +183,8 @@ export function scaffold(o) {
     const guess = guessBgFg(tokenNames(tokens))
     const bg = o.bg ?? guess.bg
     const fg = o.fg ?? guess.fg
-    writeFileSync(join(dir, 'mock.html'), mockHtml({ topic: o.topic, tokens, sources: o.tokens, bg, fg }))
-    written.push(`mock.html (${tokenNames(tokens).length} tokens; page ${bg ?? 'no bg token'} on ${fg ?? 'no text token'})`)
+    writeFileSync(join(dir, 'mock.html'), mockHtml({ topic: o.topic, tokens, sources: o.tokens, bg, fg, shell: o.shell !== false }))
+    written.push(`mock.html (${tokenNames(tokens).length} tokens; page ${bg ?? 'no bg token'} on ${fg ?? 'no text token'}${o.shell === false ? '; no shell' : ''})`)
     if (!existsSync(join(dir, 'page.js'))) {
       writeFileSync(join(dir, 'page.js'), pageJs(o.options))
       written.push('page.js')
@@ -194,7 +201,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
   try {
     const o = parseArgs(process.argv.slice(2))
     if (o.help) {
-      console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 19).join('\n'))
+      // The whole leading comment block, so a new flag's lines never fall off the help.
+      const lines = readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1)
+      console.log(lines.slice(0, lines.findIndex((l) => !l.startsWith('//'))).join('\n'))
     } else {
       for (const line of scaffold(o)) console.log(line)
       console.log(`Next: fill page.js, then node ${join(dirname(fileURLToPath(import.meta.url)), 'qa/batch-shots.mjs')} ${join(resolve(o.dir), 'shots.json')}`)

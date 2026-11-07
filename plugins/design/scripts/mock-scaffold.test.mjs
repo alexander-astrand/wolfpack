@@ -84,4 +84,33 @@ describe('scaffold', () => {
     expect(existsSync(join(dir, 'mock.html'))).toBe(false)
     expect(JSON.parse(readFileSync(join(dir, 'shots.json'), 'utf8')).base).toBe('http://localhost:5174/mock/tt')
   })
+  it('leaves out the bar and tabs with --no-shell, and puts them back without it (kit 1.10, F4)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mock-'))
+    const css = join(dir, 'index.css')
+    writeFileSync(css, TAILWIND)
+    const run = (...extra) => {
+      scaffold(parseArgs([join(dir, 'm'), '--topic', 'tt', '--tokens', css, '--out', join(dir, 'shots'), ...extra]))
+      return readFileSync(join(dir, 'm/mock.html'), 'utf8')
+    }
+    const bare = (html) => {
+      expect(html).not.toContain('class="mock-bar"')
+      expect(html).not.toContain('class="mock-tabs"')
+      expect(html).not.toContain('.mock-tabs {')
+      expect(html).toContain('<main id="page"></main>')
+      expect(html).toContain('#page { padding: 16px; }')
+      expect(html).toContain('background: var(--color-surface)')
+    }
+    bare(run('--no-shell'))
+    const shelled = run()
+    expect(shelled).toContain('<header class="mock-bar"><strong>tt</strong></header>')
+    expect(shelled).toContain('<nav class="mock-tabs">')
+    expect(shelled).not.toContain('#page { padding')
+    bare(run('--no-shell'))
+    expect(JSON.parse(readFileSync(join(dir, 'm/shots.json'), 'utf8')).shots).toHaveLength(6)
+  })
+  it('refuses --no-shell with --base', () => {
+    expect(() => parseArgs(['m', '--topic', 'tt', '--base', 'http://x/mock', '--no-shell'])).toThrow(/--no-shell/)
+    expect(parseArgs(['m', '--topic', 'tt', '--tokens', 'a.css', '--no-shell']).shell).toBe(false)
+    expect(parseArgs(['m', '--topic', 'tt', '--tokens', 'a.css']).shell).toBe(true)
+  })
 })
