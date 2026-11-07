@@ -56,7 +56,25 @@ describe('wrap-facts', () => {
   })
 
   it('finds session ids once each, local ones too', () => {
-    expect(sessionIds(`a ${SID} b ${SID}`, `local_${DEPLOY}`)).toEqual([SID, `local_${DEPLOY}`])
+    expect(sessionIds(`session ${SID} b ${SID}`, `local_${DEPLOY}`)).toEqual([SID, `local_${DEPLOY}`])
+  })
+
+  it("skips a uuid the plan quotes as something else, such as the Vercel connector's (kit 1.9 wrap)", () => {
+    const plan = 'Pollux\'s desktop uuid `3be6532e-019b-4c2b-89d9-df0479a0419f` goes in the fixture'
+    expect(sessionIds(plan, `- release session ${SID}`)).toEqual([SID])
+  })
+
+  it('adds the transcripts titled "<project> · <kind> · <version>", from a lane outside the repo (kit 1.9 wrap)', async () => {
+    const { project, projects } = fixture()
+    const main = join(projects, '..', 'main')
+    const titled = join(projects, main.replace(/[^A-Za-z0-9]/g, '-'))
+    mkdirSync(titled)
+    const REL = '0ee31d09-f681-45a7-b56c-d34bf210dbf0'
+    writeFileSync(join(titled, `${REL}.jsonl`), `${JSON.stringify({ type: 'custom-title', customTitle: 'wolfpack · release · kit-1.7', sessionId: REL })}\n`)
+    writeFileSync(join(titled, 'ffff0000-1111-4222-8333-944455556666.jsonl'), `${JSON.stringify({ type: 'custom-title', customTitle: 'wolfpack · release · kit-1.7.1' })}\n`)
+    const git = () => `${main}/.git\n`
+    const out = await wrapFacts('kit-1.7', { project, gh: gh([]), projectsDir: projects, git, resolveLocal: (id) => id })
+    expect(out.sessions.found.map((s) => s.id)).toEqual([SID, REL])
   })
 
   it('counts only fix commits after the draft as rework', () => {
@@ -118,7 +136,7 @@ describe('wrap-facts', () => {
     const plans = join(project, '..', 'plans')
     const BUILD = 'cccc0000-1111-4222-8333-944455556666'
     writeFileSync(join(plans, 'kit-1.8.md'), '# Kit 1.8\n')
-    writeFileSync(join(plans, 'kit-1.8-build.md'), `- 10:02 builder ${BUILD}\n`)
+    writeFileSync(join(plans, 'kit-1.8-build.md'), `- 10:02 builder session ${BUILD}\n`)
     const fake = (args) => {
       if (args[1] === 'list') return JSON.stringify([{ number: 46, title: 'Kit 1.8: lessons that stick', state: 'OPEN', isDraft: true, mergeCommit: null, createdAt: '2026-11-01T07:00:00Z', url: 'u46' }])
       return JSON.stringify({ body: '', comments: [], commits: [] })

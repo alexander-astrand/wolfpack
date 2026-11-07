@@ -8,7 +8,8 @@
 //
 // Returns:
 //   prs          the release's PRs (number, title, state, draft, merge sha), from `gh`, read-only
-//   sessions     the session ids named in the plan and the PRs' bodies and comments,
+//   sessions     the session ids the plan, build log and PRs name as sessions, and the
+//                transcripts titled `<project> · <kind> · <version>` (release-sessions.mjs),
 //                with the transcript folder each was found in, and the ones not found
 //   budgetTable  `usage.mjs --budget-table` for those sessions (markdown and rows)
 //   rework       commits on the PRs after the draft whose subject reads as a fix
@@ -25,8 +26,12 @@ import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { bareVersion, projectFolders, releaseSessionIds, sessionIds, titleHas } from './release-sessions.mjs'
+
+// Kept as exports here: callers and tests read them from wrap-facts.
+export { bareVersion, sessionIds, titleHas }
+
 const CORE_ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
-const UUID = /\b(?:local_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi
 // A commit that fixes what the draft shipped: the rework a wrap counts.
 const FIX = /\b(fix(es|ed)?|rework|review|address(es|ed)?|repair)\b/i
 
@@ -75,32 +80,15 @@ export function planFiles(project, version) {
   return { dir, plan: find('.md'), draftDone: find('.draft-done'), build: find('-build.md') }
 }
 
-/** "V1.8", "Kit 1.8", "kit-1.8" and "1.8" all mean 1.8 (the kit 1.8 wrap found no PR: the title says "Kit 1.8"). */
-export const bareVersion = (version) => String(version).trim().replace(/^(v|kit[ -]?)/i, '')
-
-// "1.7" in a title, but not "1.7.1" or "11.7".
-export const titleHas = (title, version) => {
-  const v = bareVersion(version).replace(/\./g, '\\.')
-  return new RegExp(`(^|[^0-9.])v?${v}(?![0-9]|\\.[0-9])`, 'i').test(title ?? '')
-}
-
-/** Session ids named in some texts, in order, once each. */
-export const sessionIds = (...texts) => [...new Set(texts.join('\n').match(UUID) ?? [])]
-
 /**
  * The transcript folder that holds a session: the project's own folder or one
  * of its worktrees' (Claude Code names them after the path, so they share its prefix).
  * Run from a worktree, the prefix is the main checkout's, so its sibling
- * worktrees count too (Burrow 1.2: 57fbab9d sat in one and needed --dir).
+ * worktrees count too (Burrow 1.2: 57fbab9d sat in one and needed --dir); run
+ * from a lane outside the repo, git names the main checkout (kit 1.10).
  */
-export function locate(ids, project, projectsDir = join(homedir(), '.claude', 'projects')) {
-  const prefix = project.replace(/[^A-Za-z0-9]/g, '-').replace(/--claude-worktrees-.*$/, '')
-  let dirs = []
-  try {
-    dirs = readdirSync(projectsDir).filter((d) => d === prefix || d.startsWith(`${prefix}-`)).map((d) => join(projectsDir, d))
-  } catch {
-    // no transcripts at all: every id is missing
-  }
+export function locate(ids, project, projectsDir = join(homedir(), '.claude', 'projects'), git) {
+  const dirs = projectFolders(project, { projectsDir, git })
   const found = []
   const missing = []
   for (const id of ids) {
@@ -164,7 +152,8 @@ export async function wrapFacts(version, env = {}) {
   const { plan, draftDone, build } = planFiles(project, version)
   if (!plan) missing.push(`the plan file for ${version}`)
   const texts = [plan ? readFileSync(plan, 'utf8') : '', build ? readFileSync(build, 'utf8') : '', ...prs.flatMap((p) => [p.body ?? '', ...(p.comments ?? []).map((c) => c.body ?? '')])]
-  let ids = sessionIds(...texts)
+  // Named as sessions in those texts, plus the transcripts titled `<project> · <kind> · <version>`
+  let ids = releaseSessionIds(project, version, { texts, projectsDir: env.projectsDir, git: env.git }).ids
   const usagePath = env.usage === undefined ? findUsage() : env.usage
   if (!usagePath) missing.push("the release plugin's usage.mjs")
   // local_<uuid> (get_session self) to the transcript id, through Skyler's own resolver
@@ -177,8 +166,8 @@ export async function wrapFacts(version, env = {}) {
       return id
     }
   }))]
-  const located = locate(ids, project, env.projectsDir)
-  if (!ids.length) missing.push('session ids (none in the plan or the PRs)')
+  const located = locate(ids, project, env.projectsDir, env.git)
+  if (!ids.length) missing.push('session ids (none in the plan, the PRs or a session title)')
   if (located.missing.length) missing.push(`transcripts for ${located.missing.join(', ')}`)
 
   // Skyler, once per transcript folder
