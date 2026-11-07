@@ -44,10 +44,7 @@ Quality bar (saving tokens never lowers it; a miss is a must-fix):
 - typed text escaped in email HTML
 - every button shows the pointer and matches its type (one look per button type)
 - a state that cuts across pages has one owner for every read (grep its table's queries and check they all use it)
-- **Start from the hits:** `node ${CLAUDE_PLUGIN_ROOT}/scripts/review-greps.mjs --repo <repo> --version <version>` runs the three lines below on the branch's diff, with the conventions script and the version field, and prints only hits (kit 1.8, F12). Each hit is a finding to confirm; then spend the look on what greps can't see.
-- grep the diff for earlier sendbacks and musts: a list built from events in the client with no visibility filter (`[private-nights]`: private events landed in a share message), a native `navigator.share` outside the shared share menu, and fractional px sizes in a logo or mark (a blurry wordmark)
-- the project's own repeat-sendback greps, from its `.claude/builder-checks.md` (kit 1.5, lens Should 1): run each one on the diff (the script runs every backticked grep; a line with no grep is read by hand)
-- two more greps are musts (the repeat shapes of one release, found in all four of its parts): `outline-none` with no `focus-visible` style on the same element, and a remove or answer handler that moves focus nowhere afterwards
+- **Start from the hits, and don't list the greps yourself** (kit 1.10, M10: one copy of them, in the script): `node ${CLAUDE_PLUGIN_ROOT}/scripts/review-greps.mjs --repo <repo> --version <version>` runs the kit's repeat shapes, the project's `.claude/builder-checks.md` greps, the conventions script and the version field on the branch's diff, and prints only hits (a kit repo: add `--kit`). Each hit is a finding to confirm, and a repeat shape's hit is a must; a builder-checks line with no grep is read by hand. Knip and the Edge Functions the diff touches are yours to check (above); then spend the look on what greps can't see.
 
 `npm run lint` runs the project's conventions script (`conventions` in `.claude/kit.json`: CLAUDE.md's conventions as greps), so read the diff for what greps can't see.
 
