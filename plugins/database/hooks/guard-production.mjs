@@ -3703,6 +3703,9 @@ function literalVars(src) {
     const words = seg.words.slice(lead)
     if (!words.length || !VAR_OPS.has(seg.opAfter)) break
     let literal = true
+    // R1 must 2: `K=/x true` is a prefix assignment, set only for `true`, so
+    // the segment's values count only when every word of it is an assignment.
+    const segVars = new Map()
     for (let k = 0; k < words.length && literal; k++) {
       const w = words[k]
       literal = ASSIGNMENT_RE.test(w) && !(seg.marks[k + lead] ?? []).length
@@ -3715,9 +3718,10 @@ function literalVars(src) {
         if (homeSet || !/^~(?:\/|$)/.test(value) || !new RegExp(`(?<![\\w$])${name}=~`).test(src)) continue
         value = homedir() + value.slice(1)
       }
-      if (VAR_VALUE_RE.test(value)) vars.set(name, value)
+      if (VAR_VALUE_RE.test(value)) segVars.set(name, value)
     }
     if (!literal) break
+    for (const [name, value] of segVars) vars.set(name, value)
     first = false
   }
   for (const name of commandVars(src)) vars.delete(name)

@@ -87,6 +87,12 @@ describe('H4: resolveLiteralVars resolves only what the shell surely expands', (
     expect(resolveLiteralVars('K=~/w; ls $K')).toBe(`K=~/w; ls ${homedir()}/w`)
   })
 
+  it('keeps the whole-assignment segments before a prefix one, and judges the rest as typed (R1 must 2)', () => {
+    expect(resolveLiteralVars('SRC=/x/y; K=/z true; ls $SRC $K')).toBe('SRC=/x/y; K=/z true; ls /x/y $K')
+    expect(at('K=/tmp/n true; cd $K; rm -rf wolfpack')).toBe('ask')
+    expect(at('K=/tmp/n true; cd $K; git checkout -- .')).toBe('ask')
+  })
+
   it('leaves single quotes, escapes, comments and zsh modifiers alone', () => {
     expect(resolveLiteralVars("K=/x; echo '$K' \\$K $K # $K")).toBe("K=/x; echo '$K' \\$K /x # $K")
     expect(resolveLiteralVars('K=/x; echo $K:h $K[1] $KK')).toBeNull()
@@ -94,6 +100,11 @@ describe('H4: resolveLiteralVars resolves only what the shell surely expands', (
 
   it.each([
     ['S=x cmd $S', 'a prefix assignment: $S expands before it'],
+    ['S=x true; cmd $S', 'a prefix assignment, set only for true (R1 must 2)'],
+    ['K=/tmp/n true; cd $K; rm -rf wolfpack', 'a prefix assignment before a cd'],
+    ['K=/tmp/n true; cd $K; git checkout -- .', 'a prefix assignment before a cd'],
+    ["K=/tmp/n true; cd $K; sed -i '' 's/a/b/' prod-db.sh", 'a prefix assignment before a cd'],
+    ['export K=/x true; cd $K', 'export with a word that is no assignment'],
     ['true && S=x; cmd $S', 'not at the start: it may not have run'],
     ['S=x | cmd $S', 'in a pipeline: a subshell'],
     ['(S=x); cmd $S', 'in a subshell'],
