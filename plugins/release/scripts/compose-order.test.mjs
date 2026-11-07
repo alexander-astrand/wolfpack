@@ -7,7 +7,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   CLOSE_ASK,
   CLOSE_ASK_PLAYBOOK,
+  LOOK_STEP,
   SHELL_SHAPE,
+  lookBudget,
   agentsIn,
   budgetFor,
   checkCommand,
@@ -325,6 +327,70 @@ describe('plan rules and design on Sonnet', () => {
     expect(notes).toMatch(/plan rule with no check: "Every page keeps/)
     expect(notes).toMatch(/design work on Sonnet: give it to the next free Opus builder/)
     expect(run('X1').notes.join('\n')).not.toMatch(/design work on Sonnet/)
+  })
+})
+
+describe('a look order (kit 1.10, F4)', () => {
+  const LOOKS = `| Step | What | Agent · model | Ceiling | Files |
+|---|---|---|---|---|
+| L1 | Trips part, a look | mosbius-designs · Fable | 12M | \`components/trips/box.tsx\`; \`lib/places.ts\` |
+| L2 | Trips part again | mosbius-designs | – | \`components/trips/box.tsx\` |
+| L3 | Take a look at the first look palette | mosbius-designs | – | – |
+`
+  const STEPS = ['when\tagent\tstep\tbudget\tused\tstopped\ttag\tcheaper', '2026-11-01\tmosbius-designs\tlook-1\t12M\t17.3M\tno\t\t', '2026-11-01\tsaul-goodman\tB4\t10M\t30M\tno\t\t', '2026-11-02\tmosbius-designs\tlook-2\t12M\t21.4M\tno\t\t', ''].join('\n')
+  const run = (step, extra = {}) => compose({ planText: LOOKS, stepId: step, root, budgets, deal: { log: false }, ...extra })
+
+  it('reads a look from the row, never from "first look" or "a look at"', () => {
+    expect(LOOK_STEP.test('Trips part, a look')).toBe(true)
+    expect(LOOK_STEP.test('the look round, mode: look')).toBe(true)
+    expect(LOOK_STEP.test('the first look palette')).toBe(false)
+    expect(LOOK_STEP.test('take a look at it')).toBe(false)
+  })
+
+  it('tags a look from the last look row of the steps file, rounded up, else the Opus default', () => {
+    expect(lookBudget(STEPS, budgets)).toMatchObject({ tag: '[budget 22M]', from: 'step look-2 used 21.4M' })
+    expect(lookBudget(STEPS.split('\n').slice(0, 2).join('\n'), budgets).tag).toBe('[budget 18M]')
+    expect(lookBudget(null, budgets)).toMatchObject({ tag: '[budget 5M]', from: null })
+    expect(lookBudget('when\tagent\tstep\tused\n1\tx\tB4\t3M\n', budgets).from).toBe(null)
+  })
+
+  it('prints the stage, one direction, ?dir=, the pages, one Read per message and the real-spend tag', () => {
+    const o = run('L1', { look: 'Night tram', stage: '/tmp/stage', stepsText: STEPS })
+    expect(o).toMatchObject({ model: 'opus', effort: 'medium', mode: 'look', budget: '[budget 22M]' })
+    expect(o.deal).toBeUndefined()
+    expect(o.look).toMatchObject({ stage: '/tmp/stage', direction: 'Night tram', param: '?dir=night-tram' })
+    expect(o.look.pages).toEqual(['components/trips/box.tsx', 'lib/places.ts'])
+    const text = render(o)
+    expect(text).toContain('Stage: /tmp/stage')
+    expect(text).toContain('Direction: Night tram, the only one')
+    expect(text).toContain('`?dir=night-tram`')
+    expect(text).toContain('  - lib/places.ts')
+    expect(text).toContain('One Read per message')
+    expect(text).toContain('mode: look')
+  })
+
+  it("takes the plan's cell with no look in the steps file, and names what a row-detected look lacks", () => {
+    const o = run('L1')
+    expect(o.budget).toBe('[budget 12M]')
+    expect(o.notes.join(' ')).toMatch(/--stage <path>/)
+    expect(o.notes.join(' ')).toMatch(/--look <direction>/)
+    expect(render(o)).toContain('?dir=<direction>')
+  })
+
+  it('makes a look of any designer row with --look, and leaves other rows alone', () => {
+    expect(run('L2', { look: 'Ski map', stage: '/s' }).mode).toBe('look')
+    expect(run('L2').mode).not.toBe('look')
+    expect(run('L3').mode).not.toBe('look')
+    const b = compose({ planText: PLAN, stepId: 'B4', root, budgets, look: 'Ski map' })
+    expect(b.mode).toBe('build')
+    expect(b.notes.join(' ')).toMatch(/--look is for a mosbius-designs step/)
+  })
+
+  it('reads --look and --stage, and wants a value for each', () => {
+    expect(parseArgs(['--plan', 'p.md', '--step', 'L1', '--look', 'Night tram', '--stage', '/s'])).toMatchObject({ look: 'Night tram', stage: '/s' })
+    expect(parseArgs(['--plan', 'p.md', '--step', 'L1', '--look']).error).toMatch(/--look needs/)
+    expect(parseArgs(['--plan', 'p.md', '--step', 'L1', '--look', '--stage', '/s']).error).toMatch(/--look needs/)
+    expect(parseArgs(['--plan', 'p.md', '--step', 'L1', '--stage']).error).toMatch(/--stage needs/)
   })
 })
 

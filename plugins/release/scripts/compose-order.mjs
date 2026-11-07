@@ -4,7 +4,16 @@
 // budgets file and the routing rules, so the navigator writes only the half
 // that needs judgment (the why, the taste lines, the shared parts).
 //
-// Usage: node compose-order.mjs --plan <plan file> --step <id> [--project <dir>] [--lane <path>] [--json] [--dry]
+// Usage: node compose-order.mjs --plan <plan file> --step <id> [--project <dir>] [--lane <path>] [--look <direction> --stage <path>] [--json] [--dry]
+//   --look   a look order for a mosbius-designs step (kit 1.10, F4): the stage
+//            (--stage, built once by the navigator), one direction and its
+//            `?dir=` param, the part's pages (the row's files cell), one Read
+//            per message, and a tag from the last look's real spend (the last
+//            row of `<plan>-steps.tsv` whose step names a look, else the plan's
+//            cell, else the Opus designer's default). A row whose What says
+//            "a look", "look order", "look round" or "mode: look" is a look
+//            without the flag; the composer notes then name what's missing.
+//            A look gets no deal: the direction is the navigator's.
 //   --lane   adds the lane block (kit 1.10, F3): lane path, the check line
 //            (`npm --prefix <lane> run check`, or `test`), dev port, the lane's
 //            seed, the shot.mjs flags, the README anchor, the CLAUDE.md
@@ -249,6 +258,46 @@ export function budgetFor(agent, cell, { budgets = {}, kitBudgets = {}, design =
     n = ceiling
   }
   return { tag: `[budget ${asM(n)}]`, tokens: n, notes }
+}
+
+// ---------------------------------------------------------------- a look (kit 1.10, F4)
+
+// A look: one direction drawn on the navigator's stage, a shot and a verdict per page
+// (mosbius-designs.md, "A look"). The row says so in words; "first look" is the
+// palette route above, and "a look at" is plain English, so neither counts.
+export const LOOK_STEP = /\b(look orders?|look rounds?|mode:?\s*look)\b|(?<!first )\ba look\b(?! at)/i
+
+/** The `?dir=` value for a direction name: lower case, words joined by dashes. */
+export const dirParam = (d) => `?dir=${encodeURIComponent(slugDir(d))}`
+const slugDir = (d) => String(d).trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '')
+
+/**
+ * The tag for a look, from the last look's real spend: the last row of the plan's
+ * `<plan>-steps.tsv` (step-done.mjs writes it) whose step names a look, rounded up to
+ * the whole M; else the Opus designer's route default. Why: the four Burrow looks
+ * ran 17 to 27M a designer against a 12M tag (council H3), so the measured number
+ * is the honest one.
+ */
+export function lookBudget(stepsText, budgets = {}) {
+  const fallback = budgets.byModel?.['mosbius-designs']?.opus?.budget ?? '5M'
+  const lines = String(stepsText ?? '').split('\n').filter((l) => l.trim())
+  const head = (lines[0] ?? '').split('\t')
+  const at = (name) => head.indexOf(name)
+  if (at('step') < 0 || at('used') < 0) return { tag: `[budget ${fallback}]`, tokens: tokens(fallback), from: null }
+  const last = lines.slice(1).map((l) => l.split('\t')).filter((c) => /\blook\b/i.test(c[at('step')] ?? '')).pop()
+  const used = last ? tokens(last[at('used')]) : null
+  if (!used) return { tag: `[budget ${fallback}]`, tokens: tokens(fallback), from: null }
+  const n = Math.ceil(used / M) * M
+  return { tag: `[budget ${asM(n)}]`, tokens: n, from: `step ${last[at('step')]} used ${asM(used)}` }
+}
+
+/** The look block: stage, direction, `?dir=`, the part's pages, the one-Read rule. */
+export function lookOrder({ stage = null, direction = null, pages = [] }) {
+  const notes = []
+  if (!stage) notes.push('a look needs the stage: build it once, then compose again with --stage <path>')
+  if (!direction) notes.push('a look draws one direction: compose again with --look <direction>')
+  if (!pages.length) notes.push('no pages in the row\'s files cell: name the part\'s pages there')
+  return { stage, direction, param: direction ? dirParam(direction) : null, pages, notes }
 }
 
 // ---------------------------------------------------------------- the project
@@ -599,7 +648,7 @@ export function dealFor(root, mode, { log = false, args = [] } = {}) {
  * The order for one step, as data. Paths are passed in, so tests never touch the real ~/.claude.
  * `deal` goes to dealFor: `{ log, args }` (args carry deal.mjs's --library and --log-dir in tests).
  */
-export function compose({ planText, stepId, root, lane = null, budgets = readJson(join(HERE, '..', 'budgets.json')) ?? {}, deal = {} }) {
+export function compose({ planText, stepId, root, lane = null, look = null, stage = null, stepsText = null, budgets = readJson(join(HERE, '..', 'budgets.json')) ?? {}, deal = {} }) {
   const row = findStep(planText, stepId)
   if (!row) return { error: `no row for step ${stepId} in the plan's tables` }
   const kit = readJson(join(root, '.claude', 'kit.json')) ?? {}
@@ -626,7 +675,15 @@ export function compose({ planText, stepId, root, lane = null, budgets = readJso
   let design = null
   const asked = modelIn(row.model ?? '') ?? modelIn(row.agent ?? '')
 
-  if (agent === 'mosbius-designs') {
+  const isLook = agent === 'mosbius-designs' && (look != null || LOOK_STEP.test(row.what ?? ''))
+  if (look != null && agent !== 'mosbius-designs') notes.push(`--look is for a mosbius-designs step; ${agent} gets its usual order`)
+  if (isLook) {
+    // A look runs on Opus whatever the words say: one direction is drawn, not chosen.
+    model = 'opus'
+    effort = 'medium'
+    mode = 'look'
+    notes.push(look != null ? 'a look order (--look)' : 'a look order (the row names a look)')
+  } else if (agent === 'mosbius-designs') {
     design = designRoute(`${row.what} ${row.agent} ${row.model ?? ''}`, { tokenCss: tokenCssFor(root, planFiles, all), budgets })
     model = design.model
     effort = design.effort
@@ -646,8 +703,16 @@ export function compose({ planText, stepId, root, lane = null, budgets = readJso
   if (model === 'sonnet' && route.kind === 'build' && DESIGN_WORK.test(row.what ?? '')) {
     notes.push('design work on Sonnet: give it to the next free Opus builder and the design team, never Sonnet on design (oceans-eleven, Build)')
   }
-  const budget = budgetFor(agent, row.budget ?? '', { budgets, kitBudgets, design })
-  notes.push(...budget.notes)
+  let budget
+  if (isLook) {
+    const spent = lookBudget(stepsText, budgets)
+    const cell = tokens(row.budget)
+    budget = spent.from || !cell ? spent : { tag: `[budget ${asM(cell)}]`, tokens: cell }
+    notes.push(spent.from ? `the tag is the last look's real spend (${spent.from}, the steps file)` : cell ? 'no look in the steps file yet; the plan\'s cell' : 'no look in the steps file yet; the Opus designer\'s default')
+  } else {
+    budget = budgetFor(agent, row.budget ?? '', { budgets, kitBudgets, design })
+    notes.push(...budget.notes)
+  }
   const short = (row.what ?? '').replace(/\*\*/g, '').replace(/`/g, '').split(/[:.;(]/)[0].trim().slice(0, 50)
 
   const order = {
@@ -670,7 +735,11 @@ export function compose({ planText, stepId, root, lane = null, budgets = readJso
     notes,
   }
   if (design?.tokenCss) order.tokenCss = design.tokenCss
-  if (agent === 'mosbius-designs') {
+  if (isLook) {
+    // No deal: the direction is the navigator's, from the gallery round it belongs to.
+    order.look = lookOrder({ stage, direction: typeof look === 'string' && look.trim() ? look.trim() : null, pages: order.files })
+    notes.push(...order.look.notes)
+  } else if (agent === 'mosbius-designs') {
     order.deal = dealFor(root, mode, deal)
     if (order.deal.error) notes.push(order.deal.error)
   }
@@ -709,6 +778,16 @@ export function render(o) {
   if (o.lane) L.push(`Lane: ${o.lane}`)
   L.push('', `The step: ${o.what}`)
   if (o.tokenCss) L.push(`Token CSS (scripted mode): ${o.tokenCss}`)
+  if (o.look) {
+    const k = o.look
+    L.push('', 'The look:')
+    L.push(`- Stage: ${k.stage ?? '(not built yet: the navigator builds it once)'}; never build or edit it`)
+    L.push(`- Direction: ${k.direction ?? '(not named)'}, the only one; no second option, no scaffold`)
+    L.push(`- Open each page with \`${k.param ?? '?dir=<direction>'}\` on the stage`)
+    L.push('- Pages:', ...(k.pages.length ? k.pages.map((p) => `  - ${p}`) : ['  - (none named in the row)']))
+    L.push('- One shot and one verdict per page: does the direction hold here, and what breaks')
+    L.push('- One Read per message (mosbius-designs.md, kit 1.10)')
+  }
   if (o.deal && !o.deal.error) {
     L.push('', 'Dealt directions:', o.deal.brief)
     for (const n of o.deal.notes) L.push(`- ${n}`)
@@ -740,11 +819,14 @@ export function parseArgs(argv) {
     const k = argv[i]
     if (k === '--json') a.json = true
     else if (k === '--dry') a.dry = true
+    else if (k === '--look' || k === '--stage') a[k.slice(2)] = argv[i + 1]?.startsWith('--') ? '' : argv[++i]
     else if (k === '--plan' || k === '--step' || k === '--project' || k === '--lane') a[k.slice(2)] = argv[++i]
     else return { error: `unknown argument ${k}` }
   }
-  if (!a.plan || !a.step) return { error: 'usage: node compose-order.mjs --plan <plan file> --step <id> [--project <dir>] [--lane <path>] [--json] [--dry]' }
+  if (!a.plan || !a.step) return { error: 'usage: node compose-order.mjs --plan <plan file> --step <id> [--project <dir>] [--lane <path>] [--look <direction> --stage <path>] [--json] [--dry]' }
   if ('lane' in a && !a.lane) return { error: '--lane needs a path' }
+  if ('look' in a && !a.look) return { error: '--look needs a direction name' }
+  if ('stage' in a && !a.stage) return { error: '--stage needs a path' }
   return a
 }
 
@@ -763,7 +845,18 @@ function main() {
     console.error(`no lane at ${a.lane}`)
     process.exit(2)
   }
-  const o = compose({ planText: readFileSync(a.plan, 'utf8'), stepId: a.step, root, lane: a.lane ? resolve(a.lane) : null, deal: { log: !a.dry } })
+  // The steps file sits beside the plan, named as step-done.mjs's stepsFileFor names it.
+  const stepsFile = join(dirname(a.plan), `${basename(a.plan).replace(/\.md$/, '')}-steps.tsv`)
+  const o = compose({
+    planText: readFileSync(a.plan, 'utf8'),
+    stepId: a.step,
+    root,
+    lane: a.lane ? resolve(a.lane) : null,
+    look: a.look ?? null,
+    stage: a.stage ? resolve(a.stage) : null,
+    stepsText: existsSync(stepsFile) ? readFileSync(stepsFile, 'utf8') : null,
+    deal: { log: !a.dry },
+  })
   if (o.error) {
     console.error(o.error)
     process.exit(2)
