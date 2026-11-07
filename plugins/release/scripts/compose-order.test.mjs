@@ -277,6 +277,35 @@ describe('compose', () => {
   })
 })
 
+// The Burrow V1.12 retro, fixes 3 and 10: "never a second row" sat in the plan
+// and never reached S2's order, and the page redo went to Sonnet lanes.
+describe('plan rules and design on Sonnet', () => {
+  const S2 = '| S2 | Food: tabs to bubbles, a layout redo | jesse-pinkman · Sonnet | S | 8M | `app/food/page.tsx` | 375 shot | I2 |'
+  const RULES = `${PLAN.replace(/^(\| D3 .*)$/m, `$1\n${S2}`)}
+
+## Plan rules
+- One row with the + above the bar, never a second row · surface: food, bottom-bar · check: a 375 shot beside main
+- Every page keeps its header words · surface: every page
+- Money keeps its sum row · surface: money-import · check: grep -c 'sum-row' = 1
+`
+  const run = (step) => compose({ planText: RULES, stepId: step, root, budgets, deal: { log: false } })
+
+  it('puts the rules whose surface the step touches into its order', () => {
+    const o = run('S2')
+    expect(o.rules.map((r) => r.rule)).toEqual([expect.stringMatching(/^One row with the \+/), expect.stringMatching(/^Every page keeps/)])
+    expect(render(o)).toMatch(/Plan rules on this surface[^\n]*\n- One row with the \+/)
+    const b4 = run('B4')
+    expect(b4.rules.map((r) => r.rule)).toEqual([expect.stringMatching(/^Every page keeps/), expect.stringMatching(/^Money keeps/)])
+  })
+
+  it('notes a rule with no check, and design work on Sonnet', () => {
+    const notes = run('S2').notes.join('\n')
+    expect(notes).toMatch(/plan rule with no check: "Every page keeps/)
+    expect(notes).toMatch(/design work on Sonnet: give it to the next free Opus builder/)
+    expect(run('X1').notes.join('\n')).not.toMatch(/design work on Sonnet/)
+  })
+})
+
 describe('arguments', () => {
   it('needs --plan and --step', () => {
     expect(parseArgs(['--plan', 'p.md']).error).toMatch(/usage/)

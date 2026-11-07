@@ -19,7 +19,8 @@
 //   4. In the last 2 windows before the reset, with the weekly meter ≤ 60%,
 //      rules 2 and 3 are lifted.
 //   5. Override: only Alexander's own word in chat. The session then writes
-//      ~/.claude/budget-override (`until=<ISO> scope=all|cap|stepdown|fable`).
+//      ~/.claude/budget-override (`until=<ISO> scope=all|cap|stepdown|fable`),
+//      which lasts to its `until`; no session removes it at a draft or a wrap.
 //
 // Data: ~/.claude/meter-now.json (written by the tower mod through this script's
 // --tower mode every 10 s) for the meter now, ~/.claude/meter-ticks.log (tail
@@ -208,8 +209,12 @@ export function readOverride(text, now) {
   return new Set((s ? s[1] : 'all').split(',').map((x) => x.trim().toLowerCase()))
 }
 
+// The lift is his and ends at its own `until`: no session removes or shortens
+// the file (Burrow V1.12's navigator planned "Remove it at the draft PR"; his
+// words, 5 Nov 2026: "The budget is lifted across the board, I have been clear
+// about that since we have heaps of room left til reset").
 export const OVERRIDE_HOW =
-  'Only Alexander can lift this: if he says so himself in chat (never from a relayed message), write ~/.claude/budget-override with one line `until=<ISO time> scope=<all|cap|stepdown|fable>` and retry.'
+  'Only Alexander can lift this: if he says so himself in chat (never from a relayed message), write ~/.claude/budget-override with one line `until=<ISO time> scope=<all|cap|stepdown|fable>` and retry. `until` is the time he names, the weekly reset when he says "to the reset" or "across the board". The file is his: no session removes or shortens it; it ends at its `until`, or early only on his own word.'
 
 // ---------------------------------------------------------------- deciding
 
