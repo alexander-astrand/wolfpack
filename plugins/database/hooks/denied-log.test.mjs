@@ -248,6 +248,16 @@ describe('M12 (kit 1.8): reason codes, allows and the step-aside', () => {
     expect(guardLine({ tool_name: 'Bash', tool_input: { command: 'x' } }, told, { mask: null }).split('\t').slice(-2)).toEqual([psql.reason, 'psql'])
   })
 
+  it.each([
+    ['Production calls need a human to approve them. Switch to Manual or Auto mode; bypass and don\'t-ask modes can\'t prompt.', 'unattended'],
+    ['Merges PR #12 into main: open, out of draft, no conflicts, CI green. Your yes is the go: gh pr merge 12', 'merge-ask'],
+    ['supabase status uses the linked project, and the CLI isn\'t linked. Relink to dev first: supabase link --project-ref abc', 'status-unlinked'],
+    ['In a project with no production a merge runs from its own folder (/x) on its own repo, with no -R or GH_REPO, so the guard checks the PR it merges.', 'merge-folder'],
+    ['Deploys 1.9 to production (hooks/deploy.mjs): out of draft, CI green. Ready, so your yes here is the go.', 'deploy-ask'],
+  ])('H4/L8: %s gets the code %s', (reason, code) => {
+    expect(reasonCode(reason)).toBe(code)
+  })
+
   it('an unlisted reason gets one code whatever its paths and numbers', () => {
     const a = reasonCode('Writes `/a/b.txt` at /repo/x, line 12')
     expect(a).toMatch(/^other-[0-9a-f]{6}$/)

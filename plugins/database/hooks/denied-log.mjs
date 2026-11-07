@@ -130,6 +130,12 @@ export const GUARD_REASONS = [
   { code: 'prod-ref', re: /isn't dev\b|isn't the dev project|would point the CLI away from dev/, rule: 'segmentRules, checkSupabase, checkProdDb (project refs)' },
   { code: 'merge', re: /^Merging goes through `gh pr merge`|ships a release\. Only the deploy/, rule: 'MERGE_BY_API, checkGh', carry: 'A merge is /one-ring\'s, on Alexander\'s go; never `gh pr merge` or the API from a build session.' },
   { code: 'frozen-file', re: /frozen set/, rule: 'protectedChange (FROZEN in chain-arm.mjs)', carry: 'A frozen file changes in a setup session or as a patch a person pastes ([frozen]).' },
+  // Kit 1.10 (L8, H4): the five `other-` hashes that led the kit 1.9 council's table.
+  { code: 'unattended', re: /^Production calls need a human to approve them/, rule: 'ask (ctx.unattended: a production ask in bypass or don\'t-ask mode)' },
+  { code: 'merge-ask', re: /^Merges PR #\d+ into /, rule: 'noProductionMerge (the merge ask: open, out of draft, green)' },
+  { code: 'status-unlinked', re: /uses the linked project, and the CLI/, rule: 'requireLinkedDev (supabase status and the types command)', carry: 'The local stack is unlinked, so `supabase status` and the types command are the navigator\'s step; a builder reads the schema with `supabase db query --local "<sql>"` ([local-stack]).' },
+  { code: 'merge-folder', re: /a merge runs from its own folder/, rule: 'noProductionMerge (a merge aimed at another folder or repo)', carry: 'Run `gh pr merge <number>` from the project\'s own folder, with no -R or GH_REPO; it is /one-ring\'s on Alexander\'s go.' },
+  { code: 'deploy-ask', re: /^Deploys .+ to production \(hooks\/deploy\.mjs\)/, rule: 'deployCall (the deploy ask; the typed go)' },
   { code: 'nested-claude', re: /nested claude/i, rule: 'nestedClaude' },
   { code: 'fed-shell', re: /which the guard can't read, so a person decides/, rule: 'fedShell', carry: 'Write the code to a scratch file and run it by name (`node <file>`), never through a pipe, heredoc or `sh -c`.' },
   { code: 'guard-error', re: /^guard-production failed/, rule: 'main (fails closed)' },
