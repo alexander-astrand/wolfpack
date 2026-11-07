@@ -45,6 +45,7 @@ What Alexander leans towards and away from, a few lines, rewritten (never append
 3. **The fun bits:** one to three touches that make it ours (a line of copy, a reveal, a small surprise), in the app's plain, specific wording.
 4. **For `mosbius-designs`:** the dealt directions by name (`<design>/scripts/deal.mjs`, one per option; the deal is the script's, never yours to swap), the question each option should answer in its direction, and what must stay.
 5. **Open for Alexander:** only what the plan and his notes don't settle, each with the option you'd lean to.
+6. **Keep:** the pages and lines he praised, quoted in his words with where he said it. A designer leaves them as they are and draws around them (kit 1.10, council M5: round 2 of Burrow V1.12's look redrew Money, the page he liked, in three of four directions).
 
 When an idea needs a bolder leap than you can make with confidence, say so in one line: "`captain-call`: put this to Alexander as a pick-one: …".
 
