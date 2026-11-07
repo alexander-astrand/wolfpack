@@ -441,6 +441,8 @@ function readyAndGreen(pr, io, gh, view, say) {
 function checkout(io, sh, ok, head, number) {
   const wt = join(io.tmp, `deploy-pr${number}-${head.slice(0, 7)}`)
   if (existsSync(wt)) sh('git', ['worktree', 'remove', '--force', wt])
+  // A head GitHub just made (the update from main) isn't local yet: Burrow V1.10's first run stopped here.
+  ok('git', ['fetch', '--quiet', 'origin', `pull/${number}/head`], {}, EXIT.SETUP)
   ok('git', ['worktree', 'add', '--detach', wt, head], {}, EXIT.SETUP)
   // The PR's own copy of a frozen file runs only after it merges.
   for (const f of FROM_MAIN) {
