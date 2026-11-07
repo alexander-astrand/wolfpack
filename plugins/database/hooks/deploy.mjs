@@ -118,7 +118,10 @@ export function namesVersion(pr, version, word) {
     const w = escapeRe(word)
     const v = escapeRe(version)
     const title = new RegExp(`(?<![\\w])${w}[\\s-]+[Vv]?${v}(?![\\w]|\\.\\d)`, 'i').test(String(pr?.title ?? ''))
-    const branch = new RegExp(`(?<![\\w])${w}-${escapeRe(version.replace(/\./g, '-'))}(?![\\d])`, 'i').test(String(pr?.headRefName ?? ''))
+    // R1 must 3: the dashed version ends the branch or is followed by a
+    // worktree's hex suffix (a letter in it, or six digits or more), never by
+    // another version part: kit-1-10 is not claude/kit-1-10-1-ab12 (1.10.1).
+    const branch = new RegExp(`(?<![\\w])${w}-${escapeRe(version.replace(/\./g, '-'))}(?:-(?:[0-9a-f]*[a-f][0-9a-f]*|\\d{6,}))?(?![\\w-])`, 'i').test(String(pr?.headRefName ?? ''))
     return title || branch
   }
   if (pr?.headRefName === `V${version}`) return true

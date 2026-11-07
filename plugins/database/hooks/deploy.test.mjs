@@ -337,6 +337,20 @@ describe('the helpers', () => {
     expect(pickPr([{ number: 7, title: 'x', headRefName: 'claude/kit-1-100-z', state: 'OPEN' }], '1.10', { word: 'kit' }).refuse).toMatch(/kit-1\.10/)
   })
 
+  it('a named version never takes the next point release by its branch (R1 must 3)', () => {
+    const merged110 = { number: 1, title: 'x', headRefName: 'claude/kit-1-10-ff4f69', state: 'MERGED', mergedAt: '2026-11-01T00:00:00Z' }
+    const open1101 = { number: 2, title: 'y', headRefName: 'claude/kit-1-10-1-ab12', state: 'OPEN' }
+    expect(pickPr([merged110, open1101], '1.10', { word: 'kit' })).toEqual({ number: 1 })
+    expect(pickPr([merged110, open1101], '1.10.1', { word: 'kit' })).toEqual({ number: 2 })
+    const named = (headRefName) => namesVersion({ headRefName, title: '' }, '1.10', 'kit')
+    expect(named('claude/kit-1-10-1-ab12')).toBe(false)
+    expect(named('claude/kit-1-10-1')).toBe(false)
+    expect(named('claude/kit-1-10-12')).toBe(false)
+    expect(named('claude/kit-1-10')).toBe(true)
+    expect(named('claude/kit-1-10-ff4f69')).toBe(true)
+    expect(named('claude/kit-1-10-204816')).toBe(true)
+  })
+
   it('a version names a PR by its branch or as a word of its title, never a longer version', () => {
     expect(namesVersion({ headRefName: 'V0.14', title: '' }, '0.14')).toBe(true)
     expect(namesVersion({ headRefName: 'x', title: 'V0.14.3.1: months ahead pay' }, '0.14.3.1')).toBe(true)
