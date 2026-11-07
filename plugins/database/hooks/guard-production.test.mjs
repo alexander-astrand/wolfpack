@@ -2773,6 +2773,19 @@ describe('reads pass, writes stay refused (2.13.6.1)', () => {
     expect(bash(`node -e 'const s=require("./.claude/settings.local.json");console.log(Object.keys(s))'`)).toMatch(OPEN)
   })
 
+  // Burrow V1.12, 5 Nov 2026: the navigator's step-done call asked because its
+  // --cheaper line named check.sh, and the release sat four hours on it.
+  it('judges step-done.mjs by its path flags, not its step or cheaper text', () => {
+    const sd = 'node ~/wolfpack-live/plugins/release/scripts/step-done.mjs jesse-pinkman --step "S1 sweep Calendar and Weather" --budget 8M --session local_a4 --plan ~/.claude/plans/burrow/V1.12.md --pr 91'
+    expect(bash(`${sd} --cheaper "builders skip check.sh's build (one next build at a time)" --tag rule --tick "S1 sweep Calendar and Weather" 2>&1 | tail -1`)).toMatch(OPEN)
+    expect(bash(`${sd} --tick "run scripts/check.sh and .claude/settings.json review"`)).toMatch(OPEN)
+    expect(bash('node "${CLAUDE_PLUGIN_ROOT}/scripts/step-done.mjs" x --step "check.sh" --plan /p/V1.md --pr 1')).toMatch(OPEN)
+    // A path flag that names a frozen file still asks, and so does any other script.
+    expect(bash('node ~/wolfpack-live/plugins/release/scripts/step-done.mjs x --plan .claude/settings.json --pr 1')).toBe('ask')
+    expect(bash('node scripts/other.mjs --cheaper "edit check.sh"')).toBe('ask')
+    expect(bash('node /tmp/plugins/release/scripts/step-done.mjs.bak --cheaper "check.sh"')).toBe('ask')
+  })
+
   it("passes the read probe in /legendary's C1", () => {
     expect(bash(`curl -s https://example.test/c.json | node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(d.filter(c=>c["title"]=="Filmstaden Sergel").length)'`)).toMatch(OPEN)
     expect(bash(`curl -s https://example.test/c.json | python3 -c 'import json,sys; d=json.load(sys.stdin); print([c["id"] for c in d if c["title"]=="Filmstaden Sergel"])'`)).toMatch(OPEN)
