@@ -21,9 +21,20 @@
 // on any shot of an option. Images are inlined as data URIs, so the page stands alone and the
 // Artifact tool can publish it as is. Light and dark follow the viewer's setting; at 375 the page
 // never scrolls sideways.
+//
+//   node <design>/scripts/gallery.mjs --files <a.jpg> <b.png> ... [--words <his words>]...
+//                                     [--topic <topic>] [--out <file>] [--title <title>]
+//
+// --files (kit 1.10, F4) builds the page from image paths alone, for a look round or any set of
+// shots with no report: Burrow's hand-built gallery-build.mjs lived in a session and was lost.
+// Each name is read the way batch-shots.mjs writes it, `<page>-<option>-<width>-<theme>.<ext>`:
+// a last `light` or `dark` is the theme, a number from 300 up is the width, the part before them
+// is the option and the rest the page. A name with one part is its own page, option "a". A
+// direction with a dash in its name reads as page and option: rename the file or use shots.json.
+// The order of the paths is the order on the page; --out defaults to the first file's folder.
 // Writes <out> (default: gallery.html beside the JSON) and prints its path and size.
 import { existsSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs'
-import { dirname, extname, join, resolve } from 'node:path'
+import { basename, dirname, extname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml' }
@@ -224,11 +235,41 @@ export function rateLine(rates) {
   return `Designers: ${millions(total)} for ${pages.length} page${pages.length === 1 ? '' : 's'}, ${millions(total / pages.length)} a page (${pages.map((p) => `${p} ${millions(rates[p])}`).join(', ')}).`
 }
 
+// ---------------------------------------------------------------- from image paths (--files)
+
+/** One shot from an image path, its page, option, width and theme read from the name. */
+export function shotFromFile(path) {
+  const stem = basename(path, extname(path))
+  const parts = stem.split('-').filter(Boolean)
+  const shot = { path: resolve(path) }
+  if (parts.length > 1 && /^(light|dark)$/i.test(parts.at(-1))) shot.theme = parts.pop().toLowerCase()
+  if (parts.length > 1 && /^\d{3,4}$/.test(parts.at(-1)) && Number(parts.at(-1)) >= 300) shot.width = Number(parts.pop())
+  if (parts.length > 1) {
+    shot.option = parts.pop()
+    shot.page = parts.join('-')
+  } else {
+    shot.page = parts[0] ?? stem
+    shot.option = 'a'
+  }
+  return shot
+}
+
+export function fromFiles(paths) {
+  if (!paths.length) throw new Error('--files needs at least one image path')
+  const seen = new Set()
+  return paths.map(shotFromFile).filter((s) => !seen.has(s.path) && seen.add(s.path))
+}
+
 export function parseArgs(argv) {
-  const o = { input: null, out: null, title: null, fromReports: null, words: [], topic: null }
+  const o = { input: null, out: null, title: null, fromReports: null, files: null, words: [], topic: null }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (['--out', '--title', '--from-reports', '--words', '--topic'].includes(a)) {
+    if (a === '--files') {
+      // Every word up to the next flag is a path.
+      o.files = []
+      while (i + 1 < argv.length && !argv[i + 1].startsWith('--')) o.files.push(argv[++i])
+      if (!o.files.length) throw new Error('--files needs at least one image path')
+    } else if (['--out', '--title', '--from-reports', '--words', '--topic'].includes(a)) {
       if (i + 1 >= argv.length) throw new Error(`${a} needs a value`)
       const v = argv[++i]
       if (a === '--words') o.words.push(v)
@@ -239,8 +280,10 @@ export function parseArgs(argv) {
     else throw new Error(`unknown argument ${a}`)
   }
   if (o.help) return o
-  if (!o.input && !o.fromReports) throw new Error('give the shots JSON file, or --from-reports <file or folder>')
-  if (o.input && o.fromReports) throw new Error('give the shots JSON file or --from-reports, not both')
+  const sources = [o.input, o.fromReports, o.files].filter(Boolean).length
+  if (!sources) throw new Error('give the shots JSON file, --from-reports <file or folder>, or --files <images>')
+  if (sources > 1) throw new Error('give one of the shots JSON file, --from-reports or --files')
+  if (o.files) o.out ??= join(dirname(resolve(o.files[0])), 'gallery.html')
   if (o.fromReports && !o.out) {
     const p = resolve(o.fromReports)
     o.out = join(existsSync(p) && statSync(p).isDirectory() ? p : dirname(p), 'gallery.html')
@@ -261,6 +304,8 @@ export function writeGallery(o) {
     const record = join(dirname(o.out), 'shots.json')
     if (existsSync(record)) renameSync(record, `${record}.bak`)
     writeFileSync(record, JSON.stringify({ topic: o.topic ?? undefined, words: doc.words, rates, shots }, null, 2) + '\n')
+  } else if (o.files) {
+    doc = normalise({ topic: o.topic ?? undefined, words: o.words, shots: fromFiles(o.files) })
   } else {
     const base = dirname(resolve(o.input))
     doc = normalise(JSON.parse(readFileSync(resolve(o.input), 'utf8')))
