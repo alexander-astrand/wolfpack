@@ -11,10 +11,10 @@
 // has been idle that long (default: never, they stay).
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve, sep } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { pathToFileURL } from 'node:url'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -122,4 +122,4 @@ function main(argv) {
   console.log(opt.json ? JSON.stringify(result, null, 2) : render(result))
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) main(process.argv.slice(2))
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main(process.argv.slice(2))
