@@ -58,6 +58,7 @@ A project keeps its own figures the same way, in `<project>/.claude/lessons-numb
 - **[before-merge-lines]** Burrow V0.14.2 deploy.
 - **[systemd-restart]** Miyagi on delphi, V0.14.2.
 - **[parallel]** Burrow V0.14.2: one lane's commit swallowed the other's staged files twice (two builders in one worktree).
+- **[backup-dns]** Burrow V1.9 (3 Nov 2026): the hung backup took 11 of the deploy's 25 minutes.
 - **[lean-check]** portfolio 0.2's two tapped leans (a lone 560px reading column, the team's nicknames in public copy) both came back after the build (V0.2.1, 7adbab2).
 - **[reader-and-wiring]** Burrow V0.13's S11b/S11c split read the same three files twice.
 - **[look-asks]** Burrow V0.13: eleven asks, 79.3M, 30 % of the release, three redone once. Burrow V1.10 (4 Nov 2026): the look ran about 219M in two sessions against 100M booked, with no ask; 38 commits, about 12 of them three features relayed in from other sessions.
