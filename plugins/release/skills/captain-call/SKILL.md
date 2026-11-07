@@ -61,7 +61,7 @@ Everything else you decide yourself, following CLAUDE.md, noted under the PR's "
 - His merge go is `/one-ring <version or PR number>` in any session, this one included (your one job after the draft). Then `/future-ted` and the next release, each in a new session; don't propose them. More: `reference.md`, `## Where the session ends`.
 
 ## As a chain link
-Started by a `CHAIN … ORDER` (`/cattle-drive <version> chain`): read `reference.md`'s `## As a chain link` before anything else.
+Started by a `CHAIN ... ORDER` (`/cattle-drive <version> chain`): read `reference.md`'s `## As a chain link` before anything else.
 
 **Title:** a lone session titles itself `<project.name> · release · <version> <name>` in its first minute (`set_session_title` on `self`); a chain link keeps the conductor's title.
 
