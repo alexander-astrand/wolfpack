@@ -63,3 +63,4 @@ A project keeps its own figures the same way, in `<project>/.claude/lessons-numb
 - **[first-deploy]** svardsvik V0.1's /one-ring: seven stops, 97 min, 21.1M against a 4.5M no-migration baseline; fix-forward #9 (vercel.json) and #6/#7 (production refs, prod-db.sh).
 - **[page-step-split]** svardsvik V0.1: four orders ran out of turns (steps 5, 7, 9b at 97%, the a11y fix) and a second builder finished each.
 - **[local-stack]** svardsvik V0.1: the night stopped at minute 10 on `supabase start`; Alexander started it at about 01:15.
+- **[backup-dns]** Burrow V1.9 (3 Nov 2026): the hung backup took 11 of the deploy's 25 minutes.
