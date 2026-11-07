@@ -440,10 +440,16 @@ function activeSpans(entries) {
 export function timelineRow(entries, label, type, sessionId) {
   const by = tallyEntries(entries)
   let tokens = 0
+  let inp = 0
+  let cc = 0
+  let cr = 0
   let topModel = '?'
   let topTokens = -1
   for (const [model, b] of by) {
     tokens += totalTokens(b)
+    inp += b.inp
+    cc += b.cc
+    cr += b.cr
     if (totalTokens(b) > topTokens) [topModel, topTokens] = [model, totalTokens(b)]
   }
   const spans = activeSpans(entries)
@@ -458,6 +464,11 @@ export function timelineRow(entries, label, type, sessionId) {
     minutes: Math.round(minutes),
     ...countCalls(entries),
     tokens,
+    // The split behind `tokens` (kit 1.10, F21): what a role reads from the cache
+    // against what it writes and what it sends fresh.
+    inp,
+    cc,
+    cr,
     spans,
   }
 }
