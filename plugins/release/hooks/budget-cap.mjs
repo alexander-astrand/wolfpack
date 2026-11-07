@@ -101,7 +101,6 @@ const modelFamily = (model) => (/fable/i.test(model || '') ? 'fable' : 'opus')
 // Counted screenshots: full-size shots and zooms, the ones a design is judged by.
 export const SHOT_CAPS = {
   'bengt-johansson': 5,
-  'tomas-svensson': 5,
   'magnus-wislander': 5,
   'staffan-olsson': 5,
 }

@@ -196,7 +196,7 @@ export const AGENTS = new Set([
   'ahmed-och-ahmed', 'saul-goodman', 'jeff-winger', 'troy-and-abed',
   // Added since, so a generic spawn named by its description prefix still gets
   // its own Hank budget (2.12.2).
-  'dom-cobb', 'tomas-svensson', 'magnus-wislander', 'staffan-olsson',
+  'dom-cobb', 'magnus-wislander', 'staffan-olsson',
   'daredevil', 'mike-ehrmantraut', 'three-eyed-raven',
 ])
 

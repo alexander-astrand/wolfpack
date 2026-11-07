@@ -14,7 +14,7 @@
 //   +2  it names one of the pages outside its tag: that page was sent back for it before
 //   +1  it is in the project's file, the more specific of the two
 // A rule needs a tag or a repeat word to count. Prints the top three (or --top n) as file:line, the
-// score's reasons and the rule, so tomas-svensson and the builders check those first. Exit 0 always.
+// score's reasons and the rule, so bengt-johansson and the builders check those first. Exit 0 always.
 //
 //   node <design>/scripts/taste-repeats.mjs --file <new file> [--top <n>] [--kit ...] [--project ...]
 //
