@@ -61,5 +61,6 @@ A project keeps its own figures the same way, in `<project>/.claude/lessons-numb
 - **[reader-and-wiring]** Burrow V0.13's S11b/S11c split read the same three files twice.
 - **[look-asks]** Burrow V0.13: eleven asks, 79.3M, 30 % of the release, three redone once.
 - **[first-deploy]** svardsvik V0.1's /one-ring: seven stops, 97 min, 21.1M against a 4.5M no-migration baseline; fix-forward #9 (vercel.json) and #6/#7 (production refs, prod-db.sh).
-- **[page-step-split]** svardsvik V0.1: four orders ran out of turns (steps 5, 7, 9b at 97%, the a11y fix) and a second builder finished each.
+- **[page-step-split]** svardsvik V0.1: four orders ran out of turns (steps 5, 7, 9b at 97%, the a11y fix) and a second builder finished each. Burrow V1.11 (5 Nov 2026): four of its five Hank stops were page steps that reached their shots at about 85 % of the tag (B2 14.7M of 14M, B3 12.6M of 12M, M3 7.4M of 7M), and the Todos week table ran 30.1M; the rule existed since svardsvik V0.1 and the orders still came as one.
 - **[local-stack]** svardsvik V0.1: the night stopped at minute 10 on `supabase start`; Alexander started it at about 01:15.
+- **[sweep]** Burrow V1.11 (5 Nov 2026): PS1's app-wide sweep ran 16.8M in one Opus order before two Sonnet lanes finished it at 4.0M and 5.1M.
