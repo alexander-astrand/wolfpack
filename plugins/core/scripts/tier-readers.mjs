@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Live usage for Dev HQ's free tiers, read from what this machine is already
-// logged in to: `vercel usage`, the Supabase Management API with the CLI's
-// own token, the Netlify CLI, and gh's billing report. Each reading is raw
+// logged in to: Vercel's billing charges with the CLI's own login, the
+// Supabase Management API with the CLI's own token, the Netlify CLI, gh's
+// billing report, and Resend and Cloudflare with a key he keeps in the macOS
+// Keychain (dev-hq-resend, dev-hq-cloudflare). Each reading is raw
 // numbers (or what it needs to be read); dev-hq.mjs's tiersPart sets them
 // against the limits a project's free-tiers.md records. Alexander, 29 Oct
 // 2026: "Also none here is updated, several of these have limits etc that we
@@ -12,14 +14,15 @@
 //                                           the month's CI minutes and their
 //                                           flags as one line, for this repo
 //                                           (cwd's origin) unless --repo names one
-//   node tier-readers.mjs supabase --spool <dir>
-//                                           the Supabase reading alone (dev-hq
-//                                           runs it as a child, so the token
-//                                           stays in that process)
+//   node tier-readers.mjs supabase|vercel|resend|cloudflare --spool <dir>
+//                                           one reading alone (dev-hq runs these
+//                                           as children, so a token stays in
+//                                           that process)
 //
 // No key or token is ever written, printed or passed on a command line: the
 // Supabase token is read from ~/.supabase/access-token (or
-// SUPABASE_ACCESS_TOKEN) into memory and sent as a header. Read-only: nothing
+// SUPABASE_ACCESS_TOKEN), Vercel's from the CLI's auth.json and the Keychain
+// keys through `security`, each into memory and sent as a header. Read-only: nothing
 // here changes a plan or a project.
 
 import { spawnSync } from 'node:child_process'
@@ -46,11 +49,15 @@ function writeJson(file, value) {
   renameSync(tmp, file)
 }
 
-// One reading per hour at most, kept in the spool.
+// One reading per hour at most, kept in the spool. A reading carries the time
+// it was read (`readAt`), so Burrow says how old a figure is, not when the
+// last push came (Alexander, 3 Nov 2026: "I want all the usage up to date
+// with concurrrent information, at least daily, preferrably twice a day").
 function cached(spool, name, now, read) {
   const file = join(spool, `tier-${name}.json`)
   const saved = readJson(file, null)
-  if (saved && now - Date.parse(saved.at) < HOUR) return saved.value
+  const stamp = (v, at) => (v && typeof v === 'object' ? { ...v, readAt: at } : v)
+  if (saved && now - Date.parse(saved.at) < HOUR) return stamp(saved.value, saved.at)
   let value
   try {
     value = read()
@@ -58,21 +65,65 @@ function cached(spool, name, now, read) {
     value = null
   }
   writeJson(file, { at: iso(now), value })
-  return value
+  return stamp(value, iso(now))
 }
 
-const jsonIn = (text) => {
-  const s = String(text ?? '')
-  const a = s.indexOf('{')
-  const b = s.lastIndexOf('}')
-  return a >= 0 && b > a ? JSON.parse(s.slice(a, b + 1)) : null
+// A key he stored once with `security add-generic-password -s <service> -a "$USER" -w`
+// (the value is typed at its prompt, never on a command line), or null.
+function keychain(service) {
+  const r = spawnSync('security', ['find-generic-password', '-s', service, '-w'], { encoding: 'utf8', timeout: 10_000 })
+  return r.status === 0 && r.stdout.trim() ? r.stdout.trim() : null
 }
 
 // --- Vercel ------------------------------------------------------------------------------
 
-// `vercel usage --json`'s services as { product: quantity }, and what the cycle
-// billed for a subscription (the Pro license that showed after the 21 Oct
-// downgrade to Hobby).
+// Vercel's billing charges (FOCUS rows, one JSON object a line: CLI 65's
+// `vercel usage` parses them as one document and fails, so they are read
+// here) as { product: quantity } over the month so far, and what it billed.
+// The export prices every line at list rates, Hobby's usage and a $0.645 a
+// day "Pro" license included, so a Hobby team's lines are never billed (3 Nov
+// 2026: the plan said hobby, no card on file, and the export still priced
+// Pro; he asked "Where are you getting this billing info from?"). The
+// products keep the names the old `vercel usage` report used.
+const VERCEL_SERVICES = {
+  'Fast Data Transfer': 'fastDataTransfer',
+  'Function Invocations': 'functionInvocation',
+  'CDN Requests': 'edgeRequest',
+  'Fast Origin Transfer': 'fastOriginTransfer',
+  'Image Optimization Transformation': 'imageOptimizationTransformation',
+  'Fluid Active CPU': 'fluidCpuDuration',
+  'Build CPU Minutes': 'buildCpuMinutes',
+}
+
+// A row's day is its start in Los Angeles (07:00 or 08:00 UTC), so it counts
+// in the month that day falls in; `from` is that month's first day.
+export function vercelCharges(text, from = null, plan = null) {
+  const metrics = {}
+  const cost = {}
+  let rows = 0
+  for (const line of String(text ?? '').split('\n')) {
+    if (!line.trim()) continue
+    let c
+    try {
+      c = JSON.parse(line)
+    } catch {
+      continue
+    }
+    rows++
+    if (from && iso(Date.parse(c.ChargePeriodStart) - 6 * HOUR).slice(0, 10) < from) continue
+    const product = VERCEL_SERVICES[c.ServiceName]
+    if (product) metrics[product] = (metrics[product] || 0) + (Number(c.ConsumedQuantity) || 0)
+    if (plan !== 'hobby' && Number(c.BilledCost) > 0) cost[c.ServiceName] = (cost[c.ServiceName] || 0) + Number(c.BilledCost)
+  }
+  if (!rows) return null
+  for (const k of Object.keys(metrics)) if (!metrics[k]) delete metrics[k]
+  const billed = Object.entries(cost)
+    .map(([name, n]) => ({ name, cost: Math.round(n * 100) / 100 }))
+    .filter((b) => b.cost >= 0.01)
+  return { metrics, billed, from }
+}
+
+// The old `vercel usage --json` report, for a CLI that reads it again.
 export function vercelReading(report) {
   if (!report || !Array.isArray(report.services)) return null
   const metrics = {}
@@ -84,11 +135,26 @@ export function vercelReading(report) {
   return { metrics, billed, from: report.period?.from ?? null }
 }
 
-function readVercel() {
-  const r = spawnSync('vercel', ['usage', '--json', '--non-interactive'], { cwd: homedir(), encoding: 'utf8', timeout: 90_000, maxBuffer: 8 * 1024 * 1024 })
-  if (r.error) return { need: 'the Vercel CLI' }
-  if (r.status !== 0) return { need: 'vercel login' }
-  return vercelReading(jsonIn(r.stdout)) ?? { need: 'vercel login' }
+const VERCEL_CLI = join(homedir(), 'Library', 'Application Support', 'com.vercel.cli')
+
+async function readVercel(now = Date.now()) {
+  // `vercel whoami` refreshes an expired login in auth.json before it is read
+  const who = spawnSync('vercel', ['whoami', '--non-interactive'], { cwd: homedir(), encoding: 'utf8', timeout: 60_000 })
+  if (who.error) return { need: 'the Vercel CLI' }
+  if (who.status !== 0) return { need: 'vercel login' }
+  const token = readJson(join(VERCEL_CLI, 'auth.json'), {}).token
+  const team = readJson(join(VERCEL_CLI, 'config.json'), {}).currentTeam
+  if (!token) return { need: 'vercel login' }
+  // a window of a few days answers nothing (3 Nov 2026: 1 Nov on, empty; 20 Oct on, every day),
+  // so it asks for three weeks and vercelCharges keeps the month's own days
+  const q = new URLSearchParams({ from: iso(now - 21 * 24 * HOUR), to: iso(now), ...(team ? { teamId: team } : {}) })
+  const r = await fetch(`https://api.vercel.com/v1/billing/charges?${q}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(60_000) })
+  if (r.status === 401 || r.status === 403) return { need: 'vercel login' }
+  if (!r.ok) return null
+  const owner = await fetch(team ? `https://api.vercel.com/v2/teams/${team}` : 'https://api.vercel.com/v2/user', { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000) })
+  const o = owner.ok ? await owner.json() : null
+  const plan = (team ? o?.billing?.plan : o?.user?.billing?.plan) ?? null
+  return vercelCharges(await r.text(), `${iso(now).slice(0, 7)}-01`, plan)
 }
 
 // --- GitHub Actions ----------------------------------------------------------------------
@@ -361,10 +427,61 @@ async function readSupabase(spool, now = Date.now()) {
   }
 }
 
-// dev-hq.mjs is synchronous, so Supabase runs in a child (this file); the
-// token never leaves it.
-function readSupabaseChild(spool) {
-  const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url), 'supabase', '--spool', spool], { encoding: 'utf8', timeout: 120_000 })
+// --- Resend ------------------------------------------------------------------------------
+
+// Resend says the sending quota used on its answers (x-resend-daily-quota,
+// Free plans only, and x-resend-monthly-quota), so one GET /domains reads it.
+export function resendReading(headers) {
+  const n = (k) => {
+    const v = headers?.get ? headers.get(k) : headers?.[k]
+    return v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v)
+  }
+  const day = n('x-resend-daily-quota')
+  const month = n('x-resend-monthly-quota')
+  return day == null && month == null ? null : { day, month }
+}
+
+async function readResend() {
+  const key = keychain('dev-hq-resend')
+  if (!key) return { need: 'resend key' }
+  const r = await fetch('https://api.resend.com/domains', { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(20_000) })
+  // a sending-only key is refused here, but its answer may still carry the quota
+  if (r.status === 401 || r.status === 403) return resendReading(r.headers) ?? { need: 'resend key' }
+  return resendReading(r.headers)
+}
+
+// --- Cloudflare --------------------------------------------------------------------------
+
+// Workers requests today (the free plan's cap is a day's, reset at 00:00 UTC)
+// from the GraphQL Analytics API, the busiest account's.
+export function cloudflareReading(data) {
+  const accounts = data?.data?.viewer?.accounts
+  if (!Array.isArray(accounts)) return null
+  const per = accounts.map((a) => (a.workersInvocationsAdaptive || []).reduce((n, g) => n + (Number(g.sum?.requests) || 0), 0))
+  return { requestsToday: Math.max(0, ...per), accounts: accounts.length }
+}
+
+async function readCloudflare(now = Date.now()) {
+  const token = keychain('dev-hq-cloudflare')
+  if (!token) return { need: 'cloudflare token' }
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+  const acc = await fetch('https://api.cloudflare.com/client/v4/accounts', { headers, signal: AbortSignal.timeout(20_000) })
+  if (acc.status === 401 || acc.status === 403) return { need: 'cloudflare token' }
+  const ids = ((await acc.json())?.result || []).map((a) => a.id).filter((id) => /^[0-9a-f]{32}$/.test(id))
+  if (!ids.length) return { requestsToday: 0, accounts: 0 }
+  const query = `query($ids: [string!], $d: Date!) { viewer { accounts(filter: { accountTag_in: $ids }) {
+    workersInvocationsAdaptive(limit: 10000, filter: { date: $d }) { sum { requests } } } } }`
+  const body = JSON.stringify({ query, variables: { ids, d: iso(now).slice(0, 10) } })
+  const r = await fetch('https://api.cloudflare.com/client/v4/graphql', { method: 'POST', headers, body, signal: AbortSignal.timeout(30_000) })
+  return r.ok ? cloudflareReading(await r.json()) : null
+}
+
+// dev-hq.mjs is synchronous, so the readers that fetch run in a child (this
+// file); a token never leaves it.
+const CHILD = { supabase: (spool) => readSupabase(spool), vercel: () => readVercel(), resend: () => readResend(), cloudflare: () => readCloudflare() }
+
+function readChild(spool, name) {
+  const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url), name, '--spool', spool], { encoding: 'utf8', timeout: 120_000 })
   return r.status === 0 ? JSON.parse(r.stdout) : null
 }
 
@@ -374,24 +491,28 @@ function readSupabaseChild(spool) {
 // free-tiers.md heading, lowercased: tiersPart matches them that way.
 export function readings(spool, now = Date.now()) {
   return {
-    vercel: cached(spool, 'vercel', now, readVercel),
-    supabase: cached(spool, 'supabase', now, () => readSupabaseChild(spool)),
+    vercel: cached(spool, 'vercel', now, () => readChild(spool, 'vercel')),
+    supabase: cached(spool, 'supabase', now, () => readChild(spool, 'supabase')),
     netlify: cached(spool, 'netlify', now, readNetlify),
     'github actions': actionsReading(spool, now),
+    resend: cached(spool, 'resend', now, () => readChild(spool, 'resend')),
+    cloudflare: cached(spool, 'cloudflare', now, () => readChild(spool, 'cloudflare')),
   }
 }
 
 // The Actions reading with its budget flags; the budgets are read hourly too.
 export function actionsReading(spool, now = Date.now()) {
   const reading = cached(spool, 'actions', now, () => readActions(spool, now))
-  return withFlags(reading, cached(spool, 'minute-budgets', now, () => budgetsByRepo(readKits())), now)
+  // cached() stamps a readAt on what it returns; the budgets map is keyed by repo, so drop it there.
+  const { readAt: _, ...budgets } = cached(spool, 'minute-budgets', now, () => budgetsByRepo(readKits())) || {}
+  return withFlags(reading, budgets, now)
 }
 
 async function main(argv) {
   const i = argv.indexOf('--spool')
   const spool = i >= 0 ? argv[i + 1] : join(homedir(), '.local', 'state', 'burrow-dev', 'kit')
-  if (argv[0] === 'supabase') {
-    console.log(JSON.stringify(await readSupabase(spool)))
+  if (CHILD[argv[0]]) {
+    console.log(JSON.stringify(await CHILD[argv[0]](spool)))
     return
   }
   if (argv[0] === 'minutes') {
