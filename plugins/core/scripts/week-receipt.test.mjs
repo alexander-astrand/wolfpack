@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { cachedReceipt, cliReceipt, isoWeek, markdown, projectKey, projectOfCwd, projectOfFolder, receipt, weekRange } from './week-receipt.mjs'
+import { cachedReceipt, cliReceipt, isoWeek, markdown, projectKey, projectOfCwd, projectOfFolder, projectPlans, receipt, releaseRows, releasesMarkdown, weekRange } from './week-receipt.mjs'
 
 const line = (id, model, ts, cwd, tokens) =>
   JSON.stringify({ type: 'assistant', cwd, timestamp: ts, message: { id, model, usage: { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: tokens, output_tokens: 0 } } })
@@ -116,6 +116,43 @@ describe('week-receipt', () => {
     expect(again.cached).toMatch(/2026-W43\.json$/)
     expect(again.totalTokens).toBe(first.totalTokens)
     expect(() => cachedReceipt({ week: '2026-W43', projectsDir: join(root, 'missing'), cacheDir, fresh: true })).toThrow(/Can't read/)
+  })
+
+  it('lists every project\'s merged releases, planned against spent (kit 1.10 F10)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'week-receipt-rel-'))
+    const desktop = join(root, 'Desktop')
+    const mk = (name, plans, extra = {}) => {
+      mkdirSync(join(desktop, name, '.claude'), { recursive: true })
+      mkdirSync(plans, { recursive: true })
+      writeFileSync(join(desktop, name, '.claude', 'kit.json'), JSON.stringify({ project: { name }, plans, ...extra }))
+    }
+    const aPlans = join(root, 'a-plans')
+    const bPlans = join(root, 'b-plans')
+    mk('Alpha', aPlans)
+    mk('Beta', bPlans)
+    writeFileSync(join(aPlans, 'V1.2.md'), '# V1.2\n\n**Expected: ≈ 100M** (x)\n')
+    writeFileSync(join(aPlans, 'V1.3.md'), '# V1.3\n\n**Expected: ≈ 50M**\n') // not merged this week
+    writeFileSync(join(bPlans, 'V2.0.md'), '# V2.0\n\nExpected: ≈ 40M\n')
+    writeFileSync(join(bPlans, 'V2.0-steps.tsv'), 'when\tagent\tstep\tbudget\tused\tstopped\ttag\tcheaper\nt\tx\tA\t5.0M\t12.5M\tno\torder\tz\nt\ty\tB\t5.0M\t7.5M\tno\torder\tz\n')
+    const week = '2026-W43'
+    const { start } = weekRange(week)
+    const inWeek = new Date(start + 86_400_000).toISOString()
+    const prs = {
+      alpha: [
+        { title: 'V1.2: things', body: '## Usage\n| **Total** | | | **88.0M** | 100% |', mergedAt: inWeek },
+        { title: 'V1.3: later', body: '', mergedAt: new Date(start - 86_400_000).toISOString() },
+      ],
+      beta: [{ title: 'V2.0 release', body: 'no usage section', mergedAt: inWeek }],
+    }
+    const rows = releaseRows({ week, projects: projectPlans(desktop, root), mergedPrs: (p) => prs[p.name] })
+    expect(rows).toEqual([
+      { project: 'alpha', version: '1.2', planned: 100e6, spent: 88e6, source: 'PR usage' },
+      { project: 'beta', version: '2.0', planned: 40e6, spent: 20e6, source: 'steps log' },
+    ])
+    const md = releasesMarkdown(rows)
+    expect(md).toContain('| alpha | 1.2 | 100.0M | 88.0M | 88% |')
+    expect(md).toContain('| beta | 2.0 | 40.0M | 20.0M | 50% |')
+    expect(releasesMarkdown([])).toBe('No release merged this week.')
   })
 
   // Kit 1.7 review: --projects is another folder's count, so the shared cache stays out of it.
