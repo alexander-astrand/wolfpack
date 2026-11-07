@@ -9,9 +9,10 @@
 // Safety, which is what makes a blanket allow fine: it only stops a process that is this session's.
 //  1. Preferred: the nearest ancestor of this script whose command is `claude` is the session; only
 //     its descendants are candidates. Another session's processes, and yours outside Claude, are not.
-//  2. If no claude ancestor is found (a different launcher), only processes whose working folder is
-//     inside the current folder's tree are candidates. A release session runs from its own lane or
-//     worktree, so that tree is its own; it stays safe because it never reaches outside it.
+//  2. If no claude ancestor is found (a different launcher), --dry lists the processes whose working
+//     folder is inside the current folder's tree, but a real stop is refused: run from a main
+//     checkout, that tree holds every `.claude/worktrees/*` session's sleeps, servers and Chromes,
+//     so the folder is no proof of ownership (R1 S2).
 // Never the script itself or its ancestors. --dry lists pid and command and stops nothing.
 import { execFileSync } from 'node:child_process'
 import { realpathSync } from 'node:fs'
@@ -70,6 +71,12 @@ export function select({ procs, selfPid, sessionPid, cwds = {}, root, ports = []
   })
 }
 
+// With no claude ancestor only a listing is allowed; a real stop throws before anything is stopped.
+export function assertCanStop({ sessionPid, dry, root }) {
+  if (sessionPid || dry) return
+  throw new Error(`no claude ancestor found, so nothing is stopped: the folder tree of ${root} can hold other sessions' processes (a main checkout holds every worktree's). Run --dry to list them, then stop yours by hand.`)
+}
+
 function listProcs() {
   return execFileSync('ps', ['-axo', 'pid=,ppid=,command='], { encoding: 'utf8', maxBuffer: 1 << 26 })
     .split('\n')
@@ -107,9 +114,10 @@ export function main(argv, out = console.log) {
   const procs = listProcs()
   const sessionPid = sessionPidOf(procs, process.pid)
   const root = realpathSync(process.cwd())
+  assertCanStop({ sessionPid, dry: o.dry, root })
   const portPids = Object.fromEntries(o.ports.map((port) => [port, tryLsof(['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t']).split('\n').filter(Boolean).map(Number)]))
   const hit = select({ procs, selfPid: process.pid, sessionPid, cwds: sessionPid ? {} : cwdsOf(procs), root, ports: o.ports, names: o.names, portPids })
-  out(sessionPid ? `scope: descendants of the claude session (pid ${sessionPid})` : `scope: no claude ancestor found, only processes working inside ${root}`)
+  out(sessionPid ? `scope: descendants of the claude session (pid ${sessionPid})` : `scope: no claude ancestor found, listing only, processes working inside ${root}`)
   for (const p of hit) {
     if (!o.dry) {
       try {

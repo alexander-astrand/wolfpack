@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ancestors, parseArgs, select, sessionPidOf } from './stop-own.mjs'
+import { ancestors, assertCanStop, parseArgs, select, sessionPidOf } from './stop-own.mjs'
 
 // A fake process table: nothing here touches a real process.
 const procs = [
@@ -59,5 +59,15 @@ describe('select', () => {
   })
   it('without a session and no readable cwd, selects nothing', () => {
     expect(select({ procs, selfPid: 11, sessionPid: null, cwds: {}, root: '/lane/a', names: ['sleep'] })).toEqual([])
+  })
+})
+
+describe('assertCanStop (R1 S2)', () => {
+  it('without a session, --dry lists but a real stop is refused with the reason', () => {
+    expect(() => assertCanStop({ sessionPid: null, dry: true, root: '/repo' })).not.toThrow()
+    expect(() => assertCanStop({ sessionPid: null, dry: false, root: '/repo' })).toThrow(/no claude ancestor found, so nothing is stopped.*other sessions' processes/)
+  })
+  it('with a session, a real stop goes ahead', () => {
+    expect(() => assertCanStop({ sessionPid: 10, dry: false, root: '/repo' })).not.toThrow()
   })
 })
