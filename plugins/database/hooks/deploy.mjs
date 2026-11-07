@@ -217,10 +217,12 @@ const HOLD_WORD_RE = /(?:\b|_)(?:secrets?|passwords?|payments?|api[_\s-]?keys?|c
  */
 export const holdsDeploy = (step) => HOLD_TAG_RE.test(step) || heldByWord(step)
 
-// Kit 1.10 (H5): "Confirm the PR adds no secret" held a run. A hold word with
-// "no" or "not" up to three words before it says there is none, so it doesn't
-// count; any other hold word in the step still holds, so it still errs closed.
-const NEGATED_RE = /\b(?:no|not)\s+(?:\S+\s+){0,2}$/i
+// Kit 1.10 (H5): "Confirm the PR adds no secret" held a run. A hold word right
+// after a bare "no" (one word between at most: "no new secret") says there is
+// none, so it doesn't count; any other hold word in the step still holds, so
+// it still errs closed. R1 must 4: never "not" ("Do not forget the secret",
+// "Do not skip the payment" are steps only he can do).
+const NEGATED_RE = /\bno\s+(?:\w+\s+)?$/i
 function heldByWord(step) {
   const text = String(step ?? '')
   for (const m of text.matchAll(new RegExp(HOLD_WORD_RE.source, 'gi'))) {

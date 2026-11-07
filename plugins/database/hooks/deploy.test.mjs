@@ -444,13 +444,14 @@ describe('the helpers', () => {
     expect(holdsDeploy('- [ ] Check the token refresh page'), 'refresh after the token is no hand-over').toBe(false)
   })
 
-  // Kit 1.10 (H5): "no secret" held a run; "no" or "not" within three words says there is none.
-  it('holdsDeploy: "no secret" within three words does not hold; any other hold word still does', () => {
+  // Kit 1.10 (H5): "no secret" held a run; a bare "no" right before the word
+  // (one word between at most) says there is none. R1 must 4: "not" never does.
+  it('holdsDeploy: "no secret" does not hold; "not", a wider gap or any other hold word still does', () => {
     for (const step of [
       '- [ ] Confirm the PR adds no secret',
       '- [ ] No new secrets needed',
       '- [ ] Check there is no payment step left',
-      '- [ ] This is not a password change',
+      'adds no secret',
     ]) expect(holdsDeploy(step), step).toBe(false)
     for (const step of [
       '- [ ] No need to wait, then set the API key in Vercel',
@@ -458,6 +459,10 @@ describe('the helpers', () => {
       '- [ ] No new secret, but store the database password',
       '- [ ] [secret] no secret in the code, one in Vercel',
       '- [ ] Set NO_SECRET_KEY',
+      'Do not forget the secret',
+      'Do not skip the payment',
+      '- [ ] This is not a password change',
+      '- [ ] No more than one new secret',
     ]) expect(holdsDeploy(step), step).toBe(true)
   })
 
