@@ -138,7 +138,7 @@ The final ping becomes a short line in this session. Under `/cattle-drive`, befo
 - `[parallel]`: 3.3 part 1's `… && git stash -q` stashed four lanes' work.
   - Burrow V1.12 retro, fix 15: after four lost hours, his "run more lanes then normal now to catch up" became six lanes and 36 commits in 94 minutes, and the looks were cut first.
 - `[lane-home]` (kit 1.5, H2): `isolation: "worktree"` puts the lane under `.claude/worktrees`, where edits prompt and its builds break the main checkout's lint.
-- Checks: H4, kit 1.8; you read the builder's line instead of running it again. Your own run adds `db` when the database changed; don't fork `romeo-olsson` for it.
+- Checks: H4, kit 1.8; you read the builder's line instead of running it again. Your own run adds `db` when the database changed; the checks run in `/you-shall-not-pass` itself (or `scripts/check.sh` by the builder), no agent is forked for it.
   - On a failure, send it back to the same agent once; if it fails again, escalate as `oceans-eleven`'s Escalation says, with both earlier reports in the order; if that fails, ping.
 - Stamps: the build log is `<plan>-build.md`; its lines come from `step-done.mjs --log` with `--plan` (`--log --dry` prints the line first). The other stamps: plan, chain log, PR.
 - A cross-cutting state is a new status, flag or filter on a table.
@@ -157,7 +157,7 @@ The final ping becomes a short line in this session. Under `/cattle-drive`, befo
 - **QA that pins shared state** (a pinned reminder, a group setting) takes it down in its own order, never left to the navigator, because Auto may refuse a later clear (`[numbers]`; 2.13.5.3's reminder stayed pinned on dev).
 - The Bengan Boys and `heisenberg` run before the review, each with main's shots beside the branch's; none is cut to save budget or time, and the draft doesn't open until they have reported. QA in a design release runs Opus (`oceans-eleven`, QA & review).
 - A must's fix is re-checked by the checker who found it or by a screenshot at that width.
-- `[layout-qa]`: Burrow V1.12 retro, fix 7. `staffan-olsson`, `magnus-wislander` and `tomas-svensson` ran zero times in a release that changed the sidebar and every page, and `heisenberg` was never called back.
+- `[layout-qa]`: Burrow V1.12 retro, fix 7. `staffan-olsson` (375) and `magnus-wislander` (1024/1440), with `bengt-johansson` running `taste-repeats.mjs` first, ran zero times in a release that changed the sidebar and every page, and `heisenberg` was never called back.
   - 2.13.5.3's Going chip took three fixes because round 2 checked another width.
 - `[worse-than-main]`: Burrow V1.12 retro, fix 1. Alexander, 5 Nov 2026: "Why do you bring me something which is worse on every point compared to how the app is now?".
   - Every look step, every builder's own look and every QA pass gives the verdict; each order that looks asks for the verdict line per page, and the draft PR's body lists every page's verdict.
