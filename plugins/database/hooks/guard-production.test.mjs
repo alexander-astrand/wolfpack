@@ -3290,6 +3290,18 @@ describe('the one-word deploy (kit 1.6)', () => {
     expect(call(`${PLUGIN_SCRIPT} deploy 34`, { go: typedGo('34'), agentId: 'a1' }).decision).toBe('deny')
   })
 
+  it('takes a word and a version (kit-1.10) like any go (R1 must 1)', () => {
+    expect(call(`${PLUGIN_SCRIPT} deploy kit-1.10`, { go: typedGo('kit-1.10') }).decision).toBe('allow')
+    const none = call(`${PLUGIN_SCRIPT} deploy kit-1.10`)
+    expect(none.decision).toBe('ask')
+    expect(none.reason).toMatch(/Deploys kit-1\.10 to production/)
+    expect(call(`${PLUGIN_SCRIPT} deploy kit-1.10`, { go: typedGo('kit-1.9') }).decision).toBe('ask')
+    expect(call(`${PLUGIN_SCRIPT} deploy kit-1.10`, { go: typedGo('1.10') }).decision).toBe('ask')
+    expect(call(`${PLUGIN_SCRIPT} deploy kit-1.10`, { mode: 'bypassPermissions' }).decision).toBe('deny')
+    expect(call(`${PLUGIN_SCRIPT} deploy kit-1`, { go: typedGo('kit-1') }).decision).toBe('deny')
+    expect(call(`${PLUGIN_SCRIPT} deploy kit-1.10;x`, { go: typedGo('kit-1.10') }).decision).toBe('deny')
+  })
+
   it('runs only as the whole command, with a version or PR number', () => {
     expect(call(`git pull && ${PLUGIN_SCRIPT} deploy 34`, { go: typedGo('34') }).decision).toBe('deny')
     expect(call(`FOO=1 ${PLUGIN_SCRIPT} deploy 34`, { go: typedGo('34') }).decision).toBe('deny')

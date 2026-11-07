@@ -142,7 +142,7 @@ import { pathToFileURL } from 'node:url'
 import { CI_JOBS, CI_WORKFLOW, DEPLOYER, DEV_KEYCHAIN_ITEM, DEV_REF, GH_FILES_MS, HOOKS_DIR, PROD_KEYCHAIN_ITEM, NO_PRODUCTION, PROD_URL, SHIPS_ON_MERGE, allowedCommands, armList, changesDatabase, checksNotGreen, completeFiles, ghFetchFiles, pluginMode, prFacts } from './production-steps.mjs'
 import { READ_BUDGET_MS, readTimeout, startReads, stopReads } from './read-clock.mjs'
 import { CHAIN_USAGE, FROZEN, FROZEN_RE, RELEASE_PR_FIELDS, chainArgs, chainWhyNot, frozenOnDisk, oneTapDecision, oneTapVerdict, projectRoot } from './chain-arm.mjs'
-import { GO_HOURS, TRANSCRIPT_RE, goArg, readHumanGo } from './one-ring-go.mjs'
+import { GO_HOURS, NAMED_GO_RE, TRANSCRIPT_RE, goArg, readHumanGo } from './one-ring-go.mjs'
 import { GH_PR_READS, GIT_READS, PIPE_FILTERS, TEXT_READS } from './read-list.mjs'
 import { VERCEL_TOOLS, settingsFiles, vercelCall as vercelDecide, vercelUuids } from './guard-vercel.mjs'
 export { VERCEL_TOOLS }
@@ -910,11 +910,12 @@ function checkFullAuto(seg, words, ctx) {
     return { decision: 'allow', reason: `ranjit closes V${args[1].replace(/^V/, '')}'s deploy: done checks production first and disarms on anything else; logged.` }
   }
   if ((args.length === 2 || args.length === 3) && args[0] === 'deploy' && DEPLOY_GO_RE.test(args[1]) && (args.length === 2 || /^#?\d+$/.test(args[2]))) return deployCall(args, ctx)
-  return deny('Usage: scripts/full-auto.sh arm <version> | arm-chain <version> … | done <version> | disarm | preview <version> | check-plan <version> <plan file> | deploy <version or PR number> [<fix-forward PR>]')
+  return deny('Usage: scripts/full-auto.sh arm <version> | arm-chain <version> … | done <version> | disarm | preview <version> | check-plan <version> <plan file> | deploy <version, word-version (kit-1.10) or PR number> [<fix-forward PR>]')
 }
 
-// What `deploy` takes: a version (0.14.3.1) or a PR number, V or # in front.
-const DEPLOY_GO_RE = /^[Vv#]?\d+(?:\.\d+)*$/
+// What `deploy` takes: a version (0.14.3.1) or a PR number, V or # in front,
+// or a word and a version (kit-1.10, R1 must 1) in parseGo's own pattern.
+const DEPLOY_GO_RE = new RegExp(`^[Vv#]?\\d+(?:\\.\\d+)*$|${NAMED_GO_RE.source}`)
 
 // The one-word deploy (kit 1.6): hooks/deploy.mjs runs the whole deploy behind
 // this one call, so the call is the gate. His typed `/one-ring <go>` in this
@@ -936,7 +937,8 @@ function deployCall(args, ctx) {
     record(ctx, logLine(ctx, 'allow', what, `his typed /one-ring ${typed.arg}`))
     return { decision: 'allow', reason: `Alexander typed /one-ring ${typed.arg} in this session at ${new Date(typed.at).toISOString()}: that is the go for this deploy (backup before any database change; the script stops on red CI, conflicts, a failed backup, a dry run that isn't the PR's migrations, a failed smoke). Logged.` }
   }
-  if (go.includes('.') && args.length === 2 && markerCovers(go, ctx)) {
+  // A marker names a plain version; a named go (kit-1.10) has no marker.
+  if (/^\d+(?:\.\d+)+$/.test(go) && args.length === 2 && markerCovers(go, ctx)) {
     record(ctx, logLine(ctx, 'allow', what, `the chain's tap covers V${go}`))
     return { decision: 'allow', reason: `The chain armed at the start (/cattle-drive) covers V${go}: that tap is the go for this deploy. Logged.` }
   }

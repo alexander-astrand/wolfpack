@@ -37,7 +37,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { appliedMigrations } from './chain-arm.mjs'
-import { goArg, lastTypedGo } from './one-ring-go.mjs'
+import { NAMED_GO_RE, goArg, lastTypedGo } from './one-ring-go.mjs'
 import * as kit from './production-steps.mjs'
 
 export const EXIT = {
@@ -88,7 +88,7 @@ export function parseGo(arg) {
   const a = String(arg ?? '').trim().replace(/^[Vv#]/, '')
   if (/^\d+$/.test(a)) return { pr: Number(a) }
   if (/^\d+(?:\.\d+)+$/.test(a)) return { version: a }
-  const named = /^([A-Za-z][\w]*)-[Vv]?(\d+(?:\.\d+)+)$/.exec(String(arg ?? '').trim())
+  const named = NAMED_GO_RE.exec(String(arg ?? '').trim())
   if (named) return { version: named[2], word: named[1].toLowerCase() }
   return null
 }

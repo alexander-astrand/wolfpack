@@ -26,11 +26,20 @@ const GO_COMMANDS = new Set(['one-ring', 'release:one-ring'])
 const STOP_WORDS = new Set(['stop', 'hold', 'cancel'])
 // How Claude Code writes a typed slash command into the transcript.
 const COMMAND_RE = /^\s*(?:<command-message>[^<]*<\/command-message>\s*)?<command-name>\/([\w:-]+)<\/command-name>\s*<command-args>([^<]*)<\/command-args>\s*$/
-// A version (0.14.3.1) or a PR number (34), after a leading V or #.
-const ARG_RE = /^\d+(?:\.\d+)*$/
+// A word, a dash and a dotted version (kit-1.10): the kit's releases have no
+// V<version> branch, so the word is part of the go (kit 1.10, A0b). The one
+// source for deploy.mjs's parseGo and the guard's deploy call (R1 must 1).
+export const NAMED_GO_RE = /^([A-Za-z]\w*)-[Vv]?(\d+(?:\.\d+)+)$/
+// A version (0.14.3.1), a PR number (34) or a named version (kit-1.10), as
+// goArg leaves it.
+export const GO_ARG_RE = new RegExp(`^\\d+(?:\\.\\d+)*$|${NAMED_GO_RE.source}`)
 
-/** The go's argument as the deploy call names it: no leading V or #, no spaces. */
-export const goArg = (s) => String(s ?? '').trim().replace(/^[Vv#]/, '')
+/**
+ * The go's argument as the deploy call names it: no spaces, no leading # or V
+ * before a digit (a word like `vault-1.2` keeps its v), lower case, so a typed
+ * `Kit-1.10` and a run `kit-1.10` are the same go.
+ */
+export const goArg = (s) => String(s ?? '').trim().replace(/^(?:[Vv](?=\d)|#)/, '').toLowerCase()
 
 // A user entry's text, whether Claude Code wrote a string or text blocks.
 function entryText(message) {
@@ -50,7 +59,7 @@ function entryText(message) {
  */
 export function humanGo(text, { sessionId, now, hours = GO_HOURS }) {
   const go = lastTypedGo(text, { sessionId })
-  if (!go || STOP_WORDS.has(go.arg.toLowerCase()) || !ARG_RE.test(go.arg)) return null
+  if (!go || STOP_WORDS.has(go.arg.toLowerCase()) || !GO_ARG_RE.test(go.arg)) return null
   if (now - go.at > hours * 3600_000 || go.at - now > SKEW_MS) return null
   return go
 }

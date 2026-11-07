@@ -29,6 +29,13 @@ describe('the go he typed', () => {
     expect(go([typed(command('one-ring', '#34'))])).toMatchObject({ arg: '34' })
   })
 
+  it('reads a word and a version (kit-1.10) as a go (R1 must 1)', () => {
+    expect(go([typed(command('one-ring', 'kit-1.10'))])).toMatchObject({ arg: 'kit-1.10' })
+    expect(go([typed(command('release:one-ring', 'Kit-1.10'))])).toMatchObject({ arg: 'kit-1.10' })
+    expect(go([typed(command('one-ring', 'kit-1'))])).toBeNull()
+    expect(go([typed(command('one-ring', 'kit-1.10; rm -rf /'))])).toBeNull()
+  })
+
   it('no longer reads /special-delivery, deleted in kit 1.7', () => {
     expect(go([typed(command('release:special-delivery', '2.13.6'))])).toBeNull()
     expect(go([typed(command('special-delivery', '34'))])).toBeNull()
@@ -146,5 +153,8 @@ describe('the transcript it reads', () => {
   it('goArg drops a leading V or #', () => {
     expect(goArg(' V0.14 ')).toBe('0.14')
     expect(goArg('#34')).toBe('34')
+    // A word that starts with v keeps it; the word's case doesn't count.
+    expect(goArg('vault-1.2')).toBe('vault-1.2')
+    expect(goArg('Kit-1.10')).toBe('kit-1.10')
   })
 })
