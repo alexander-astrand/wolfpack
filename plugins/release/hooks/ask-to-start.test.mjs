@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { NEXT_REASON, REASON, WATCHDOG_REASON, asksToStart, backgroundState, decide, endsWithNext } from './ask-to-start.mjs'
+import { NAV_WATCHDOG_REASON, NEXT_REASON, REASON, WATCHDOG_REASON, asksToStart, backgroundState, decide, endsWithNext, startedRelease } from './ask-to-start.mjs'
 
 describe('ask-to-start', () => {
   it('catches the ways a turn asks him to start a session', () => {
@@ -77,7 +77,7 @@ function stop(entries, extra = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'ask-to-start-'))
   const file = join(dir, 's.jsonl')
   writeFileSync(file, entries.map((l) => JSON.stringify(l)).join('\n') + '\n')
-  const r = decide({ transcript_path: file, session_id: 's1', ...extra }, { logPath: extra.logPath ?? null })
+  const r = decide({ transcript_path: file, session_id: 's1', ...extra }, { logPath: extra.logPath ?? null, plansDir: extra.plansDir ?? join(dir, 'plans') })
   return r ? r.reason : 'pass'
 }
 
@@ -165,6 +165,40 @@ describe('the watchdog check (kit 1.7, council Feature 2)', () => {
   it('reports the counts', () => {
     const entries = [user('go'), ...bgAgent('a1b2c3'), ...bgBash('npm test', 'bx43')]
     expect(backgroundState(entries)).toEqual({ running: 2, timer: false })
+  })
+})
+
+// Burrow V1.12 retro, fix 14: the navigator's one sleep ran out, two prompts
+// closed as "rejected", and nothing woke it for four hours.
+describe('the navigator watchdog (Burrow V1.12 retro, fix 14)', () => {
+  const start = user('Start release: **1.12**\n\nYou are **`captain-call`** ...')
+  const spawn = tool('Agent', { description: 'chris-de-kok: step N1 [budget 10M]', prompt: 'p' }, 'report')
+  const hold = say('Still holding, as you asked.\nNext: your answer (Alexander)')
+
+  it('blocks a navigator before its draft that ends a turn with no timer, once', () => {
+    expect(stop([start, ...spawn, hold])).toBe(NAV_WATCHDOG_REASON)
+    expect(stop([start, ...spawn, hold], { stop_hook_active: true })).toBe('pass')
+  })
+
+  it('passes with a timer, before any agent, after the draft, or at a chain link end', () => {
+    expect(stop([start, ...spawn, ...bgBash('sleep 1200', 'sl09'), hold])).toBe('pass')
+    expect(stop([start, ...tool('Read', { file_path: '/plan' }, 'plan'), hold])).toBe('pass')
+    expect(stop([start, ...spawn, say('LINK DONE 1.12 at abc123\nNext: the deploy leg (conductor)')])).toBe('pass')
+    expect(stop([start, ...spawn, say('Stopped on his word.\nNext: nothing, done.')])).toBe('pass')
+    const plansDir = mkdtempSync(join(tmpdir(), 'plans-'))
+    writeFileSync(join(plansDir, 'V1.12.draft-done'), 's1\nburrow · side · 1.12 follow-up\n')
+    expect(stop([start, ...spawn, hold], { plansDir })).toBe('pass')
+  })
+
+  it('leaves sessions that never started a release alone', () => {
+    expect(stop([user('fix the hook'), ...spawn, say('Holding.\nNext: your answer (Alexander)')])).toBe('pass')
+  })
+
+  it('reads the slash command form of the start', () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'nav-')), 's.jsonl')
+    writeFileSync(file, JSON.stringify(user('<command-name>/release:captain-call</command-name>')) + '\n')
+    expect(startedRelease(file)).toBe(true)
+    expect(startedRelease(join(file, 'missing'))).toBe(false)
   })
 })
 
