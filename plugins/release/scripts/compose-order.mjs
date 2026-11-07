@@ -511,11 +511,17 @@ export function docsNaming(root, name, all) {
 // (call 3) it no longer sees the project's CLAUDE.md, so the order names the conventions
 // section and standing-facts.md by path.
 
+/**
+ * A path as one shell word, for the lines a builder runs as written: bare when it has only
+ * safe characters, else single-quoted (R1 N2: a lane under a folder with a space broke the npm line).
+ */
+export const shellWord = (p) => (/^[\w@%+=:,./-]+$/.test(p) ? p : `'${String(p).replace(/'/g, `'\\''`)}'`)
+
 /** The lane's check command: `npm --prefix <lane> run check`, else its `test` script; never `--workdir` (M3). */
 export function checkCommand(lane) {
   const scripts = readJson(join(lane, 'package.json'))?.scripts ?? {}
-  if (scripts.check) return `npm --prefix ${lane} run check`
-  if (scripts.test) return `npm --prefix ${lane} test`
+  if (scripts.check) return `npm --prefix ${shellWord(lane)} run check`
+  if (scripts.test) return `npm --prefix ${shellWord(lane)} test`
   return null
 }
 
@@ -585,8 +591,8 @@ export function laneBlock(laneArg, { root = laneArg, files = [], step = '<step>'
   const design = resolve(HERE, '../../design')
   const shotScript = join(lane, 'scripts', 'qa', 'shot.mjs')
   let shot
-  if (existsSync(shotScript) && port) shot = `node ${shotScript} <page> --base http://localhost:${port.port} --width 375|1024 [--theme dark] --out <scratch>/${step}-<width>-<theme>.png`
-  else if (existsSync(shotScript)) shot = `node ${shotScript} <page> --base http://localhost:<port> --width 375|1024 --out <scratch>/${step}-<width>-<theme>.png (no port known: set kit.json project.devPort)`
+  if (existsSync(shotScript) && port) shot = `node ${shellWord(shotScript)} <page> --base http://localhost:${port.port} --width 375|1024 [--theme dark] --out <scratch>/${step}-<width>-<theme>.png`
+  else if (existsSync(shotScript)) shot = `node ${shellWord(shotScript)} <page> --base http://localhost:<port> --width 375|1024 --out <scratch>/${step}-<width>-<theme>.png (no port known: set kit.json project.devPort)`
   else if (port) shot = `no scripts/qa/shot.mjs in the project: one shot in the pane on http://localhost:${port.port}, saved with ${design}/scripts/qa/save-shot.mjs`
   else shot = 'no dev server (no project.devPort): no shots'
   const facts = join(lane, '.claude', 'standing-facts.md')
@@ -595,7 +601,7 @@ export function laneBlock(laneArg, { root = laneArg, files = [], step = '<step>'
     name: basename(lane),
     check: checkCommand(lane),
     port,
-    seeds: laneSeeds(lane).map((s) => ({ name: s, up: `node ${design}/scripts/qa-seed.mjs up ${s} --lane ${basename(lane)} --root ${lane}` })),
+    seeds: laneSeeds(lane).map((s) => ({ name: s, up: `node ${shellWord(join(design, 'scripts', 'qa-seed.mjs'))} up ${s} --lane ${shellWord(basename(lane))} --root ${shellWord(lane)}` })),
     shot,
     readme: readmeAnchor(lane, files),
     conventions: conventionsSection(lane),

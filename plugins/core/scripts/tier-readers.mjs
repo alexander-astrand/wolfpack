@@ -186,8 +186,8 @@ export function actionsMonth(days, visibility) {
 
 // Alexander, 4 Nov 2026: "We need to very strictly make sure we don't hit the
 // usage limit early like we did last month." October ran 2,246 of the 2,000
-// and every private repo's CI stopped until the 1st. The rule and the budgets:
-// ~/.claude/global/CLAUDE.md, Costs, "GitHub Actions minutes, a hard budget".
+// and every private repo's CI stopped until the 1st. The rule and the budget
+// table: the core plugin's norms.md, "CI minutes" (the global CLAUDE.md points there).
 export const FREE_MINUTES = 2000
 // Each project's monthly share, by kit.json's project.name; the project's own
 // kit.json `ci.minutesBudget` wins, and a repo with neither gets a new

@@ -27,6 +27,7 @@ import {
   parseArgs,
   parseSteps,
   render,
+  shellWord,
   testsReading,
   walk,
 } from './compose-order.mjs'
@@ -434,6 +435,18 @@ describe('the lane block (F3, M3)', () => {
     rmSync(join(kit, 'package.json'))
     expect(checkCommand(kit)).toBeNull()
     rmSync(kit, { recursive: true, force: true })
+  })
+
+  it('R1 N2: quotes a lane path with a space in the lines a builder runs', () => {
+    const spaced = mkdtempSync(join(tmpdir(), "compose lane o'k "))
+    writeFileSync(join(spaced, 'package.json'), JSON.stringify({ scripts: { check: 'sh scripts/check.sh' } }))
+    const cmd = checkCommand(spaced)
+    expect(cmd).toBe(`npm --prefix ${shellWord(spaced)} run check`)
+    expect(cmd).toContain("'\\''")
+    // The shell reads the quoted word back as the one path.
+    expect(execFileSync('sh', ['-c', `printf %s ${shellWord(spaced)}`], { encoding: 'utf8' })).toBe(spaced)
+    expect(shellWord('/plain/path-1.2')).toBe('/plain/path-1.2')
+    rmSync(spaced, { recursive: true, force: true })
   })
 
   it('finds the port, the lane seeds, the README section and the conventions heading', () => {
