@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { addedLines, hitsOf, KIT_CHECKS, kitPathHits, parsePipeline, projectChecks, render, review, toRegExp } from './review-greps.mjs'
+import { addedLines, hitsOf, isKitRepo, KIT_CHECKS, kitPathHits, pathHits, parsePipeline, projectChecks, render, review, toRegExp } from './review-greps.mjs'
 
 const DIFF = [
   'diff --git a/src/Logo.tsx b/src/Logo.tsx',
@@ -189,6 +189,28 @@ describe('test files and kit paths', () => {
     expect(hits('Read its `scripts/qa/README.md` first.')).toEqual([])
     expect(hits('`plugins/<project>/x.md`, `plugins/*/x.md`, `${ROOT}/scripts/x.mjs`')).toEqual([])
     expect(kitPathHits([{ file: 'a.mjs', line: 1, text: "see 'plugins/x/nope.mjs'" }], { repo: '/r', exists })).toEqual([])
+  })
+
+  it('--kit exempts a project scripts/ path but still flags a missing plugins/ path', () => {
+    const kitHits = (text) => kitPathHits(md(text), { repo: '/r', exists, trackedNames: () => new Set(), kit: true }).map((h) => h.text.split(' ')[0])
+    expect(kitHits('See `scripts/check.mjs`, then `scripts/seed-dev.sh`.')).toEqual([])
+    expect(kitHits('See `plugins/design/scripts/nope.mjs`.')).toEqual(['plugins/design/scripts/nope.mjs'])
+  })
+
+  it('an explicit path list checks each named path exists', () => {
+    const miss = (paths, kit) => pathHits(paths, { repo: '/r', exists, kit }).map((h) => h.text)
+    expect(miss(['plugins/design/scripts/gallery.mjs', '<design>/scripts/gallery.mjs', 'scripts/check.mjs'])).toEqual([])
+    expect(miss(['plugins/design/scripts/nope.mjs', '<design>/scripts/nope2.mjs', 'scripts/gone.mjs'])).toEqual(['plugins/design/scripts/nope.mjs', 'plugins/design/scripts/nope2.mjs', 'scripts/gone.mjs'])
+    expect(miss(['scripts/gone.mjs', 'plugins/core/x.md'], true)).toEqual(['plugins/core/x.md'])
+  })
+
+  it('isKitRepo reads marketplace.json, and review with paths skips the diff', () => {
+    expect(isKitRepo('/r', (p) => p === '/r/.claude-plugin/marketplace.json')).toBe(true)
+    expect(isKitRepo('/r', () => false)).toBe(false)
+    const r = review({ repo: '/nowhere', paths: ['plugins/nope/x.md'], kit: true }, () => { throw new Error('no git') })
+    expect(r.hits).toHaveLength(1)
+    expect(r.notes[0]).toMatch(/marketplace/)
+    expect(render(r)).toMatch(/1 hits on 0 added lines/)
   })
 })
 
