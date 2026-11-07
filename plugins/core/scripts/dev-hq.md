@@ -14,7 +14,7 @@ The kit card from Burrow's `/legendary` of 27 Oct 2026; Alexander, 28 Oct: "Ther
   - `shares`: the week receipt's slice of the meter per project over the meter's own week, Saturday's reset on, as `{ resets_at, list }`; delphi counts its own.
   - `readings`: every seven-day reading in the tower's tick log with the reset it counts toward, so each lands in its meter week.
   - `tiers`: Pollux only. Each open trial from the trials ledger and one row per service across the projects' `free-tiers.md`, from `scrooge.mjs`, with live numbers from `tier-readers.mjs`, each read at most hourly and carrying its `read_at`:
-    - GitHub Actions: gh's billing usage report (needs gh's `user` scope); private-repo minutes this month.
+    - GitHub Actions: gh's billing usage report (needs gh's `user` scope); private-repo minutes this month, with the budget flags (50, 70 and 90 % of the 2,000, the month or a project ahead of its pace, a project past its `ci.minutesBudget`), alerts first.
     - Vercel: the billing charges API with the CLI's own login (CLI 65's `vercel usage` can't parse them); this month's usage and anything billed.
     - Supabase: the Management API with the CLI's token; Edge Function calls this month, the largest database, active free projects.
     - Netlify: the CLI; credits and anything over.

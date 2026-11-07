@@ -66,6 +66,17 @@ Every project has a card on Dev HQ, Alexander's private page in Burrow (since Bu
 - **Never in the way:** with no connector in the session (the cloud, another machine, a scheduled run without it) or a refused call, say so in one line (`Dev HQ: not written (<why>); next_step would be "<text>"`) and go on. A card write never fails or holds up a release, a wrap or a recap.
 - **Private:** card values live only in Burrow. Never write them into the repo, a PR or the roadmap page; the kit is public.
 
+## CI minutes
+The rule and each project's monthly budget: `~/.claude/global/CLAUDE.md`, Costs, "GitHub Actions minutes, a hard budget" (4 Nov 2026, after October ran 2,246 of the 2,000 private-repo minutes and every private repo's CI stopped until the 1st). Each project's `kit.json` `ci.minutesBudget` holds its number; public repos (the kit) run free. Every repo's CI has this shape, and `/life-finds-a-way`'s `ci.yml` starts a new project with it:
+- **Ready PRs only:** `pull_request` with `types: [opened, synchronize, reopened, ready_for_review]`, plus `workflow_dispatch`. No `push: main` run (the PR already checked that head). Every job has `if: github.event.pull_request.draft == false` (or a dispatch).
+- `concurrency` per PR with `cancel-in-progress` for pull requests.
+- **A docs-only change runs nothing real,** and skips inside the job, never with `paths-ignore`: `/one-ring` and the arm wait for `Checks` by name (`ci.jobs`), and a workflow that never starts leaves it pending forever. The job's first step diffs against the base and, when every path is `docs/`, `.claude/`, `plans/` or a `.md`, skips the rest and ends green in about a minute.
+- `runs-on: ubuntu-latest` only, `timeout-minutes` on every job (10, Burrow 15), caches for installs and builds (`setup-node`'s `cache: npm`, the build cache, pip).
+- No `schedule:` unless Alexander agreed to it.
+- Dependabot monthly, every ecosystem grouped into one PR, `open-pull-requests-limit: 2`.
+- **Push less:** `scripts/check.sh` locally is the check. A PR stays a draft until its work is done and green locally, then goes ready once (`/one-ring` marks it ready itself; under `/cattle-drive` the release leg does it at its end); more fixes after ready go in one push.
+- **The warning:** `tier-readers.mjs` (`actionsFlags`) flags 50 % and 70 % of the month's 2,000, a project past its `ci.minutesBudget`, and a month running ahead of its pace. The flags reach Dev HQ's tiers row, `/scrooge` and `/groundhog-day`'s note for the 08:00 brief. At 70 % only merges in flight get CI; at 90 % stop pushing to ready PRs and say so in one line.
+
 ## Which Claude for what
 | Mode | When | Type |
 |---|---|---|
