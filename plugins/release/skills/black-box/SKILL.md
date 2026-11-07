@@ -46,6 +46,11 @@ Each lane is a `barney-stinson` spawn with the version, its lane, the baseline a
 
 Each lane writes `~/.claude/plans/audits-<version>/black-box-lane-<n>.md`: findings ranked by severity, each with the object and file:line, a size (S under an hour, M a step, L a release) and a fix, then "what I checked and found clean". Nothing secret is ever quoted.
 
+## 2b. Verify: one fresh check per finding (wave 2)
+For each finding in the lane reports, spawn a fresh `barney-stinson` with `model: opus` (no star) and the order "verify", giving it only that finding's claim, object and file:line plus the facts file, never the lane's reasoning (F16, kit 1.10; its section "Wave 2" says how). Several at once; ≈ 1 to 2M each.
+- **confirmed** and **plausible** findings go into the report, marked with their verdict (a plausible one says what would settle it).
+- **rejected** findings go to `~/.claude/plans/audits-<version>/rejected.md` beside the report (private), each with why, so the next audit reads it before raising the same thing again.
+
 ## 3. Report
 - The navigator combines the lanes into the full copy, `~/.claude/plans/audits-<version>/black-box.md` (private), and the repo copy, `docs/audits/<version>/black-box.md`.
 - **The redaction rule** (V2.13.6, step 8): "**`black-box.md` in the repo is the redacted copy** (counts, categories, sizes; no function names, policy text or settings that map a hole before it's fixed); the full one stays in `~/.claude/plans/audits-2.13.6/black-box.md`." The advisors' exact list (which definer functions anon can call) is the private copy's.
