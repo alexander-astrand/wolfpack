@@ -112,6 +112,20 @@ async function shoot(cdp, list, shot, scanSrc) {
   return { file, width, height, scan }
 }
 
+// launch()'s close() already removes the Chrome profile folder on a normal end and on an error (the
+// finally below). A Ctrl-C skipped it and left a kit-shots-* folder behind (jedi-council 1.9 M3), so
+// SIGINT and SIGTERM run the same close() first. Returns a function that takes the handlers off.
+export function cleanOnSignal(close, proc = process, exit = (code) => process.exit(code)) {
+  const handlers = {}
+  for (const [sig, code] of [['SIGINT', 130], ['SIGTERM', 143]]) {
+    handlers[sig] = () => Promise.resolve(close()).finally(() => exit(code))
+    proc.on(sig, handlers[sig])
+  }
+  return () => {
+    for (const [sig, fn] of Object.entries(handlers)) proc.off(sig, fn)
+  }
+}
+
 export async function run(o) {
   const list = loadList(readFileSync(resolve(o.list), 'utf8'), o.list)
   const shots = o.only ? list.shots.filter((s) => o.only.includes(s.name)) : list.shots
@@ -125,6 +139,7 @@ export async function run(o) {
   const { cdp, close } = await launch()
   const scans = {}
   let failed = 0
+  const unhook = cleanOnSignal(close)
   try {
     for (const s of shots) {
       try {
@@ -138,6 +153,7 @@ export async function run(o) {
       }
     }
   } finally {
+    unhook()
     await close()
   }
   if (o.scan) writeFileSync(join(list.out, 'scan.json'), JSON.stringify(scans, null, 2))

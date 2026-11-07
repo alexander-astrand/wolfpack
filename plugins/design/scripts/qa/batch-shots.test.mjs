@@ -2,7 +2,27 @@ import { describe, it, expect } from 'vitest'
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { loadList, parseArgs, run, shotUrl, viewportFor } from './batch-shots.mjs'
+import { EventEmitter } from 'node:events'
+import { cleanOnSignal, loadList, parseArgs, run, shotUrl, viewportFor } from './batch-shots.mjs'
+
+describe('cleanOnSignal', () => {
+  it('closes Chrome, removing its profile, on SIGINT and then exits 130', async () => {
+    const proc = new EventEmitter()
+    const calls = []
+    cleanOnSignal(() => calls.push('close'), proc, (code) => calls.push(`exit ${code}`))
+    proc.emit('SIGINT')
+    await new Promise((r) => setTimeout(r, 10))
+    expect(calls).toEqual(['close', 'exit 130'])
+  })
+
+  it('takes its handlers off when the run ends', () => {
+    const proc = new EventEmitter()
+    const unhook = cleanOnSignal(() => {}, proc, () => {})
+    expect(proc.listenerCount('SIGINT')).toBe(1)
+    unhook()
+    expect(proc.listenerCount('SIGINT') + proc.listenerCount('SIGTERM')).toBe(0)
+  })
+})
 import { findChrome } from './cdp.mjs'
 import { parseArgs as scaffoldArgs, scaffold } from '../mock-scaffold.mjs'
 
