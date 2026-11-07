@@ -46,7 +46,8 @@
 // code an interpreter reads from a file or stdin. Kit 1.10 (H4): a literal
 // `VAR=/path` at the call's start is put in for each later `$VAR` before
 // any rule reads the call (resolveLiteralVars), so `S=<id>; node …` and
-// `K=/x; cd $K; …` are judged as the plain commands.
+// `K=/x; cd $K; …` are judged as the plain commands; and a plain `sed -i` on
+// files outside scripts/ is judged as an Edit of those files (sedEditsOnly).
 //
 // Known limits of a command-line guard (the arm prompt and the PR re-read
 // bound them; a person still arms every release):
@@ -2966,6 +2967,28 @@ function runsScript(cmd, words) {
   return at >= 0 && basename(rest[at]).toLowerCase() === 'full-auto.sh' && !rest.slice(0, at).some((w) => /^-[a-z]*c/.test(w))
 }
 
+// Whether the segment is a `sed -i` that edits only files outside scripts/
+// (kit 1.10, H4): run as itself (no VAR=value or wrapper, no redirect but to
+// /dev/), its script plain (no e, w or -f: textTool) and no shell in the call
+// that could run what it prints, every file a literal path in a known folder.
+// The arm script's name, the markers and the CLI link stay with the other
+// rules, as does anything in a folder named scripts.
+function sedEditsOnly(seg, words, head, where, ctx) {
+  if (seg.subshell || !['sed', 'gsed'].includes(head) || words.length !== seg.words.length) return false
+  if (seg.writes.some((w) => !w.startsWith('/dev/'))) return false
+  const tool = textTool(seg)
+  if (tool?.verdict !== 'plain' || !tool.inPlace || callFeedsShell(ctx)) return false
+  const files = sedFiles(words.slice(1))
+  return files.length > 0 && files.every((f) => sedEditFile(f, where))
+}
+
+function sedEditFile(f, where) {
+  if (!f || f.startsWith('-') || /[$`*?[\]{}~\\\s]/.test(f)) return false
+  if (f.includes(TEMP_DIR) || MARKER_WORD_RE.test(f) || SCRIPT_WORD_RE.test(f)) return false
+  const full = isAbsolute(f) ? f : where?.dir && !where.built && isAbsolute(where.dir) ? join(where.dir, f) : null
+  return full !== null && !dirname(normalize(full)).split('/').some((p) => p.toLowerCase() === 'scripts')
+}
+
 // The round 3 rules sit beside the others, and the strictest answer stands.
 // In interpreter code a leading `.` or `claude` is code, not a shell running
 // source or a nested claude (2.12.3); a string there that runs a shell is a
@@ -3002,7 +3025,11 @@ function segmentRules(seg, ctx) {
   const names = (w) => (prose && w === prose.word ? mentionsScript(prose.codeBare, { ...where, code: true }, false) : mentionsScript(w, where, patterns))
   // Redirects to /dev/null and the like write nothing (S1: `grep … 2>/dev/null`).
   const writes = seg.writes.filter((w) => !w.startsWith('/dev/'))
-  if (seg.words.some((w, i) => !isText(head, seg.words, i) && names(w)) || writes.some(names)) {
+  // A plain `sed -i` on files outside scripts/ is an Edit of those files
+  // (kit 1.10, H4): protectedWrite asks for a frozen one as an Edit would,
+  // and its script is text, not a name (` /* x */` in a CSS line read as a
+  // glob of the arm script, `arm-script` on app edits in Burrow).
+  if (!sedEditsOnly(seg, words, head, where, ctx) && (seg.words.some((w, i) => !isText(head, seg.words, i) && names(w)) || writes.some(names))) {
     if (head === 'full-auto.sh') {
       const top = parseShell(ctx.source)
       if (top.length !== 1 || top[0].subshell) return deny(SCRIPT_DENIED)
