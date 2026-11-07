@@ -13,10 +13,17 @@ import { readEntries } from './usage.mjs'
 import { windowFiles } from './council-starts.mjs'
 
 const ONE_RING = /<command-name>\s*\/?(?:[\w-]+:)?one-ring\s*<\/command-name>/
-// The line deploy.mjs prints just before DONE (its `costLine`, kit 1.8). Only
-// that line counts: a looser "cost ... 4.5M" match read the one-ring skill
-// body, which mentions the baseline, as the run's cost (review MUST 2).
-const COST = /^COST: \d+(?:\.\d+)? min this run\b.*$/m
+// deploy.mjs prints each line after a `HH:MM:SSZ  ` time (its realIo log), so
+// the anchors allow it; without it the kit 1.9 facts read 0 cost lines and 3
+// DONE of 30 (kit 1.10, F19).
+const TIME = String.raw`(?:\d{2}:\d{2}:\d{2}Z\s+)?`
+// The line deploy.mjs prints just before DONE (its `costLine`): since kit
+// 1.10 `/one-ring <arg>: DONE | <min> min | <M> tokens`, before it kit 1.8's
+// `COST: <min> min this run ...`. Only that line counts: a looser "cost ...
+// 4.5M" match read the one-ring skill body, which mentions the baseline, as
+// the run's cost (review MUST 2).
+const COST = new RegExp(`^${TIME}(\\/one-ring \\S+: DONE \\| \\d+(?:\\.\\d+)? min \\| (?:\\d+(?:\\.\\d+)?M|\\?) tokens|COST: \\d+(?:\\.\\d+)? min this run\\b.*)$`, 'm')
+const END = new RegExp(`^${TIME}(DONE: .*|STOP [\\w-]+: .*)$`, 'm')
 // The skill body the harness injects after the command, as an isMeta entry
 // whose text starts with this line: it quotes DONE and cost lines as examples.
 const SKILL_BODY = /^\s*Base directory for this skill:/
@@ -35,12 +42,12 @@ export function runsIn(entries, session) {
     const run = runs.at(-1)
     if (!run || !text || e?.isMeta || SKILL_BODY.test(text)) continue
     if (!run.ended) {
-      const end = /^(DONE: .*|STOP [\w-]+: .*)$/m.exec(text)
+      const end = END.exec(text)
       if (end) run.ended = end[1].trim()
     }
     if (!run.cost) {
       const cost = COST.exec(text)
-      if (cost) run.cost = cost[0].trim()
+      if (cost) run.cost = cost[1].trim()
     }
   }
   return runs
