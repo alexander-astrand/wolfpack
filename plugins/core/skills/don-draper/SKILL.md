@@ -1,7 +1,7 @@
 ---
 name: don-draper
 description: Write a brief of something specific, as one copy-paste block, for a chat, another AI agent or a real person. Use for a project summary for a marketing conversation, a hand-over order, or a note to a human.
-argument-hint: <for chat|agent|person> <subject>
+argument-hint: [refresh] <for chat|agent|person> <subject>
 model: sonnet
 effort: medium
 disable-model-invocation: true
@@ -28,13 +28,15 @@ Shape and rules: `<design>/voice-card.md` (`<design>` is the folder of the wolfp
 
 Pick by the first word of the arguments. All three use one skeleton: **What it is · Where it stands · What's next · The ask.**
 
+**`refresh <register> <subject>`** (jedi-council L4) rewrites an existing brief with what changed since it was written, not a new one: read the current brief (the one-pager's Doc, or the text the caller names), keep what still holds, change only what moved, and say in one line what changed. Same register, skeleton and limits.
+
 - **chat:** for Alexander's own claude.ai chats. Context-dense, markdown fine, agent and release names fine. Enough that a fresh chat can work without asking.
 - **agent:** an order another AI can act on. Goal, constraints, files and links, what "done" means. No fluff, no story.
 - **person:** a human reader. Plain words, no agent names, no internal jargon (no "release 2.14", no "builder"). Follows Alexander's voice (`~/.claude/global/voice/voice.md`, free of the tells in `tells-en.md`; check the draft with `node ~/.claude/global/voice/tells-grep.mjs -`, the draft on stdin, until it says clean; the brief stays a reply, never a file), and the project's own house voice when `.claude/` has one.
 
 ## Steps
 
-1. Parse `<register> <subject>`. If the register isn't one of the three, ask which (pick-one, recommended first).
+1. Parse `[refresh] <register> <subject>`. If the register isn't one of the three, ask which (pick-one, recommended first).
 2. Gather facts only from: `README.md`, memory `project_roadmap.md` (status and pointers; never the roadmap page in full), the plan files in `~/.claude/plans/`, and `git log`. **Never guess a number**, a date or a status; if a fact isn't in a source, leave it out or write "not known yet".
 3. Write the brief in the register, skeleton above, under about 300 words unless the subject needs more.
 4. Output **one fenced block** and nothing inside it that isn't meant to be pasted. One line after it saying which sources it came from.
