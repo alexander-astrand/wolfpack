@@ -59,7 +59,7 @@ A project keeps its own figures the same way, in `<project>/.claude/lessons-numb
 - **[parallel]** Burrow V0.14.2: one lane's commit swallowed the other's staged files twice (two builders in one worktree).
 - **[lean-check]** portfolio 0.2's two tapped leans (a lone 560px reading column, the team's nicknames in public copy) both came back after the build (V0.2.1, 7adbab2).
 - **[reader-and-wiring]** Burrow V0.13's S11b/S11c split read the same three files twice.
-- **[look-asks]** Burrow V0.13: eleven asks, 79.3M, 30 % of the release, three redone once.
+- **[look-asks]** Burrow V0.13: eleven asks, 79.3M, 30 % of the release, three redone once. Burrow V1.10 (4 Nov 2026): the look ran about 219M in two sessions against 100M booked, with no ask; 38 commits, about 12 of them three features relayed in from other sessions.
 - **[first-deploy]** svardsvik V0.1's /one-ring: seven stops, 97 min, 21.1M against a 4.5M no-migration baseline; fix-forward #9 (vercel.json) and #6/#7 (production refs, prod-db.sh).
 - **[page-step-split]** svardsvik V0.1: four orders ran out of turns (steps 5, 7, 9b at 97%, the a11y fix) and a second builder finished each.
 - **[local-stack]** svardsvik V0.1: the night stopped at minute 10 on `supabase start`; Alexander started it at about 01:15.
