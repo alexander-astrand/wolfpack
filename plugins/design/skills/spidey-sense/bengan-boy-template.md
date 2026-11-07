@@ -6,6 +6,7 @@ effort: medium
 maxTurns: 60
 disallowedTools: Agent, Edit, Write, NotebookEdit
 tools: Read, Grep, Glob, Bash, Skill, ToolSearch, mcp__Claude_Browser__*
+omitClaudeMd: true
 skills:
   - web-shooters
   - spidey-sense
