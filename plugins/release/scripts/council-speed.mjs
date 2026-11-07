@@ -65,7 +65,19 @@ export function sessionLabel(entries) {
   const title = sessionTitle(entries)
   if (cmd === '(none)') return title ? `title: ${title}` : '(none)'
   if (BADGER.test(cmd) && title && !/badger/i.test(title)) return `title: ${title} (started ${cmd.replace(/[()]/g, '')})`
+  // F18 (kit 1.9 council, L7): a session whose first command was a Skill call (the
+  // bracketed form: no typed slash command opened it) is labelled by its title kind
+  // when the title parses, so a release or setup session that ran /one-ring is
+  // not counted as a one-ring session.
+  if (cmd.startsWith('(') && titleKind(title)) return `title: ${title} (ran ${cmd.replace(/[()]/g, '')})`
   return cmd
+}
+
+// The kind of a `project · kind · subject` title (release, setup, wrap, side,
+// memento, talk...), or null when the title does not have that shape.
+export function titleKind(title) {
+  const parts = String(title || '').split(' · ')
+  return parts.length >= 3 && parts[1].trim() ? parts[1].trim().toLowerCase() : null
 }
 
 // The skill a label counts under on the cards: `/release:captain-call` and

@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { dropSeen, firstTurnEnd, isArtefact, sessionLabel, sessionRow, skillKey, startCommand, tableOf, typedPrompt } from './council-speed.mjs'
+import { dropSeen, firstTurnEnd, isArtefact, sessionLabel, sessionRow, skillKey, startCommand, tableOf, titleKind, typedPrompt } from './council-speed.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
 const msg = (id, block, ts) => ({ type: 'assistant', timestamp: ts, message: { id, model: 'claude-opus-x', usage, content: [block] } })
@@ -46,6 +46,17 @@ describe('sessionLabel and skillKey (one keying for the speed table and the card
     const start = { type: 'user', message: { content: '<command-name>/core:badger</command-name>' } }
     expect(sessionLabel([start, title('hutzup · release · 3.4')])).toBe('title: hutzup · release · 3.4 (started /core:badger)')
     expect(sessionLabel([start, title('hutzup · side · badger dark mode')])).toBe('/core:badger')
+  })
+  it('labels a session whose first command was a Skill call by its title kind (F18)', () => {
+    const skillCall = { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Skill', input: { skill: 'release:one-ring' } }] } }
+    const e = [{ type: 'user', message: { content: 'Kit 1.10 release' } }, skillCall, title('kit · release · 1.10')]
+    expect(sessionLabel(e)).toBe('title: kit · release · 1.10 (ran /release:one-ring)')
+    expect(skillKey(sessionLabel(e))).toBe(null)
+    expect(titleKind('kit · setup · hooks')).toBe('setup')
+    expect(titleKind('free text')).toBe(null)
+    // no parseable title: the skill still labels it; a typed slash command always does
+    expect(sessionLabel([e[0], skillCall])).toBe('(/release:one-ring)')
+    expect(sessionLabel([{ type: 'user', message: { content: '<command-name>/release:one-ring</command-name>' } }, title('kit · release · 1.10')])).toBe('/release:one-ring')
   })
   it('keys a plugin prefix and a later command in brackets to the bare skill name', () => {
     expect(skillKey('/release:captain-call')).toBe('captain-call')
