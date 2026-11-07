@@ -15,6 +15,9 @@
 //   rework       commits on the PRs after the draft whose subject reads as a fix
 //   usage        Skyler's totals and lines (models, Week) for those sessions
 //   timeline     Skyler's wall-clock lines, one per session
+//   notInRelease the plan's `## Not in this release` section, copied as written
+//   stepSpend    the steps log beside the plan (<plan>-steps.tsv): `<step>: <used> of <budget> (<agent>)`
+//                per step in `lines`, and a `total`
 //   missing      what it couldn't find, so the wrap fetches only that by hand
 //
 // usage.mjs is the release plugin's: beside this plugin in the repo
@@ -113,6 +116,35 @@ export function reworkCandidates(prs, since) {
   return out
 }
 
+/** The plan's `## Not in this release` section, copied as written (the wrap's opening lines); '' when there is none. */
+export function notInThisRelease(planText) {
+  const m = /^##\s+Not in this release\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/m.exec(planText ?? '')
+  return m ? m[1].trim() : ''
+}
+
+/**
+ * The spend per step from the steps log beside the plan (`<plan>-steps.tsv`, the
+ * columns step-done.mjs writes): one line per step and a total. Reads the header
+ * for the column positions, so a column added later does not shift them.
+ */
+export function stepSpend(tsvText) {
+  const rows = String(tsvText ?? '').split('\n').filter((l) => l.trim()).map((l) => l.split('\t'))
+  if (rows.length < 2) return { lines: [], totalM: 0, total: '' }
+  const head = rows[0]
+  const col = (n) => head.indexOf(n)
+  const [iAgent, iStep, iBudget, iUsed] = ['agent', 'step', 'budget', 'used'].map(col)
+  const num = (s) => Number.parseFloat(String(s ?? '').replace(/[^\d.]/g, '')) || 0
+  let totalM = 0
+  let budgetM = 0
+  const lines = rows.slice(1).map((r) => {
+    totalM += num(r[iUsed])
+    budgetM += num(r[iBudget])
+    return `${r[iStep]}: ${r[iUsed]} of ${r[iBudget]} (${r[iAgent]})`
+  })
+  const round = (n) => `${Math.round(n * 10) / 10}M`
+  return { lines, totalM, total: `Total: ${round(totalM)} of ${round(budgetM)}` }
+}
+
 const defaultGh = (project) => (args) => execFileSync('gh', args, { cwd: project, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
 const defaultNode = (args) => execFileSync(process.execPath, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
 
@@ -201,10 +233,18 @@ export async function wrapFacts(version, env = {}) {
   else if (prs.length) [since, from] = [Math.min(...prs.map((p) => Date.parse(p.createdAt)).filter((t) => !Number.isNaN(t))), 'PR opened']
   if (!draftDone) missing.push('the draft-done marker (rework counted from the PR opening)')
 
+  // Not in this release, and what each step spent (the steps log beside the plan)
+  const stepsFile = plan ? plan.replace(/\.md$/, '-steps.tsv') : null
+  const steps = stepsFile && existsSync(stepsFile) ? stepSpend(readFileSync(stepsFile, 'utf8')) : { lines: [], totalM: 0, total: '' }
+  const notInRelease = plan ? notInThisRelease(readFileSync(plan, 'utf8')) : ''
+  if (plan && !steps.lines.length) missing.push('the steps log (<plan>-steps.tsv) for the per-step spend')
+
   return {
     version,
     project,
     plan,
+    notInRelease,
+    stepSpend: steps,
     prs: prs.map((p) => ({ number: p.number, title: p.title, state: p.state, isDraft: Boolean(p.isDraft), mergeSha: p.mergeCommit?.oid ?? null, url: p.url })),
     sessions: located,
     budgetTable: { markdown, rows: budgetRows },

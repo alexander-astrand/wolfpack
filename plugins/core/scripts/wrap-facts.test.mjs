@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { findUsage, locate, reworkCandidates, sessionIds, titleHas, wrapFacts } from './wrap-facts.mjs'
+import { findUsage, locate, notInThisRelease, reworkCandidates, sessionIds, stepSpend, titleHas, wrapFacts } from './wrap-facts.mjs'
 
 const SID = '0f1e2d3c-1111-4222-8333-944455556666'
 const DEPLOY = 'aaaabbbb-1111-4222-8333-944455556666'
@@ -146,6 +146,35 @@ describe('wrap-facts', () => {
       expect(out.prs.map((p) => p.number)).toEqual([46])
       expect(out.sessions.missing).toEqual([BUILD])
     }
+  })
+
+  it('copies the plan\'s "Not in this release" section, up to the next heading or the end (kit 1.10 F11)', () => {
+    const plan = '# Plan\n\n## Steps\n\n- a\n\n## Not in this release\n\n- **X** → there\n- **Y** → here\n\n## Notes\n\nlater\n'
+    expect(notInThisRelease(plan)).toBe('- **X** → there\n- **Y** → here')
+    expect(notInThisRelease('## Not in this release\n\n- last one\n')).toBe('- last one')
+    expect(notInThisRelease('# Plan\n\nnothing\n')).toBe('')
+  })
+
+  it('prints one spend line per step from the steps log, and a total (kit 1.10 F11)', () => {
+    const tsv = 'when\tagent\tstep\tbudget\tused\tstopped\ttag\tcheaper\n' +
+      't1\tjesse-pinkman\tB0 test\t2.0M\t0.3M\tno\torder\tx\n' +
+      't2\tahmed\tB1a template\t6.0M\t1.1M\tno\torder\ty\n'
+    const out = stepSpend(tsv)
+    expect(out.lines).toEqual(['B0 test: 0.3M of 2.0M (jesse-pinkman)', 'B1a template: 1.1M of 6.0M (ahmed)'])
+    expect(out.total).toBe('Total: 1.4M of 8M')
+    expect(stepSpend('').lines).toEqual([])
+  })
+
+  it('wrapFacts carries both from the plan and the steps file beside it', async () => {
+    const { project, projects } = fixture()
+    const plansDir = join(project, 'plans')
+    mkdirSync(plansDir, { recursive: true })
+    writeFileSync(join(project, '.claude', 'kit.json'), JSON.stringify({ plans: plansDir }))
+    writeFileSync(join(plansDir, 'V1.7.md'), `Session ${SID}\n\n## Not in this release\n\n- **Z** → later\n`)
+    writeFileSync(join(plansDir, 'V1.7-steps.tsv'), 'when\tagent\tstep\tbudget\tused\tstopped\ttag\tcheaper\nt\tbob\tA1 x\t3.0M\t2.5M\tno\torder\tz\n')
+    const out = await wrapFacts('1.7', { project, projectsDir: projects, gh: () => '[]', resolveLocal: (id) => id })
+    expect(out.notInRelease).toBe('- **Z** → later')
+    expect(out.stepSpend.lines).toEqual(['A1 x: 2.5M of 3.0M (bob)'])
   })
 
   it('says what is missing when gh fails, instead of failing', async () => {
