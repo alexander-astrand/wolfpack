@@ -83,7 +83,8 @@ export const CLOSE_ASK_PLAYBOOK = 'Put "Cheaper next time:" as the report\'s fir
 
 const COLS = {
   step: /^(step|#|id)$/,
-  what: /^(what|task|step what)$/,
+  // "What (file:line from the grep)" too: kit 1.10's header printed an empty "The step:".
+  what: /^(what|task|step what)\b/,
   agent: /^(agent|who|agent\s*·\s*model|agent,? model)/,
   model: /^model/,
   lane: /^lane$/,
@@ -112,7 +113,10 @@ export function parseSteps(text) {
         continue
       }
       header = lower.map((h) => Object.keys(COLS).find((k) => COLS[k].test(h)) ?? null)
-      // "Agent · model" fills both.
+      // "Agent · model" fills both. A What column whose header says it holds
+      // the file:line (and no Files column) is the files cell as well.
+      const at = header.indexOf('what')
+      header.filesFromWhat = at >= 0 && !header.includes('files') && /file/.test(lower[at])
       continue
     }
     if (!header.length) continue
@@ -120,6 +124,7 @@ export function parseSteps(text) {
     header.forEach((k, i) => {
       if (k && rec[k] == null) rec[k] = row[i] ?? ''
     })
+    if (header.filesFromWhat) rec.files = rec.what
     if (rec.step) out.push(rec)
   }
   return out
@@ -250,6 +255,8 @@ export function walk(dir, max = 20000) {
     if (out.length >= max || !existsSync(d)) return
     for (const name of readdirSync(d).sort()) {
       if (SKIP.has(name) || (name.startsWith('.') && name !== '.claude')) continue
+      // Stale worktrees in the main checkout's .claude/worktrees/ gave false test hits (kit 1.9).
+      if (name === 'worktrees' && basename(d) === '.claude') continue
       const p = join(d, name)
       let st
       try {

@@ -100,6 +100,11 @@ describe('the plan table', () => {
     const r = findStep(t, '3')
     expect(r).toMatchObject({ agent: 'chris-de-kok', files: '`app/x.tsx`', check: 'lint', budget: '9M' })
   })
+  it('reads a "What (file:line ...)" header as the step and its files (kit 1.10)', () => {
+    const t = '| Step | Lane | Agent | Model | Budget | What (file:line from the grep) | Check | Depends on |\n|---|---|---|---|---|---|---|---|\n| A1 | A | chris-de-kok | Opus | 7M | F1: `lib/a.ts:12` grows a flag | tests | – |\n'
+    expect(findStep(t, 'A1')).toMatchObject({ what: 'F1: `lib/a.ts:12` grows a flag', files: 'F1: `lib/a.ts:12` grows a flag', check: 'tests' })
+    expect(findStep(PLAN, 'b4').files).toMatch(/money-import/) // a Files column of its own still wins
+  })
   it('skips tables that are not step tables', () => {
     expect(parseSteps('| Release | Planned |\n|---|---|\n| V1.0 | 470M |\n')).toEqual([])
   })
@@ -182,6 +187,16 @@ describe('the project reads', () => {
     const t = testsReading(root, ['lib/money-import.ts', 'components/money/spend-import.tsx'], walk(root))
     expect(t).toEqual(['components/money/other.test.tsx', 'lib/money-import.test.ts'])
     expect(testsReading(root, ['supabase/migrations/0012_money_accounts.sql'])).toEqual(['supabase/tests/money_test.sql'])
+  })
+  it("skips stale worktrees under .claude/worktrees/, but not the rest of .claude (kit 1.9's false test hits)", () => {
+    const dir = mkdtempSync(join(tmpdir(), 'compose-walk-'))
+    mkdirSync(join(dir, '.claude', 'worktrees', 'old', 'lib'), { recursive: true })
+    mkdirSync(join(dir, 'lib'))
+    writeFileSync(join(dir, '.claude', 'worktrees', 'old', 'lib', 'a.test.ts'), "import './a'\n")
+    writeFileSync(join(dir, '.claude', 'kit.json'), '{}')
+    writeFileSync(join(dir, 'lib', 'a.test.ts'), "import './a'\n")
+    expect(walk(dir).map((p) => p.slice(dir.length + 1))).toEqual(['.claude/kit.json', 'lib/a.test.ts'])
+    expect(testsReading(dir, ['lib/a.ts'])).toEqual(['lib/a.test.ts'])
   })
   it('picks the standing facts that touch the step, and every Every order line', () => {
     const facts = factsFor(readFileSync(join(root, '.claude/standing-facts.md'), 'utf8'), 'the bank import', ['lib/money-import.ts'])
