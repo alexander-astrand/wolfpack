@@ -117,6 +117,15 @@ describe('the cards on a tiny fixture', () => {
     expect(out).toContain('Sessions started with no command: 1 labelled by their title')
   })
 
+  it('labels a session whose first command is a Skill call by its title kind, so it counts as no start of that skill (F18)', () => {
+    const o = fixture()
+    const tdir = join(o.transcripts, transcriptKey(o.projects.a))
+    put(join(tdir, 's4.jsonl'), jsonl([prompt('Kit 1.10 release', '2026-10-17T13:00:00Z'), asst('n4', { type: 'tool_use', name: 'Skill', input: { skill: 'release:jedi' } }, '2026-10-17T13:00:10Z'), { type: 'custom-title', customTitle: 'a · release · 1.10' }]))
+    const out = renderCards(buildCards(o), o).cards
+    expect(out).toContain('- runs: 1 sessions started with it')
+    expect(out).toContain('Sessions started with no command: 1 labelled by their title')
+  })
+
   it('reads the parents\' Agent results and the window\'s PR bodies too (H3)', () => {
     const o = fixture()
     const tdir = join(o.transcripts, transcriptKey(o.projects.a))

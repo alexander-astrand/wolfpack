@@ -30,6 +30,9 @@
 //    the same body lost a tick (council M11), so the body is re-read right
 //    before the write and the edit redone once if it changed under us.
 // --dry prints the steps row and the new body instead of writing either.
+// 4. Past 1.3x the plan's Expected, after the writes it prints a `STOP:` line
+//    and exits 1 (council F5); under away mode (`<plan>.away.md` exists) the
+//    line says park instead of ask. With --dry it prints the line and exits 0.
 
 import { execFileSync } from 'node:child_process'
 import { appendFileSync, existsSync, readFileSync, realpathSync } from 'node:fs'
@@ -104,6 +107,21 @@ export function buildLogLine({ now, agent, step, budget, used, stopped, tag, che
 
 export function costLine(spent, expected) {
   return `Spent: ${fmtM(spent)} of ${fmtM(expected)} expected (${Math.round((spent / expected) * 100)} %)`
+}
+
+// Council F5: a release past 1.3x its expected spend must stop spawning. The
+// away marker is the file /night-watch writes beside the plan: `<plan>.away.md`.
+export const STOP_RATIO = 1.3
+
+export function awayFileFor(plan) {
+  return join(dirname(plan), `${basename(plan).replace(/\.md$/, '')}.away.md`)
+}
+
+// The stop line, or null while the spend is at or under 1.3x the expected.
+export function stopLine(spent, expected, away = false) {
+  if (!expected || spent <= expected * STOP_RATIO) return null
+  const head = `STOP: ${fmtM(spent)} is past ${STOP_RATIO}x the ${Math.round(expected / 1e6)}M expected (${Math.round((spent / expected) * 100)} %)`
+  return away ? `${head}: finish this step, no new spawn, park what is left under "Waiting on Alexander".` : `${head}: finish this step, no new spawn, ask Alexander.`
 }
 
 // Where a new section goes: before the Claude Code footer when there is one.
@@ -232,6 +250,8 @@ export function run(o, { budgets, gh = realGh, now = new Date(), log = console.l
   const writeSteps = () => {
     if (!o.plan) return log('no --plan: no steps file, no cost line and no build log')
     const file = stepsFileFor(o.plan)
+    // A mistyped --plan in a folder that isn't there: say so rather than throw after the PR edit.
+    if (!existsSync(dirname(file))) return log(`warning: no folder ${dirname(file)}: steps row not written, rerun with the right --plan:\n${line}`)
     if (o.dry) log(`steps file ${file} would get:\n${line}`)
     else appendSteps(file, line)
     if (o.log) {
@@ -240,16 +260,28 @@ export function run(o, { budgets, gh = realGh, now = new Date(), log = console.l
     }
   }
 
+  // The stop check reads the plan whether or not a PR is edited; it prints after the normal writes.
+  let cost = null
+  let stop = null
+  // A wrong --plan path (R1 S4) warns and goes on: the step's row still lands, only the cost line and STOP check are skipped.
+  if (o.plan && !existsSync(o.plan)) log(`warning: no plan file ${o.plan}: no cost line and no STOP check this time`)
+  else if (o.plan) {
+    const expected = parseExpected(readFileSync(o.plan, 'utf8'))
+    if (expected) {
+      const spent = sessionTotal(baseDir, o.session)
+      cost = costLine(spent, expected)
+      stop = stopLine(spent, expected, existsSync(awayFileFor(o.plan)))
+    } else if (o.pr != null) log(`no "Expected: ≈ NM" line in ${o.plan}: cost line left as it was`)
+  }
+  const done = (res) => {
+    if (stop) log(stop)
+    return { ...res, stop }
+  }
+
   if (o.pr == null) {
     writeSteps()
     log(`${row.agent}: ${step}, ${fmtM(row.tokens)} of ${budget ? fmtM(budget) : 'no budget'}${row.stopped ? ', stopped by Hank' : ''}`)
-    return { row, line }
-  }
-  let cost = null
-  if (o.plan) {
-    const expected = parseExpected(readFileSync(o.plan, 'utf8'))
-    if (expected) cost = costLine(sessionTotal(baseDir, o.session), expected)
-    else log(`no "Expected: ≈ NM" line in ${o.plan}: cost line left as it was`)
+    return done({ row, line })
   }
   const budgetRow = budgetTableMarkdown([{ ...row, step, budget, tagged: o.budget != null || row.tagged }]).split('\n')[2]
   const cheaper = o.cheaper ? `- \`${o.tag}\` ${row.agent} (${clean(step)}): ${clean(o.cheaper)}` : null
@@ -258,14 +290,16 @@ export function run(o, { budgets, gh = realGh, now = new Date(), log = console.l
   if (o.dry) log(`PR #${o.pr} body would be:\n${res.body}`)
   else log(`PR #${o.pr}: ${res.written ? 'updated' : 'unchanged'}${res.retried ? ' (body moved under us, redone once)' : ''}${cost ? `; ${cost}` : ''}`)
   for (const n of res.notes) log(`note: ${n}`)
-  return { row, line, ...res }
+  return done({ row, line, ...res })
 }
 
 // Node runs the real file, so a symlinked path compares as its real URL.
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   try {
     const o = parseArgs(process.argv.slice(2))
-    run(o, { budgets: await hankBudgets() })
+    const res = run(o, { budgets: await hankBudgets() })
+    // Past 1.3x the expected spend: exit 1 after the writes, so the navigator sees it. --dry only prints.
+    if (res.stop && !o.dry) process.exit(1)
   } catch (err) {
     console.error(err.message)
     console.error('Usage: node step-done.mjs <agent> --step "<label>" --budget <N>M --session <id> [--pr <n>] [--cheaper "<line>" --tag order|route|rule|drop] [--tick "<box text>"] [--plan <plan file>] [--dry]')

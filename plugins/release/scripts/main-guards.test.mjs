@@ -3,7 +3,7 @@
 // started through a symlink; the old `pathToFileURL(process.argv[1] ?? '')` form
 // never ran main there and exited 0 with no output, which looked like success.
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, symlinkSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -27,10 +27,37 @@ const SCRIPTS = [
   ['database/scripts/seed.mjs', [], ''],
   ['database/scripts/scope.mjs', [], ''],
   ['database/scripts/sync-ranjit.mjs', [], ''],
+  // A18: the `process.argv[1] ?? ''` form, moved to the standing form. Each of these prints
+  // a usage line or a result without writing a file (make-builders only checks without --write).
+  ['database/scripts/run-tests.mjs', ['--x'], ''],
+  ['release/scripts/make-builders.mjs', [], ''],
+  ['release/scripts/budgets-derive.mjs', ['--help'], ''],
+  ['release/scripts/council-facts.mjs', ['--help'], ''],
+  ['release/scripts/council-skills.mjs', ['--help'], ''],
+  ['release/scripts/council-speed.mjs', ['--help'], ''],
+  ['release/scripts/council-spawns.mjs', ['--help'], ''],
+  ['release/scripts/council-starts.mjs', ['--help'], ''],
+  ['release/scripts/meter-calibrate.mjs', ['--help'], ''],
+  ['release/scripts/black-box-facts.mjs', ['--help'], ''], // R1 S5: new in A11 with the old form
+  // A18 order 2: the `fileURLToPath(import.meta.url) === process.argv[1]` form (and the
+  // `resolve(argv[1])` one in root scripts, reached as ../scripts/ from plugins/).
+  ['core/scripts/dev-hq.mjs', ['--help'], ''],
+  ['core/scripts/scrooge.mjs', [], ''],
+  ['core/scripts/week-receipt.mjs', ['--help'], ''],
+  ['core/scripts/tier-readers.mjs', [], ''],
+  ['core/scripts/envelope.mjs', [], ''],
+  ['release/scripts/routes-moved.mjs', ['--help'], ''],
+  ['release/scripts/roadmap-apply.mjs', ['--help'], ''],
+  ['release/scripts/the-tower.mjs', [], ''],
+  ['../scripts/user-commands.mjs', [], ''],
+  ['../scripts/drift.mjs', [], ''],
+  ['../scripts/bump.mjs', [], ''],
+  ['../scripts/check.mjs', [], ''],
 ]
 
-// Hooks read a payload on stdin; an empty one must exit 0.
-const HOOKS = ['release/hooks/ask-to-start.mjs']
+// Hooks read a payload on stdin; an empty one must exit 0. start-gate and budget-cap print
+// nothing for an empty payload, so for them this only proves the file loads and exits cleanly.
+const HOOKS = ['release/hooks/ask-to-start.mjs', 'release/hooks/start-gate.mjs', 'release/hooks/budget-cap.mjs']
 
 // These two exit 0 on an empty payload, which a skipped main does too, so each gets
 // args that only a running main answers with a non-zero exit and a known message.
@@ -43,6 +70,20 @@ const ARGED_HOOKS = [
 const REFUSING_HOOKS = ['database/hooks/chain-arm.mjs', 'database/hooks/production-steps.mjs']
 
 const run = (link, args, input) => spawnSync('node', [link, ...args], { encoding: 'utf8', input, timeout: 20000, env: { ...process.env, HOME: mkdtempSync(join(tmpdir(), 'guard-home-')) } })
+
+// R1 S5: a new script with the weak form slipped past the list above, so scan for it too.
+// Allowed, with why: chain-cover.mjs is a frozen file (the production guard refuses a
+// builder's edit), so its guard waits for a session that may change frozen files; drop
+// the entry when it moves to the standing form and add it to SCRIPTS.
+const WEAK_ALLOWED = ['database/scripts/chain-cover.mjs']
+describe('no script keeps the weak main guard', () => {
+  it('no plugins/**/*.mjs uses pathToFileURL(process.argv[1] ?? ...)', () => {
+    const weak = readdirSync(PLUGINS, { recursive: true })
+      .filter((f) => f.endsWith('.mjs') && !f.endsWith('.test.mjs') && !f.includes('node_modules'))
+      .filter((f) => /pathToFileURL\(\s*process\.argv\[1\]\s*\?\?/.test(readFileSync(join(PLUGINS, f), 'utf8')))
+    expect(weak).toEqual(WEAK_ALLOWED)
+  })
+})
 
 describe('main guards run through a symlink', () => {
   for (const [path, args, input] of SCRIPTS) {

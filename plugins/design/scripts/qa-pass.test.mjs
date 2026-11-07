@@ -1,10 +1,91 @@
 import { describe, it, expect } from 'vitest'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { DEFAULT_WIDGET, pageUrl, paneBatches, parseArgs, parsePass, rowsFor, run, table, tellsOffFrom } from './qa-pass.mjs'
+import { DEFAULT_WIDGET, fromDiff, pageUrl, paneBatches, parseArgs, parsePass, rowsFor, run, table, tellsOffFrom } from './qa-pass.mjs'
 import { findChrome } from './qa/cdp.mjs'
+import { layoutPrefix, pagesFor, routeOf } from './qa/diff-pages.mjs'
+
+// A Next app-router project the shape of Burrow's: a route group, a dynamic page, components and a lib.
+function nextProject() {
+  const root = mkdtempSync(join(tmpdir(), 'qa-diff-'))
+  const w = (p, s) => {
+    mkdirSync(dirname(join(root, p)), { recursive: true })
+    writeFileSync(join(root, p), s)
+  }
+  w('.claude/kit.json', JSON.stringify({ project: { devPort: 3027 }, qa: { themes: ['light', 'dark'], routes: { 'styles/money': ['/money'] } } }))
+  w('app/layout.tsx', "import './globals.css'\nexport default function L() {}\n")
+  w('app/(home)/page.tsx', "import { Hero } from '@/components/hero'\nexport default function P() {}\n")
+  w('app/(home)/money/page.tsx', "import Spend from '@/components/money/spend-import'\nexport default function P() {}\n")
+  w('app/(home)/money/layout.tsx', 'export default function L() {}\n')
+  w('app/(home)/trips/[id]/page.tsx', "import { Box } from '../../../../components/trips/box'\nexport default function P() {}\n")
+  w('app/api/x/route.ts', 'export function GET() {}\n')
+  w('components/hero.tsx', 'export const Hero = 1\n')
+  w('components/money/spend-import.tsx', "import { parse } from '@/lib/money-import'\nexport default function S() {}\n")
+  w('components/trips/box.tsx', "export { parse } from '@/lib/money-import'\nexport const Box = 1\n")
+  w('lib/money-import.ts', 'export const parse = 1\n')
+  w('lib/unused.ts', 'export const u = 1\n')
+  return root
+}
+
+describe('diff pages', () => {
+  it('maps route files, groups and pages router files to URLs', () => {
+    expect(routeOf('app/page.tsx')).toBe('/')
+    expect(routeOf('app/(home)/money/page.tsx')).toBe('/money')
+    expect(routeOf('src/app/@modal/(x)/notes/page.jsx')).toBe('/notes')
+    expect(routeOf('app/api/x/route.ts')).toBeNull()
+    expect(routeOf('pages/index.tsx')).toBe('/')
+    expect(routeOf('pages/trips/index.tsx')).toBe('/trips')
+    expect(routeOf('pages/_app.tsx')).toBeNull()
+    expect(routeOf('pages/api/x.ts')).toBeNull()
+    expect(layoutPrefix('app/layout.tsx')).toBe('/')
+    expect(layoutPrefix('app/(home)/money/layout.tsx')).toBe('/money')
+  })
+
+  it('walks a lib change up through its importers to every page, and keeps dynamic and unmapped apart', () => {
+    const root = nextProject()
+    const r = pagesFor(root, ['lib/money-import.ts', 'lib/unused.ts', 'README.md', 'styles/money.css'], { routes: { 'styles/money': ['/money'] } })
+    expect(r.pages).toEqual(['/money'])
+    expect(r.needsParams).toEqual(['/trips/[id]'])
+    expect(r.unmapped).toEqual(['lib/unused.ts', 'README.md'])
+    expect(r.why['/money']).toEqual(['lib/money-import.ts', 'styles/money.css'])
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  it('gives a layout every page under it', () => {
+    const root = nextProject()
+    expect(pagesFor(root, ['app/layout.tsx']).pages).toEqual(['/', '/money'])
+    expect(pagesFor(root, ['app/(home)/money/layout.tsx']).pages).toEqual(['/money'])
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  it('writes a pass file qa-pass reads, from a real git diff', () => {
+    const root = nextProject()
+    const git = (...a) => execFileSync('git', ['-C', root, ...a], { stdio: 'ignore' })
+    git('init', '-q')
+    git('-c', 'user.email=t@t', '-c', 'user.name=t', 'add', '-A')
+    git('-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'base')
+    writeFileSync(join(root, 'components/hero.tsx'), 'export const Hero = 2\n')
+    const out = join(root, 'pass.json')
+    const lines = []
+    expect(fromDiff({ fromDiff: 'HEAD', root, out }, (l) => lines.push(l))).toBe(0)
+    const p = parsePass(readFileSync(out, 'utf8'), out)
+    expect(p).toMatchObject({ base: 'http://localhost:3027', pages: ['/'], widths: [375, 1024], themes: ['light', 'dark'] })
+    expect(lines[0]).toMatch(/1 pages from 1 changed files against HEAD/)
+    expect(lines[1]).toBe('- /: components/hero.tsx')
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  it('exits 1 when the diff reaches no page, and parses its flags', () => {
+    const root = nextProject()
+    expect(fromDiff({ fromDiff: 'x', root }, () => {}, { changed: ['lib/unused.ts'] })).toBe(1)
+    expect(parseArgs(['--from-diff', 'main', '--root', '/p', '--out', '/p/pass.json'])).toMatchObject({ fromDiff: 'main', root: '/p', out: '/p/pass.json' })
+    expect(() => parseArgs(['--from-diff'])).toThrow(/needs a value/)
+    rmSync(root, { recursive: true, force: true })
+  })
+})
 
 const pass = (o = {}) => parsePass(JSON.stringify({ base: 'http://localhost:5174', pages: ['/notes'], ...o }))
 

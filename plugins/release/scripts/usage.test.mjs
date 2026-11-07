@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { budgetRows, budgetTableMarkdown, stepOf, stoppedInLog, stoppedInTranscript, countCalls, hhmm, projectFolderName, readEntries, resolveLocalId, resolveSession, sessionCommand, tallyEntries, tokensPerPoint, totalTokens, transcriptDirs } from './usage.mjs'
+import { budgetRows, budgetTableMarkdown, ceilingLine, sessionTokens, tokensSinceGo, stepOf, stoppedInLog, stoppedInTranscript, countCalls, hhmm, projectFolderName, readEntries, resolveLocalId, resolveSession, sessionCommand, tallyEntries, tokensPerPoint, totalTokens, transcriptDirs } from './usage.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
 const line = (id, block) => ({
@@ -212,5 +212,85 @@ describe('--budget-table (kit 1.7)', () => {
     expect(out).toContain('| c-3po | README | 1.0M | 1.1M (110%) | yes |')
     // no tag: Hank's default for the scout (budgets.json, 2M)
     expect(out).toContain('| lorenzo-von-matterhorn | find the tower | 2.0M (default) |')
+  })
+})
+
+describe('--ceiling (kit 1.10, F1)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'usage-ceiling-'))
+  const big = (id) => ({ type: 'assistant', message: { id, model: 'claude-opus-x', usage: { cache_read_input_tokens: 1_200_000 }, content: [{ type: 'text', text: 'x' }] } })
+  const jsonl = (entries) => `${entries.map((e) => JSON.stringify(e)).join('\n')}\n`
+  writeFileSync(join(dir, 'dddd4444-talk.jsonl'), jsonl([big('m1'), big('m2')]))
+  mkdirSync(join(dir, 'dddd4444-talk', 'subagents'), { recursive: true })
+  // The subagent repeats m2 (a forked line) and adds m3: 3.6M in all, not 4.8M.
+  writeFileSync(join(dir, 'dddd4444-talk', 'subagents', 'agent-1.jsonl'), jsonl([big('m2'), big('m3')]))
+  const script = fileURLToPath(new URL('./usage.mjs', import.meta.url))
+  const run = (m) => execFileSync(process.execPath, [script, '--ceiling', m, '--dir', dir, 'dddd4444'], { encoding: 'utf8' }).trim()
+
+  it('ceilingLine says OVER only past the figure', () => {
+    expect(ceilingLine(20_000_000, 20)).toBe('20.0M')
+    expect(ceilingLine(23_400_000, 20)).toBe('OVER 23.4M')
+  })
+
+  it('sums the session and its subagents, each message once', () => {
+    const files = [join(dir, 'dddd4444-talk.jsonl'), join(dir, 'dddd4444-talk', 'subagents', 'agent-1.jsonl')]
+    expect(sessionTokens(files)).toBe(3_600_000)
+  })
+
+  it('the script prints one line, OVER or the figure', () => {
+    expect(run('3')).toBe('OVER 3.6M')
+    expect(run('4')).toBe('3.6M')
+  })
+})
+
+describe('--since (kit 1.10, F2)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'usage-since-'))
+  const at = (min) => `2026-11-03T01:${String(min).padStart(2, '0')}:00.000Z`
+  const msg = (id, min) => ({ type: 'assistant', timestamp: at(min), message: { id, model: 'claude-opus-x', usage: { cache_read_input_tokens: 1_000_000 }, content: [{ type: 'text', text: 'x' }] } })
+  const typed = (args, min, kind = 'human') => ({
+    type: 'user', sessionId: 'eeee5555-deploy', timestamp: at(min), origin: { kind }, turnOrigin: kind,
+    message: { content: `<command-name>/one-ring</command-name>\n<command-args>${args}</command-args>` },
+  })
+  const jsonl = (entries) => `${entries.map((e) => JSON.stringify(e)).join('\n')}\n`
+  // A release session the deploy was typed into: two messages before the go,
+  // a peer's /one-ring (no go), then his go at :10 and three messages after,
+  // one of them a subagent's.
+  writeFileSync(join(dir, 'eeee5555-deploy.jsonl'), jsonl([msg('m1', 1), msg('m2', 5), typed('99', 8, 'peer'), typed('kit-1.10', 10), msg('m3', 11), msg('m4', 20)]))
+  mkdirSync(join(dir, 'eeee5555-deploy', 'subagents'), { recursive: true })
+  writeFileSync(join(dir, 'eeee5555-deploy', 'subagents', 'agent-1.jsonl'), jsonl([msg('m5', 15)]))
+  const script = fileURLToPath(new URL('./usage.mjs', import.meta.url))
+  const run = (...args) => execFileSync(process.execPath, [script, ...args, '--dir', dir, 'eeee5555'], { encoding: 'utf8' }).trim()
+
+  it('counts from his typed go, subagents included, whatever its argument', () => {
+    expect(run('--since', 'go')).toBe('3.0M since 2026-11-03T01:10:00Z (the go)')
+  })
+
+  it('counts from an ISO time, and the ceiling reads the same count', () => {
+    expect(run('--since', at(12))).toBe('2.0M since 2026-11-03T01:12:00Z')
+    expect(run('--ceiling', '1', '--since', at(12))).toBe('OVER 2.0M since 2026-11-03T01:12:00Z')
+  })
+
+  it('sessionTokens leaves out what came before', () => {
+    const files = [join(dir, 'eeee5555-deploy.jsonl'), join(dir, 'eeee5555-deploy', 'subagents', 'agent-1.jsonl')]
+    expect(sessionTokens(files)).toBe(5_000_000)
+    expect(sessionTokens(files, { since: Date.parse(at(10)) })).toBe(3_000_000)
+  })
+
+  it('tokensSinceGo finds the transcript whose go names the argument', async () => {
+    const { lastTypedGo } = await import('../../database/hooks/one-ring-go.mjs')
+    expect(tokensSinceGo(dir, lastTypedGo, { arg: 'kit-1.10' })).toEqual({ tokens: 3_000_000, since: Date.parse(at(10)), session: 'eeee5555-deploy' })
+    // a lane beside it in the same project, without that go
+    expect(tokensSinceGo(dir, lastTypedGo, { arg: '1.2' })).toBeNull()
+    // an old transcript is never read
+    expect(tokensSinceGo(dir, lastTypedGo, { arg: 'kit-1.10', now: Date.now() + 13 * 3600_000 })).toBeNull()
+  })
+
+  it('says so when there is no go or the word is no time', () => {
+    const noGo = mkdtempSync(join(tmpdir(), 'usage-since-none-'))
+    writeFileSync(join(noGo, 'ffff6666.jsonl'), jsonl([msg('m1', 1)]))
+    const fail = (args, d) => {
+      try { execFileSync(process.execPath, [script, ...args, '--dir', d, 'ffff6666'], { encoding: 'utf8', stdio: 'pipe' }); return '' } catch (e) { return String(e.stderr) }
+    }
+    expect(fail(['--since', 'go'], noGo)).toContain('no /one-ring typed')
+    expect(fail(['--since', 'yesterday'], noGo)).toContain('ISO time or "go"')
   })
 })

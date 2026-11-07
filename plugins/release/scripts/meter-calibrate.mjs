@@ -21,7 +21,7 @@
 //
 //   node meter-calibrate.mjs [--log <file>] [--projects <dir>] [--floors <file>]
 //          [--floor <label> <tokens, e.g. 608.5M> <points>]
-import { appendFileSync, createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { appendFileSync, createReadStream, existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
@@ -194,4 +194,4 @@ async function main() {
   console.log('All models count together here: a mixed week gives one blended figure.')
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main()

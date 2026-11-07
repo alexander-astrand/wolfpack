@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { esc, fromReports, group, normalise, parseArgs, rateLine, render, reportFiles, reportTokens, writeGallery } from './gallery.mjs'
+import { esc, fromFiles, fromReports, group, shotFromFile, normalise, parseArgs, rateLine, render, reportFiles, reportTokens, writeGallery } from './gallery.mjs'
 
 const SHOTS = [
   { page: 'Profile', option: 'b', width: 1024, theme: 'dark', path: 'p-b-1024.jpg' },
@@ -147,7 +147,52 @@ describe('from the reports', () => {
   })
 
   it('refuses both inputs at once, and needs one', () => {
-    expect(() => parseArgs(['s.json', '--from-reports', 'r'])).toThrow(/not both/)
+    expect(() => parseArgs(['s.json', '--from-reports', 'r'])).toThrow(/give one of/)
     expect(() => parseArgs([])).toThrow(/--from-reports/)
+  })
+})
+
+describe('from image paths (--files, kit 1.10 F4)', () => {
+  // A 1x1 PNG, so the page inlines a real image.
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')
+
+  it("reads page, option, width and theme from batch-shots' names", () => {
+    expect(shotFromFile('/x/trips-a-375-light.jpg')).toEqual({ path: '/x/trips-a-375-light.jpg', page: 'trips', option: 'a', width: 375, theme: 'light' })
+    expect(shotFromFile('/x/money-page-nighttram-1024-dark.png')).toMatchObject({ page: 'money-page', option: 'nighttram', width: 1024, theme: 'dark' })
+    expect(shotFromFile('/x/home-b.png')).toMatchObject({ page: 'home', option: 'b' })
+    expect(shotFromFile('/x/home-b.png').width).toBeUndefined()
+    expect(shotFromFile('/x/hero.png')).toMatchObject({ page: 'hero', option: 'a' })
+  })
+
+  it('keeps the given order and drops a repeated path', () => {
+    const s = fromFiles(['/x/p-b-375.png', '/x/p-a-375.png', '/x/p-b-375.png'])
+    expect(s.map((x) => x.option)).toEqual(['b', 'a'])
+    expect(() => fromFiles([])).toThrow(/at least one/)
+  })
+
+  it('takes every path up to the next flag, and defaults --out to the first file\'s folder', () => {
+    const o = parseArgs(['--files', '/d/a-a.png', '/d/a-b.png', '--title', 'T'])
+    expect(o).toMatchObject({ files: ['/d/a-a.png', '/d/a-b.png'], title: 'T', out: '/d/gallery.html' })
+    expect(() => parseArgs(['--files', '--out', 'x'])).toThrow(/at least one/)
+    expect(() => parseArgs(['s.json', '--files', 'a.png'])).toThrow(/give one of/)
+  })
+
+  it('writes a page with both images inlined and his words on top', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gallery-files-'))
+    const a = join(dir, 'trips-a-375-light.png')
+    const b = join(dir, 'trips-b-375-light.png')
+    writeFileSync(a, PNG)
+    writeFileSync(b, PNG)
+    const res = writeGallery(parseArgs(['--files', a, b, '--words', 'warmer <please>']))
+    expect(res.out).toBe(join(dir, 'gallery.html'))
+    const html = readFileSync(res.out, 'utf8')
+    expect(html.match(/data:image\/png;base64,/g)).toHaveLength(2)
+    expect(html).toContain('Option A')
+    expect(html).toContain('Option B')
+    expect(html).toContain('warmer &lt;please&gt;')
+  })
+
+  it('fails on a missing file and names it', () => {
+    expect(() => writeGallery(parseArgs(['--files', '/nope/x-a.png', '--out', join(tmpdir(), 'g.html')]))).toThrow(/missing shots:[\s\S]*\/nope\/x-a.png/)
   })
 })

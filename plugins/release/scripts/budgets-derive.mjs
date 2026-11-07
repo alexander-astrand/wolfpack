@@ -31,11 +31,12 @@
 // any other run. Rate = fix rounds per step. PR bodies are not read: their
 // send-back notes are free text with no agent column to count by.
 
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { ABOVE_CEILING, BUDGET_CEILING, MODEL_DEFAULTS } from '../hooks/budget-cap.mjs'
+import { isReleaseTitle, projectFolders, titleOfEntries } from '../../core/scripts/release-sessions.mjs'
 import { agentName, projectFolderName, readEntries, sessionCommand, tallyEntries, totalTokens, transcriptDirs } from './usage.mjs'
 
 const M = 1_000_000
@@ -68,12 +69,17 @@ export function resumesOf(entries) {
 
 /**
  * The last `n` release sessions in a project's transcript folders (the given
- * one and its main checkout's and worktrees', usage.mjs transcriptDirs): a
- * release run from a worktree counts too. [{ id, command, start, runs: [{ role, tokens }] }]
+ * one and its main checkout's and worktrees', usage.mjs transcriptDirs, or the
+ * list of folders given): a release run from a worktree counts too.
+ * A release session is one whose command is a release one, or whose title is
+ * `<project> · release · <version>`, the same title wrap-facts reads
+ * (core's release-sessions.mjs): kit releases start from a brief, not a
+ * command, and the kit 1.9 wrap found "0 release session(s)".
+ * [{ id, command, start, runs: [{ role, tokens }] }]
  */
 export function releaseRuns(dir, n = 5) {
   const files = []
-  for (const d of transcriptDirs(dir)) {
+  for (const d of Array.isArray(dir) ? dir : transcriptDirs(dir)) {
     try {
       for (const f of readdirSync(d)) if (f.endsWith('.jsonl')) files.push({ dir: d, f })
     } catch {
@@ -84,7 +90,7 @@ export function releaseRuns(dir, n = 5) {
   for (const { dir, f } of files) {
     const entries = readEntries(join(dir, f))
     const command = sessionCommand(entries)
-    if (!RELEASE.test(command)) continue
+    if (!RELEASE.test(command) && !isReleaseTitle(titleOfEntries(entries))) continue
     const id = f.slice(0, -'.jsonl'.length)
     const subDir = join(dir, id, 'subagents')
     const runs = []
@@ -296,7 +302,9 @@ function parseArgs(argv) {
 
 function main() {
   const o = parseArgs(process.argv.slice(2))
-  const dir = o.dir ?? join(homedir(), '.claude', 'projects', projectFolderName(o.project))
+  // Without --dir: the project's folders and its main checkout's, as wrap-facts reads them (a lane's own folder misses main's)
+  const folders = o.dir ? [] : projectFolders(o.project)
+  const dir = o.dir ?? (folders.length ? folders : join(homedir(), '.claude', 'projects', projectFolderName(o.project)))
   const releases = releaseRuns(dir, o.releases)
   const rows = derive(releases)
   if (o.write) {
@@ -310,7 +318,7 @@ function main() {
   if (o.write && !o.json) console.log(`\nWrote ${writable(rows).length} budgets to ${join(o.project, '.claude', 'kit.json')}.`)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   try {
     main()
   } catch (err) {

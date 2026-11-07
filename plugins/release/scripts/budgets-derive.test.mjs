@@ -86,6 +86,16 @@ describe('budgets-derive', () => {
     expect(releaseRuns(tree, 5).map((r) => r.id)).toEqual(['r1', 'r2', 'r9'])
   })
 
+  it('counts a session titled "<project> · release · <version>" with no release command, as wrap-facts does (kit 1.9 wrap)', () => {
+    const dir = folder(sessions.slice(0, 1))
+    const title = (t) => JSON.stringify({ type: 'custom-title', customTitle: t })
+    const brief = JSON.stringify({ type: 'user', timestamp: '2026-10-28T08:00:00Z', message: { content: 'Run kit 1.9 to the draft PR' } })
+    writeFileSync(join(dir, 'kit19.jsonl'), `${brief}\n${title('wolfpack · release · kit-1.9')}\n`)
+    writeFileSync(join(dir, 'wrap19.jsonl'), `${brief}\n${title('wolfpack · wrap · kit-1.9')}\n`)
+    expect(releaseRuns(dir, 5).map((r) => r.id)).toEqual(['r1', 'kit19'])
+    expect(releaseRuns([dir], 5).map((r) => r.id)).toEqual(['r1', 'kit19']) // a list of folders, as main() passes from projectFolders
+  })
+
   it('proposes nothing under three runs, and can go below the default down to 2M', () => {
     const rows = derive(releaseRuns(folder(sessions), 5))
     expect(rows.find((r) => r.role === 'saul-goodman')).toMatchObject({ runs: 1, proposed: null })

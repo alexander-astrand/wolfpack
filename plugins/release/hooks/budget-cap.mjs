@@ -36,7 +36,7 @@
 // adds a note, or denies. It fails open: any error of its own allows the call
 // and is logged, so a bug here can't stop the team.
 
-import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, writeFileSync } from 'node:fs'
+import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -101,7 +101,6 @@ const modelFamily = (model) => (/fable/i.test(model || '') ? 'fable' : 'opus')
 // Counted screenshots: full-size shots and zooms, the ones a design is judged by.
 export const SHOT_CAPS = {
   'bengt-johansson': 5,
-  'tomas-svensson': 5,
   'magnus-wislander': 5,
   'staffan-olsson': 5,
 }
@@ -133,7 +132,7 @@ const TYPICAL_PER_CALL = {
   'chris-de-kok': 160_000, 'ahmed-och-ahmed': 160_000, 'saul-goodman': 160_000, 'jeff-winger': 160_000,
   'troy-and-abed': 160_000, 'jesse-pinkman': 160_000, 'the-playbook': 185_000, 'bengt-johansson': 140_000,
   kissochbajslowski: 85_000, 'mosbius-designs': 120_000, 'c-3po': 135_000, 'lorenzo-von-matterhorn': 40_000,
-  'romeo-olsson': 10_000, ranjit: 85_000,
+  ranjit: 85_000,
 }
 const OTHER_PER_CALL = 120_000
 
@@ -674,4 +673,4 @@ async function main() {
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', ...out } }))
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main()

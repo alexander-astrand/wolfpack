@@ -7,7 +7,10 @@
 // first run of the week writes the receipt and the others read it.
 //
 // Usage: node week-receipt.mjs [--week <yyyy-Www>] [--json] [--fresh]
-//          [--projects <dir>] [--cache <dir>]
+//          [--projects <dir>] [--cache <dir>] [--releases [--desktop <dir>]]
+// --releases: also a table of every project's releases merged this week (projects
+//   are the <desktop>/*/.claude/kit.json folders), planned against spent: the plan's
+//   `Expected: ≈ NM` against the PR's Usage total, else the steps log. Uses gh.
 // --week: the ISO week (default this one), Monday 00:00 local time on.
 // --json: the receipt as JSON instead of the Markdown table.
 // --fresh: recount even when this week's receipt is under two hours old.
@@ -21,10 +24,13 @@
 // Only messages stamped inside the week count, so a session that started
 // before Monday adds only its own week's part.
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { pathToFileURL } from 'node:url'
+import { parseExpected } from './plan-check.mjs'
+import { bareVersion, titleHas } from './release-sessions.mjs'
 // The kit ships its plugins side by side (`<kit>/plugins/<name>`), so the
 // release plugin's scripts sit two folders up from here.
 import { readEntries, readKit, tallyEntries, tokensPerPoint, totalTokens } from '../../release/scripts/usage.mjs'
@@ -183,6 +189,106 @@ export function markdown(r) {
   return rows.join('\n')
 }
 
+// Planned against spent per merged release, for every project (kit 1.10, F10).
+// Planned is the plan's headline `Expected: ≈ NM`; spent is the PR's Usage
+// total, else the sum of the steps log beside the plan. Only releases whose
+// PR merged inside the week count.
+export function spentFromPr(body) {
+  const m = /\|\s*\*\*Total\*\*[^\n]*?\*\*([\d.]+)\s*([kmb])\*\*/i.exec(String(body ?? ''))
+  return m ? Number(m[1]) * { k: 1e3, m: 1e6, b: 1e9 }[m[2].toLowerCase()] : null
+}
+
+export function spentFromSteps(tsv) {
+  const rows = String(tsv ?? '').split('\n').filter((l) => l.trim()).map((l) => l.split('\t'))
+  const i = (rows[0] ?? []).indexOf('used')
+  if (rows.length < 2 || i < 0) return null
+  const unit = { k: 1e3, m: 1e6, b: 1e9 }
+  return rows.slice(1).reduce((s, r) => {
+    const m = /([\d.]+)\s*([kmb])?/i.exec(r[i] ?? '')
+    return s + (m ? Number(m[1]) * unit[(m[2] || 'm').toLowerCase()] : 0)
+  }, 0)
+}
+
+// Each project's plans folder from `<desktop>/*/.claude/kit.json` (`plans`, else ~/.claude/plans), once per folder.
+export function projectPlans(desktop, home = homedir()) {
+  const out = []
+  const seen = new Set()
+  let names = []
+  try {
+    names = readdirSync(desktop).sort()
+  } catch {
+    return out
+  }
+  for (const n of names) {
+    const dir = join(desktop, n)
+    const kit = readKit(dir)
+    if (!kit) continue
+    const plans = String(kit.plans || '~/.claude/plans').replace(/^~(?=\/|$)/, home)
+    const name = projectKey(kit.project?.name || kit.name || n)
+    const key = `${name}|${plans}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ name, dir, plans })
+  }
+  return out
+}
+
+/**
+ * Rows `{ project, version, planned, spent, source }` for the releases whose PR merged in the week.
+ * `mergedPrs(project)` returns `[{ title, body, mergedAt }]` (gh in real use, faked in tests).
+ */
+export function releaseRows({ week = isoWeek(), range = null, projects, mergedPrs }) {
+  const { start, end } = range || weekRange(week)
+  const rows = []
+  for (const p of projects) {
+    let files = []
+    try {
+      files = readdirSync(p.plans).filter((f) => /^(?:V|kit-)?\d[\d.]*\.md$/i.test(f))
+    } catch {
+      continue
+    }
+    let prs = null
+    for (const f of files) {
+      const planned = parseExpected(readFileSync(join(p.plans, f), 'utf8'))
+      if (planned == null) continue
+      const version = bareVersion(f.replace(/\.md$/, ''))
+      prs ??= mergedPrs(p) ?? []
+      const pr = prs.find((x) => titleHas(x.title, version) && Date.parse(x.mergedAt) >= start && Date.parse(x.mergedAt) < end)
+      if (!pr) continue
+      let spent = spentFromPr(pr.body)
+      let source = 'PR usage'
+      if (spent == null) {
+        try {
+          spent = spentFromSteps(readFileSync(join(p.plans, f.replace(/\.md$/, '-steps.tsv')), 'utf8'))
+        } catch {
+          spent = null
+        }
+        source = 'steps log'
+      }
+      rows.push({ project: p.name, version, planned, spent, source: spent == null ? 'no figure' : source })
+    }
+  }
+  return rows
+}
+
+export function releasesMarkdown(rows) {
+  if (!rows.length) return 'No release merged this week.'
+  const out = ['| Project | Release | Planned | Spent | Of plan |', '|---|---|---|---|---|']
+  for (const r of rows) {
+    const spent = r.spent == null ? 'n/a' : fmtM(r.spent)
+    out.push(`| ${r.project} | ${r.version} | ${fmtM(r.planned)} | ${spent} | ${r.spent == null ? '' : `${Math.round((r.spent / r.planned) * 100)}%`} |`)
+  }
+  return out.join('\n')
+}
+
+const ghMerged = (p) => {
+  try {
+    return JSON.parse(execFileSync('gh', ['pr', 'list', '--state', 'merged', '--limit', '60', '--json', 'title,body,mergedAt'], { cwd: p.dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))
+  } catch {
+    return []
+  }
+}
+
 // This week's receipt from the cache when it's under two hours old, else
 // counted and written there, so the Sunday runs in each project share one.
 export function cachedReceipt({ week = isoWeek(), cacheDir = join(homedir(), '.claude', 'week-receipt'), fresh = false, ...rest } = {}) {
@@ -221,17 +327,21 @@ function parseArgs(argv) {
     else if (a === '--week') o.week = argv[++i]
     else if (a === '--projects') o.projectsDir = argv[++i]
     else if (a === '--cache') o.cacheDir = argv[++i]
-    else throw new Error(`Unknown argument "${a}". Usage: node week-receipt.mjs [--week <yyyy-Www>] [--json] [--fresh] [--projects <dir>] [--cache <dir>]`)
+    else if (a === '--releases') o.releases = true
+    else if (a === '--desktop') o.desktop = argv[++i]
+    else throw new Error(`Unknown argument "${a}". Usage: node week-receipt.mjs [--week <yyyy-Www>] [--json] [--fresh] [--projects <dir>] [--cache <dir>] [--releases [--desktop <dir>]]`)
   }
   return o
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   try {
-    const { json, ...opts } = parseArgs(process.argv.slice(2))
+    const { json, releases, desktop, ...opts } = parseArgs(process.argv.slice(2))
     for (const k of Object.keys(opts)) if (opts[k] === undefined) delete opts[k]
     const r = cliReceipt(opts)
-    console.log(json ? JSON.stringify(r, null, 2) : markdown(r))
+    // Every project's merged releases, planned against spent (kit 1.10, F10); live from gh, so never cached.
+    if (releases) r.releases = releaseRows({ week: r.week, projects: projectPlans(desktop ?? join(homedir(), 'Desktop')), mergedPrs: ghMerged })
+    console.log(json ? JSON.stringify(r, null, 2) : releases ? `${markdown(r)}\n\n${releasesMarkdown(r.releases)}` : markdown(r))
   } catch (e) {
     console.error(e.message)
     process.exit(1)

@@ -34,7 +34,7 @@ The project keeps one copy at `public/qa/page-scan.js` (Vite and Next both serve
 
 ```
 window.__scanArgs = { widths: [375, 1024], themes: ['dark', 'light'], themeVia: 'param:theme' }
-const src = await (await fetch('/qa/page-scan.js')).text(); JSON.parse(await eval(src)).summary
+const res = await fetch('/qa/page-scan.js'); if (!res.ok) throw new Error('no /qa/page-scan.js here: run qa-pass.mjs'); JSON.parse(await eval(await res.text())).summary
 ```
 
 `themeVia` is how the app switches theme (the project's CLAUDE.md says): `param:<name>` (`?theme=`), `storage:<localStorage key>` (put back afterwards), `attr:<attribute>` or `class` on `<html>`. Read `.summary` first (one line per width and theme), then only the lists with a count. Over about 30 s of pages (three widths and three themes), add `background: true` and poll `window.__scan.done`: a call times out at 45 s. Cut-off titles, rows without drag, sideways page scroll, low contrast, non-text contrast and floating text are findings; small targets are worth a look.

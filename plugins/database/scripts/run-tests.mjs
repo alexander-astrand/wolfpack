@@ -47,7 +47,7 @@
 // RUN_TESTS_SUPABASE names the CLI binary (the tests point it at a fake).
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -226,7 +226,7 @@ export function runAll({ root, prefix, flag, bin = 'supabase' }) {
   return { code: failed ? 1 : 0, lines }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   const args = parseArgs(process.argv.slice(2))
   if (args.error) {
     process.stderr.write(`run-tests: ${args.error}\n`)

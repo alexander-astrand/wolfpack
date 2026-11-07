@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { anchorsOf, buildFacts, closingTable, gitRange, kitFiles, learningChanges, learningSection, permissionSection, staleRefs } from './council-facts.mjs'
+import { anchorsOf, buildFacts, closingTable, gitRange, hooksLogSection, kitFiles, learningChanges, learningSection, permissionSection, projectFilesSection, staleRefs } from './council-facts.mjs'
 import { projectDirs, transcriptKey } from './council-skills.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
@@ -84,6 +84,29 @@ describe('permissionSection', () => {
   })
 })
 
+describe('hooksLogSection and projectFilesSection (F18)', () => {
+  it('counts the hooks log whole and in the window, side by side', () => {
+    const f = fixture()
+    put(join(f.repo, '.claude', 'session-hooks.log'), ['2026-09-01T10:00:00Z\tmain\tStop', '2026-10-17T10:00:00Z\tmain\tStop', '2026-10-18T10:00:00Z\tmain\tSessionEnd', ''].join('\n'))
+    const text = hooksLogSection({ repo: f.repo }, Date.parse('2026-10-10'))
+    expect(text).toContain('| Project | Log lines | Rows whole | Rows in the window | Top tools in the window |')
+    expect(text).toContain('| repo | 3 | 3 | 2 | Stop 1, SessionEnd 1 |')
+    expect(hooksLogSection({ none: join(f.repo, 'nowhere') }, 0)).toContain('| none | no log |')
+  })
+  it('reads project files with git show origin/main:, not the working tree', () => {
+    const asked = []
+    const run = (args) => {
+      asked.push(args.slice(2).join(' '))
+      if (args[3] === 'origin/main:.claude/taste.md') return 'a\nb\nc\n'
+      throw new Error('missing')
+    }
+    const text = projectFilesSection({ burrow: '/r' }, run)
+    expect(asked).toContain('show origin/main:CLAUDE.md')
+    expect(text).toContain('| burrow | .claude/taste.md | 6 | 3 |')
+    expect(text).toContain('| burrow | CLAUDE.md | not on origin/main | – |')
+  })
+})
+
 describe('staleRefs', () => {
   it('reads headings and bold leads as anchors', () => {
     expect(anchorsOf('## Starting sessions\n- **The deploy leg:** x')).toEqual(['starting sessions', 'the deploy leg'])
@@ -122,7 +145,7 @@ describe('buildFacts', () => {
     const o = { since: '2026-10-10', kit: f.kit, transcripts: f.transcripts, projects: { repo: f.repo }, retired: ['special-delivery'], git: null, from: null }
     const { facts, cards } = buildFacts(o)
     const heads = facts.split('\n').filter((l) => l.startsWith('## '))
-    expect(heads).toEqual(['## Git range', '## Speed, per project', '## Roles (runs per model)', '## Closing lines (from the cards)', '## Session starts (start_session by initiation)', '## Agent spawns (role and the model the call asked for)', '## Agent spawns, one row each', '## Guard reasons, per agent', '## Questions (AskUserQuestion), per skill and session', '## /one-ring runs', '## Lessons and taste changes', '## Permission logs, by source', '## Stale references'])
+    expect(heads).toEqual(['## Git range', '## Speed, per project', '## Roles (runs per model)', '## Closing lines (from the cards)', '## Session starts (start_session by initiation)', '## Agent spawns (role and the model the call asked for)', '## Agent spawns, one row each', '## Guard reasons, per agent', '## Questions (AskUserQuestion), per skill and session', '## /one-ring runs', '## Lessons and taste changes', '## Permission logs, by source', '## Hooks log (.claude/session-hooks.log), whole and in the window', '## Project files on origin/main', '## Stale references'])
     expect(facts).toContain('| s1 | /jedi | jedi |')
     expect(facts).toContain('| s2 | title: kit · lane · b2 |')
     expect(facts).toContain('| c-3po | sonnet | 1 |')

@@ -13,7 +13,7 @@
 // path, its lessons and permission log in its .claude/); none means the cwd.
 // --transcripts: the folder of per-project transcript folders (~/.claude/projects).
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -24,7 +24,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 
 // Old agent names, so pre-2.10 transcripts read under today's names.
 const RENAMED = {
-  scout: 'lorenzo-von-matterhorn', 'test-runner': 'romeo-olsson', planner: 'admiral-ackbar',
+  scout: 'lorenzo-von-matterhorn', planner: 'admiral-ackbar',
   builder: 'chris-de-kok', designer: 'mosbius-designs', 'db-engineer': 'the-playbook',
   qa: 'bengt-johansson', 'release-reviewer': 'kissochbajslowski', documenter: 'c-3po',
 }
@@ -562,4 +562,4 @@ function main() {
   console.log(`${r.skills.length} skills, ${r.agents.length} agents, ${r.sessionsRead} sessions, ${r.subRead} agent runs -> ${o.out}`)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main()
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main()

@@ -26,7 +26,7 @@ Lenses:
 - **missing shared components:** UI patterns repeated across pages that CLAUDE.md's conventions describe only in prose (rows, sections, popovers, empty states)
 - **tests:** every shared helper has a test for what it exports; the files the project's CLAUDE.md lists under Tests first; which branches are untested
 - **dead weight:** what knip reports, unused exports, stale flags, leftover comments, TODOs older than the release they name
-- **conventions:** hits for the grep checks in the `its-a-trap` skill, breaks of the conventions in the project's CLAUDE.md
+- **conventions:** the hits of `node ${CLAUDE_PLUGIN_ROOT}/scripts/review-greps.mjs --repo <repo>` (the one copy of the grep checks), breaks of the conventions in the project's CLAUDE.md
 - **the next stage:** what will strain at V3 (multi-group, public groups): places that assume one group, one timezone or a small member count; what the app needs to stay sustainable with agents doing the work
 - **the agents' side:** rules that keep being broken (from `.claude/lessons.md`) and would be better as a lint rule, a test or a shared component
 

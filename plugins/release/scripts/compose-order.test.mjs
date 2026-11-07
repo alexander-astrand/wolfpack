@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
@@ -6,10 +7,18 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   CLOSE_ASK,
   CLOSE_ASK_PLAYBOOK,
+  LOOK_STEP,
+  SHELL_SHAPE,
+  lookBudget,
   agentsIn,
   budgetFor,
+  checkCommand,
   compose,
+  conventionsSection,
   dbNames,
+  lanePort,
+  laneSeeds,
+  readmeAnchor,
   designRoute,
   factsFor,
   filesIn,
@@ -18,6 +27,7 @@ import {
   parseArgs,
   parseSteps,
   render,
+  shellWord,
   testsReading,
   walk,
 } from './compose-order.mjs'
@@ -99,6 +109,11 @@ describe('the plan table', () => {
     const t = '| Step | What | Who | Files | Check | Budget |\n|---|---|---|---|---|---|\n| 3 | A page | chris-de-kok | `app/x.tsx` | lint | 9M |\n'
     const r = findStep(t, '3')
     expect(r).toMatchObject({ agent: 'chris-de-kok', files: '`app/x.tsx`', check: 'lint', budget: '9M' })
+  })
+  it('reads a "What (file:line ...)" header as the step and its files (kit 1.10)', () => {
+    const t = '| Step | Lane | Agent | Model | Budget | What (file:line from the grep) | Check | Depends on |\n|---|---|---|---|---|---|---|---|\n| A1 | A | chris-de-kok | Opus | 7M | F1: `lib/a.ts:12` grows a flag | tests | – |\n'
+    expect(findStep(t, 'A1')).toMatchObject({ what: 'F1: `lib/a.ts:12` grows a flag', files: 'F1: `lib/a.ts:12` grows a flag', check: 'tests' })
+    expect(findStep(PLAN, 'b4').files).toMatch(/money-import/) // a Files column of its own still wins
   })
   it('skips tables that are not step tables', () => {
     expect(parseSteps('| Release | Planned |\n|---|---|\n| V1.0 | 470M |\n')).toEqual([])
@@ -182,6 +197,16 @@ describe('the project reads', () => {
     const t = testsReading(root, ['lib/money-import.ts', 'components/money/spend-import.tsx'], walk(root))
     expect(t).toEqual(['components/money/other.test.tsx', 'lib/money-import.test.ts'])
     expect(testsReading(root, ['supabase/migrations/0012_money_accounts.sql'])).toEqual(['supabase/tests/money_test.sql'])
+  })
+  it("skips stale worktrees under .claude/worktrees/, but not the rest of .claude (kit 1.9's false test hits)", () => {
+    const dir = mkdtempSync(join(tmpdir(), 'compose-walk-'))
+    mkdirSync(join(dir, '.claude', 'worktrees', 'old', 'lib'), { recursive: true })
+    mkdirSync(join(dir, 'lib'))
+    writeFileSync(join(dir, '.claude', 'worktrees', 'old', 'lib', 'a.test.ts'), "import './a'\n")
+    writeFileSync(join(dir, '.claude', 'kit.json'), '{}')
+    writeFileSync(join(dir, 'lib', 'a.test.ts'), "import './a'\n")
+    expect(walk(dir).map((p) => p.slice(dir.length + 1))).toEqual(['.claude/kit.json', 'lib/a.test.ts'])
+    expect(testsReading(dir, ['lib/a.ts'])).toEqual(['lib/a.test.ts'])
   })
   it('picks the standing facts that touch the step, and every Every order line', () => {
     const facts = factsFor(readFileSync(join(root, '.claude/standing-facts.md'), 'utf8'), 'the bank import', ['lib/money-import.ts'])
@@ -306,11 +331,156 @@ describe('plan rules and design on Sonnet', () => {
   })
 })
 
+describe('a look order (kit 1.10, F4)', () => {
+  const LOOKS = `| Step | What | Agent · model | Ceiling | Files |
+|---|---|---|---|---|
+| L1 | Trips part, a look | mosbius-designs · Fable | 12M | \`components/trips/box.tsx\`; \`lib/places.ts\` |
+| L2 | Trips part again | mosbius-designs | – | \`components/trips/box.tsx\` |
+| L3 | Take a look at the first look palette | mosbius-designs | – | – |
+`
+  const STEPS = ['when\tagent\tstep\tbudget\tused\tstopped\ttag\tcheaper', '2026-11-01\tmosbius-designs\tlook-1\t12M\t17.3M\tno\t\t', '2026-11-01\tsaul-goodman\tB4\t10M\t30M\tno\t\t', '2026-11-02\tmosbius-designs\tlook-2\t12M\t21.4M\tno\t\t', ''].join('\n')
+  const run = (step, extra = {}) => compose({ planText: LOOKS, stepId: step, root, budgets, deal: { log: false }, ...extra })
+
+  it('reads a look from the row, never from "first look" or "a look at"', () => {
+    expect(LOOK_STEP.test('Trips part, a look')).toBe(true)
+    expect(LOOK_STEP.test('the look round, mode: look')).toBe(true)
+    expect(LOOK_STEP.test('the first look palette')).toBe(false)
+    expect(LOOK_STEP.test('take a look at it')).toBe(false)
+  })
+
+  it('tags a look from the last look row of the steps file, rounded up, else the Opus default', () => {
+    expect(lookBudget(STEPS, budgets)).toMatchObject({ tag: '[budget 22M]', from: 'step look-2 used 21.4M' })
+    expect(lookBudget(STEPS.split('\n').slice(0, 2).join('\n'), budgets).tag).toBe('[budget 18M]')
+    expect(lookBudget(null, budgets)).toMatchObject({ tag: '[budget 5M]', from: null })
+    expect(lookBudget('when\tagent\tstep\tused\n1\tx\tB4\t3M\n', budgets).from).toBe(null)
+  })
+
+  it('prints the stage, one direction, ?dir=, the pages, one Read per message and the real-spend tag', () => {
+    const o = run('L1', { look: 'Night tram', stage: '/tmp/stage', stepsText: STEPS })
+    expect(o).toMatchObject({ model: 'opus', effort: 'medium', mode: 'look', budget: '[budget 22M]' })
+    expect(o.deal).toBeUndefined()
+    expect(o.look).toMatchObject({ stage: '/tmp/stage', direction: 'Night tram', param: '?dir=night-tram' })
+    expect(o.look.pages).toEqual(['components/trips/box.tsx', 'lib/places.ts'])
+    const text = render(o)
+    expect(text).toContain('Stage: /tmp/stage')
+    expect(text).toContain('Direction: Night tram, the only one')
+    expect(text).toContain('`?dir=night-tram`')
+    expect(text).toContain('  - lib/places.ts')
+    expect(text).toContain('One Read per message')
+    expect(text).toContain('mode: look')
+  })
+
+  it("takes the plan's cell with no look in the steps file, and names what a row-detected look lacks", () => {
+    const o = run('L1')
+    expect(o.budget).toBe('[budget 12M]')
+    expect(o.notes.join(' ')).toMatch(/--stage <path>/)
+    expect(o.notes.join(' ')).toMatch(/--look <direction>/)
+    expect(render(o)).toContain('?dir=<direction>')
+  })
+
+  it('makes a look of any designer row with --look, and leaves other rows alone', () => {
+    expect(run('L2', { look: 'Ski map', stage: '/s' }).mode).toBe('look')
+    expect(run('L2').mode).not.toBe('look')
+    expect(run('L3').mode).not.toBe('look')
+    const b = compose({ planText: PLAN, stepId: 'B4', root, budgets, look: 'Ski map' })
+    expect(b.mode).toBe('build')
+    expect(b.notes.join(' ')).toMatch(/--look is for a mosbius-designs step/)
+  })
+
+  it('reads --look and --stage, and wants a value for each', () => {
+    expect(parseArgs(['--plan', 'p.md', '--step', 'L1', '--look', 'Night tram', '--stage', '/s'])).toMatchObject({ look: 'Night tram', stage: '/s' })
+    expect(parseArgs(['--plan', 'p.md', '--step', 'L1', '--look']).error).toMatch(/--look needs/)
+    expect(parseArgs(['--plan', 'p.md', '--step', 'L1', '--look', '--stage', '/s']).error).toMatch(/--look needs/)
+    expect(parseArgs(['--plan', 'p.md', '--step', 'L1', '--stage']).error).toMatch(/--stage needs/)
+  })
+})
+
 describe('arguments', () => {
   it('needs --plan and --step', () => {
     expect(parseArgs(['--plan', 'p.md']).error).toMatch(/usage/)
     expect(parseArgs(['--plan', 'p.md', '--step', 'B4', '--json'])).toMatchObject({ plan: 'p.md', step: 'B4', json: true })
     expect(parseArgs(['--plan', 'p.md', '--step', 'D3', '--dry'])).toMatchObject({ dry: true })
     expect(parseArgs(['--nope']).error).toMatch(/unknown/)
+    expect(parseArgs(['--plan', 'p.md', '--step', 'B4', '--lane', '/x/a'])).toMatchObject({ lane: '/x/a' })
+    expect(parseArgs(['--plan', 'p.md', '--step', 'B4', '--lane']).error).toMatch(/--lane needs a path/)
+  })
+})
+
+describe('the lane block (F3, M3)', () => {
+  let lane
+  const w = (p, s) => {
+    mkdirSync(dirname(join(lane, p)), { recursive: true })
+    writeFileSync(join(lane, p), s)
+  }
+  beforeAll(() => {
+    lane = mkdtempSync(join(tmpdir(), 'compose-lane-'))
+    w('package.json', JSON.stringify({ scripts: { check: 'sh scripts/check.sh', test: 'vitest run' } }))
+    w('.claude/kit.json', JSON.stringify({ project: { devPort: 5180 } }))
+    w('.claude/standing-facts.md', '# Standing facts\n')
+    w('CLAUDE.md', '# Proj\n\n## Stack\n\nx\n\n## Code conventions\n\n- one\n')
+    w('README.md', '# Proj\n\n## Install\n\nnpm i\n\n## Places & trips\n\n`lib/places.ts` finds places.\n')
+    w('scripts/qa/seeds/lane-trips.up.sql', "insert into t (label) values ('TEST QA seed {{LANE}}');\n")
+    w('scripts/qa/seeds/lane-trips.down.sql', "delete from t where label = 'TEST QA seed {{LANE}}';\n")
+    w('scripts/qa/seeds/shared.up.sql', "insert into t (label) values ('TEST QA seed gale:shared');\n")
+    w('scripts/qa/shot.mjs', '// shot\n')
+    w('lib/places.ts', 'export const x = 1\n')
+  })
+  afterAll(() => rmSync(lane, { recursive: true, force: true }))
+
+  it('prefers run check, then test, never --workdir', () => {
+    expect(checkCommand(lane)).toBe(`npm --prefix ${lane} run check`)
+    const kit = mkdtempSync(join(tmpdir(), 'compose-kit-'))
+    writeFileSync(join(kit, 'package.json'), JSON.stringify({ scripts: { test: 'vitest run' } }))
+    expect(checkCommand(kit)).toBe(`npm --prefix ${kit} test`)
+    rmSync(join(kit, 'package.json'))
+    expect(checkCommand(kit)).toBeNull()
+    rmSync(kit, { recursive: true, force: true })
+  })
+
+  it('R1 N2: quotes a lane path with a space in the lines a builder runs', () => {
+    const spaced = mkdtempSync(join(tmpdir(), "compose lane o'k "))
+    writeFileSync(join(spaced, 'package.json'), JSON.stringify({ scripts: { check: 'sh scripts/check.sh' } }))
+    const cmd = checkCommand(spaced)
+    expect(cmd).toBe(`npm --prefix ${shellWord(spaced)} run check`)
+    expect(cmd).toContain("'\\''")
+    // The shell reads the quoted word back as the one path.
+    expect(execFileSync('sh', ['-c', `printf %s ${shellWord(spaced)}`], { encoding: 'utf8' })).toBe(spaced)
+    expect(shellWord('/plain/path-1.2')).toBe('/plain/path-1.2')
+    rmSync(spaced, { recursive: true, force: true })
+  })
+
+  it('finds the port, the lane seeds, the README section and the conventions heading', () => {
+    expect(lanePort(lane, { project: { devPort: 5180 } })).toEqual({ port: 5180, from: 'kit.json project.devPort' })
+    expect(laneSeeds(lane)).toEqual(['lane-trips'])
+    expect(readmeAnchor(lane, ['lib/places.ts:67'])).toEqual({ heading: 'Places & trips', anchor: 'README.md#places--trips' })
+    expect(conventionsSection(lane)).toEqual({ path: join(lane, 'CLAUDE.md'), heading: '## Code conventions' })
+  })
+
+  it('takes the port from lane.mjs registry when the lane is registered', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'compose-reg-'))
+    execFileSync('git', ['init', '-q', repo])
+    const common = execFileSync('git', ['-C', repo, 'rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8' }).trim()
+    writeFileSync(join(common, 'wolfpack-lanes.json'), JSON.stringify({ a: { path: repo, port: 5191 } }))
+    expect(lanePort(repo, { project: { devPort: 5180 } })).toEqual({ port: 5191, from: 'lane.mjs registry' })
+    rmSync(repo, { recursive: true, force: true })
+  })
+
+  it('prints the block in the order, with the shell shape after it', () => {
+    const o = compose({ planText: PLAN, stepId: 'O1', root: lane, lane, budgets })
+    const text = render(o)
+    expect(o.lane_block.seeds[0].up).toMatch(new RegExp(`qa-seed\\.mjs up lane-trips --lane ${basename(lane)} --root ${lane}$`))
+    expect(text).toMatch('Lane block:')
+    expect(text).toMatch(`- Check: npm --prefix ${lane} run check`)
+    expect(text).toMatch('- Dev port: 5180 (kit.json project.devPort)')
+    expect(text).toMatch(`scripts/qa/shot.mjs <page> --base http://localhost:5180 --width 375|1024`)
+    expect(text).toMatch('README.md#places--trips ("Places & trips")')
+    expect(text).toMatch(`section "## Code conventions"`)
+    expect(text).toMatch(join(lane, '.claude', 'standing-facts.md'))
+    expect(text.indexOf('Lane block:')).toBeLessThan(text.indexOf(SHELL_SHAPE))
+    expect(SHELL_SHAPE).toMatch(/never `--workdir`/)
+  })
+
+  it('leaves the block out without --lane', () => {
+    expect(render(compose({ planText: PLAN, stepId: 'O1', root: lane, budgets }))).not.toMatch('Lane block:')
   })
 })

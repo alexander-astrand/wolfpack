@@ -26,10 +26,10 @@
 // here changes a plan or a project.
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HOUR = 3_600_000
 const iso = (ms) => new Date(ms).toISOString()
@@ -186,8 +186,8 @@ export function actionsMonth(days, visibility) {
 
 // Alexander, 4 Nov 2026: "We need to very strictly make sure we don't hit the
 // usage limit early like we did last month." October ran 2,246 of the 2,000
-// and every private repo's CI stopped until the 1st. The rule and the budgets:
-// ~/.claude/global/CLAUDE.md, Costs, "GitHub Actions minutes, a hard budget".
+// and every private repo's CI stopped until the 1st. The rule and the budget
+// table: the core plugin's norms.md, "CI minutes" (the global CLAUDE.md points there).
 export const FREE_MINUTES = 2000
 // Each project's monthly share, by kit.json's project.name; the project's own
 // kit.json `ci.minutesBudget` wins, and a repo with neither gets a new
@@ -525,7 +525,7 @@ async function main(argv) {
   console.log(JSON.stringify(readings(spool), null, 2))
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   main(process.argv.slice(2)).catch((e) => {
     console.error(`tier-readers: ${e.message}`)
     process.exit(1)

@@ -10,12 +10,15 @@
 // Projects are the folders `<desktop>/*/.claude/kit.json`; `plans` in kit.json, default `~/.claude/plans/`.
 // Live usage (gh, vercel, supabase) is the skill's job, not this script's: it never calls the network.
 //
-// Usage: node scrooge.mjs [--json] [--today yyyy-mm-dd] [--home <dir>] [--desktop <dir>]
+// --daily leaves out each entry line identical to yesterday's note (~/pylos/inbox/<yesterday>-scrooge.md)
+// and ends with "N lines as yesterday, left out"; the weekly run omits the flag and keeps every line.
+//
+// Usage: node scrooge.mjs [--json] [--daily] [--today yyyy-mm-dd] [--home <dir>] [--desktop <dir>]
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { pathToFileURL } from 'node:url'
 
 const DAY = 86400000
 const WARN_DAYS = 2 // the global Costs rule: "a reminder two days before"
@@ -258,11 +261,36 @@ export function render(r) {
   return out.join('\n')
 }
 
+/**
+ * The daily note leaves out a line identical to yesterday's note (kit 1.10, F10):
+ * only entry lines (they start with a space) go; the title, section headings and
+ * blank lines stay, so the note keeps its shape. One line at the end counts them.
+ */
+export function dropRepeats(text, previous) {
+  const had = new Set(String(previous ?? '').split('\n').filter((l) => l.startsWith(' ') && l.trim()))
+  let dropped = 0
+  const kept = text.split('\n').filter((l) => {
+    if (l.startsWith(' ') && l.trim() && had.has(l)) {
+      dropped++
+      return false
+    }
+    return true
+  })
+  if (dropped) kept.push('', `${dropped} line${dropped === 1 ? '' : 's'} as yesterday, left out`)
+  return { text: kept.join('\n'), dropped }
+}
+
+/** Yesterday's note: ~/pylos/inbox/<yesterday>-scrooge.md, where the skill writes it; null if none. */
+export function yesterdaysNote(home, today) {
+  const file = join(home, 'pylos', 'inbox', `${addDays(today, -1)}-scrooge.md`)
+  return existsSync(file) ? readFileSync(file, 'utf8') : null
+}
+
 function stockholmToday() {
   return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Stockholm' })
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   const args = process.argv.slice(2)
   const opt = (name) => {
     const i = args.indexOf(name)
@@ -270,5 +298,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   }
   const home = opt('--home') ?? homedir()
   const result = scan({ home, desktop: opt('--desktop') ?? join(home, 'Desktop'), today: opt('--today') ?? stockholmToday() })
-  console.log(args.includes('--json') ? JSON.stringify(result, null, 2) : render(result))
+  if (args.includes('--json')) console.log(JSON.stringify(result, null, 2))
+  else if (args.includes('--daily')) console.log(dropRepeats(render(result), yesterdaysNote(home, result.today)).text)
+  else console.log(render(result))
 }

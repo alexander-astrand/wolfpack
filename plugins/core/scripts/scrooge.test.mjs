@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { firstNumber, readFreeTiers, readTrials, render, scan } from './scrooge.mjs'
+import { dropRepeats, firstNumber, readFreeTiers, readTrials, render, scan, yesterdaysNote } from './scrooge.mjs'
 
 const trials = `# Trials
 
@@ -85,5 +85,26 @@ describe('scrooge', () => {
     expect(text).toContain(' ! Vercel Pro trial (his account): ends 2026-10-25 (approx.), 8 days left, warning from 2026-10-23; card on file: unknown')
     expect(text).toContain(' !   Vercel (Hobby): Bandwidth: 72% of the limit')
     expect(text).toContain('!! app: Domain, $12/yr: next 2026-10-18 (1 day)')
+  })
+
+  it('--daily leaves out entry lines identical to yesterday and counts them (kit 1.10 F10)', () => {
+    const yesterday = 'scrooge · 2026-10-16\n\nTrials (x)\n ! A: ends soon\n   B fine\nFree tiers\n ! C: 72%\n'
+    const today = 'scrooge · 2026-10-17\n\nTrials (x)\n ! A: ends soon\n   B fine\nFree tiers\n ! C: 75%\n'
+    const out = dropRepeats(today, yesterday)
+    expect(out.dropped).toBe(2)
+    expect(out.text).not.toContain('ends soon')
+    expect(out.text).toContain(' ! C: 75%') // changed, kept
+    expect(out.text).toContain('Free tiers') // headings stay
+    expect(out.text.split('\n').at(-1)).toBe('2 lines as yesterday, left out')
+    // no note yesterday, nothing identical: nothing dropped, no count line
+    expect(dropRepeats(today, null)).toEqual({ text: today, dropped: 0 })
+  })
+
+  it('finds yesterday\'s note in the inbox by date', () => {
+    const home = mkdtempSync(join(tmpdir(), 'scrooge-note-'))
+    mkdirSync(join(home, 'pylos', 'inbox'), { recursive: true })
+    expect(yesterdaysNote(home, '2026-10-17')).toBeNull()
+    writeFileSync(join(home, 'pylos', 'inbox', '2026-10-16-scrooge.md'), ' ! A\n')
+    expect(yesterdaysNote(home, '2026-10-17')).toBe(' ! A\n')
   })
 })

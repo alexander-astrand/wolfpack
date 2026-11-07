@@ -12,10 +12,10 @@
 // `KIT missing: <dir>` or `KIT unreadable: <dir> (<why>)`. Always exits 0.
 
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { pathToFileURL } from 'node:url'
 
 // The problems in a checkout's facts; empty when it is on main, level and clean.
 export function kitProblems({ branch, behind, ahead, changed, untracked }) {
@@ -58,7 +58,7 @@ function defaultGit(dir, args) {
   return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   const args = process.argv.slice(2)
   const at = args.indexOf('--kit')
   const dir = at >= 0 && args[at + 1] ? args[at + 1] : join(homedir(), 'wolfpack')

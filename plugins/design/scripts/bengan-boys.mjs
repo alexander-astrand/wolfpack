@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Writes the three Bengan Boys (tomas-svensson, magnus-wislander, staffan-olsson) from
+// Writes the two Bengan Boys (magnus-wislander, staffan-olsson) from
 // skills/spidey-sense/bengan-boy-template.md, so their shared text can't drift apart.
 // Kit 1.7 (jedi-council M4): the Boys were rewritten by hand from the template, and kit 1.5 found
 // the template behind them while spidey-sense said it wasn't. Kit 1.8 (council M7, "fold stefan"):
@@ -16,7 +16,7 @@ import { readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-export const BOYS = ['tomas-svensson', 'magnus-wislander', 'staffan-olsson']
+export const BOYS = ['magnus-wislander', 'staffan-olsson']
 
 const here = dirname(fileURLToPath(import.meta.url))
 

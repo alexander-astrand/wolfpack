@@ -52,9 +52,11 @@ const calls = () => (existsSync(join(root, 'calls.log')) ? readFileSync(join(roo
 
 describe('the arguments', () => {
   it('take up, down and list', () => {
-    expect(parseArgs(['up', 'soap', '--root', root])).toEqual({ cmd: 'up', name: 'soap', dryRun: false, root })
+    expect(parseArgs(['up', 'soap', '--root', root])).toEqual({ cmd: 'up', name: 'soap', dryRun: false, sheet: false, root })
     expect(parseArgs(['down', 'soap', '--dry-run'])).toMatchObject({ cmd: 'down', name: 'soap', dryRun: true })
-    expect(parseArgs(['list'])).toMatchObject({ cmd: 'list', name: null })
+    expect(parseArgs(['list'])).toMatchObject({ cmd: 'list', name: null, sheet: false })
+    expect(parseArgs(['list', '--sheet'])).toMatchObject({ cmd: 'list', sheet: true })
+    expect(parseArgs(['up', 'soap', '--sheet']).error).toMatch(/--sheet goes with list/)
   })
 
   it('refuse a bad name, a missing name and an unknown command', () => {
@@ -232,5 +234,28 @@ describe('list', () => {
     expect(out).toMatch(/soap: last up \S+ \(ok\)/)
     expect(out).toMatch(/receipt 2026-10-30-pantry: 1 rows, undone 2026-10-31/)
     expect(out).toMatch(/receipt 2026-10-31-cleaning: 2 rows$/m)
+  })
+})
+
+describe('list --sheet', () => {
+  it('prints each seed with what it makes, its undo file and how to run it', () => {
+    seedFile('soap.up.sql', `-- three soaps in the bathroom\n${UP('soap')}`)
+    seedFile('soap.down.sql', DOWN('soap'))
+    seedFile('trips.up.sql', `insert into public.trips (label) values ('${LANE_TAG}');\ninsert into stops (label) values ('${LANE_TAG}');\n`)
+    seedFile('trips.down.sql', `delete from public.trips where label = '${LANE_TAG}';\n`)
+    seedFile('half.up.sql', UP('half'))
+    const { code, out } = run('list', '--sheet')
+    expect(code).toBe(0)
+    expect(out.split('\n')).toEqual([
+      'Seed sheet (scripts/qa/seeds, dev only):',
+      '- half: rows in things; undo no down file (it will not run); run `seed.mjs up half`',
+      '- soap: three soaps in the bathroom; undo scripts/qa/seeds/soap.down.sql; run `seed.mjs up soap`',
+      '- trips (lane seed): rows in trips, stops; undo scripts/qa/seeds/trips.down.sql; run `qa-seed.mjs up trips --lane <lane>`',
+    ])
+    expect(calls()).toEqual([])
+  })
+
+  it('says so when there are no seeds', () => {
+    expect(run('list', '--sheet').out).toBe('Seed sheet (scripts/qa/seeds, dev only):\n- none: no scripts/qa/seeds/*.up.sql')
   })
 })

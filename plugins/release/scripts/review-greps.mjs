@@ -7,6 +7,12 @@
 // Usage: node review-greps.mjs [--repo <dir>] [--base <ref>] [--version <x.y.z>] [--no-conventions]
 // --base: what the branch is compared with (default origin/main, else main).
 // --version: the release under review; the project's package.json version must match.
+// --paths a b c: instead of the diff, check that these kit paths exist (the names
+//   run up to the next `--flag`); `<design>/x` is the plugin's folder, a bare
+//   `scripts/x` may sit in a plugin too. One run, hits only for the missing ones.
+// --kit: the repo is the kit if `.claude-plugin/marketplace.json` exists; then a
+//   `scripts/x` the kit doesn't have is a project's own script cited in a kit file
+//   and is not a missing kit path (`plugins/...` paths are still checked).
 //
 // What it runs, each on the added lines of `git diff <base>...HEAD` only:
 // - the kit's repeat shapes (kissochbajslowski's quality bar): fractional px in
@@ -185,7 +191,7 @@ export function hitsOf(lines, checks) {
 const PLUGIN_NAMES = ['core', 'release', 'design', 'database', 'wolfpack']
 const KIT_PATH = /(?<![\w/.~}$:-])(?:plugins|scripts|<(?:core|release|design|database|wolfpack)>)\/[\w.\-/<>]+/g
 
-export function kitPathHits(lines, { repo, exists = existsSync, trackedNames = () => new Set() }) {
+export function kitPathHits(lines, { repo, exists = existsSync, trackedNames = () => new Set(), kit = false }) {
   const hits = []
   const plugins = PLUGIN_NAMES.filter((p) => exists(join(repo, 'plugins', p)))
   let names = null
@@ -201,7 +207,11 @@ export function kitPathHits(lines, { repo, exists = existsSync, trackedNames = (
       if (p.startsWith('scripts/') && /\b(?:project'?s?|its)\b/i.test(l.text)) continue
       // A bare `scripts/x` may be the kit's root scripts folder or a plugin's own.
       const homes = p.startsWith('scripts/') ? [repo, ...plugins.map((x) => join(repo, 'plugins', x))] : [repo]
-      if (!homes.some((h) => exists(join(h, p)))) hits.push({ check: 'kit path named in markdown does not exist', where: `${l.file}:${l.line}`, text: `${p} (${l.text.trim().slice(0, 80)})` })
+      if (!homes.some((h) => exists(join(h, p)))) {
+        // --kit: a bare `scripts/x` that is not the kit's is a project's own script cited in a kit file (R2, PR 54).
+        if (kit && p.startsWith('scripts/')) continue
+        hits.push({ check: 'kit path named in markdown does not exist', where: `${l.file}:${l.line}`, text: `${p} (${l.text.trim().slice(0, 80)})` })
+      }
     }
     if (/\bkit\b/i.test(l.text) && !/\bproject'?s?\b/i.test(l.text)) {
       for (const m of l.text.matchAll(/`([\w-]+\.md)`/g)) {
@@ -210,6 +220,27 @@ export function kitPathHits(lines, { repo, exists = existsSync, trackedNames = (
         if (!names.has(m[1])) hits.push({ check: 'kit file named in markdown does not exist', where: `${l.file}:${l.line}`, text: `${m[1]} (${l.text.trim().slice(0, 80)})` })
       }
     }
+  }
+  return hits
+}
+
+// The kit is the repo with a plugin marketplace; a Nuxt app has a plugins/ folder too.
+export const isKitRepo = (repo, exists = existsSync) => exists(join(repo, '.claude-plugin', 'marketplace.json'))
+
+// An explicit path list (`--paths a b c`): each named kit path must exist in the
+// repo, or for a bare `scripts/x` in a plugin's folder; `<design>/x` is the
+// plugin's folder. With `kit`, a missing `scripts/x` is a project's, not a miss.
+export function pathHits(paths, { repo, exists = existsSync, kit = false }) {
+  const plugins = PLUGIN_NAMES.filter((p) => exists(join(repo, 'plugins', p)))
+  const hits = []
+  for (const raw of paths) {
+    let p = raw.replace(/\/$/, '')
+    const ph = /^<([a-z]+)>\//.exec(p)
+    if (ph) p = `plugins/${ph[1]}/${p.slice(ph[0].length)}`
+    const homes = p.startsWith('scripts/') ? [repo, ...plugins.map((x) => join(repo, 'plugins', x))] : [repo]
+    if (homes.some((h) => exists(join(h, p)))) continue
+    if (kit && p.startsWith('scripts/')) continue
+    hits.push({ check: 'named path does not exist', where: '--paths', text: p })
   }
   return hits
 }
@@ -226,16 +257,20 @@ function baseRef(repo, run) {
   return 'main'
 }
 
-export function review({ repo, base, version, conventions = true }, run = run0) {
+export function review({ repo, base, version, conventions = true, paths = [], kit = false }, run = run0) {
+  // An explicit path list: only that check, no diff.
+  if (paths.length) {
+    const notes = kit && !isKitRepo(repo) ? ['--kit given but this repo has no .claude-plugin/marketplace.json'] : []
+    return { ref: 'the named paths', lines: 0, checks: paths.length, manual: 0, hits: pathHits(paths, { repo, kit: kit && isKitRepo(repo) }), notes }
+  }
   const ref = base || baseRef(repo, run)
   const lines = addedLines(run('git', ['-C', repo, 'diff', '-U0', `${ref}...HEAD`]))
   const bc = join(repo, '.claude', 'builder-checks.md')
   const project = existsSync(bc) ? projectChecks(readFileSync(bc, 'utf8')) : { checks: [], manual: 0 }
   const hits = hitsOf(lines, [...KIT_CHECKS, ...project.checks])
-  // The kit is the repo with a plugin marketplace; a Nuxt app has a plugins/ folder too.
-  if (existsSync(join(repo, '.claude-plugin', 'marketplace.json'))) {
+  if (isKitRepo(repo)) {
     const trackedNames = () => new Set(String(run('git', ['-C', repo, 'ls-files'])).split('\n').map((f) => f.split('/').pop()))
-    hits.push(...kitPathHits(lines, { repo, trackedNames }))
+    hits.push(...kitPathHits(lines, { repo, trackedNames, kit }))
   }
   const notes = []
   if (version) {
@@ -276,14 +311,16 @@ export function render(r) {
 
 function main() {
   const argv = process.argv.slice(2)
-  const o = { repo: process.cwd(), base: null, version: null, conventions: true }
+  const o = { repo: process.cwd(), base: null, version: null, conventions: true, paths: [], kit: false }
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--repo') o.repo = resolve(argv[++i])
+    if (argv[i] === '--paths') while (argv[i + 1] && !argv[i + 1].startsWith('--')) o.paths.push(argv[++i])
+    else if (argv[i] === '--kit') o.kit = true
+    else if (argv[i] === '--repo') o.repo = resolve(argv[++i])
     else if (argv[i] === '--base') o.base = argv[++i]
     else if (argv[i] === '--version') o.version = argv[++i]
     else if (argv[i] === '--no-conventions') o.conventions = false
     else {
-      console.log('Usage: node review-greps.mjs [--repo <dir>] [--base <ref>] [--version <x.y.z>] [--no-conventions]')
+      console.log('Usage: node review-greps.mjs [--repo <dir>] [--base <ref>] [--version <x.y.z>] [--no-conventions] [--kit] [--paths <path>...]')
       process.exit(argv[i] === '--help' || argv[i] === '-h' ? 0 : 1)
     }
   }

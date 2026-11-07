@@ -5,6 +5,13 @@
 // snippets one call at a time, so the Bengan Boys and daredevil now read a table instead.
 //
 //   node <design>/scripts/qa-pass.mjs <pass.json> [--pane [--tab <tabId>]] [--dry] [--taste <taste.md>]
+//   node <design>/scripts/qa-pass.mjs --from-diff <base> [--root <project>] [--out <pass.json>]
+//
+// --from-diff (kit 1.10, F3): writes the pass file for the pages `git diff <base>` touches, so the
+// QA order ships it: route files are their own page, layouts touch the pages under them, other
+// source files reach pages through their importers, kit.json `qa.routes` maps the rest
+// (qa/diff-pages.mjs). Base URL from project.devPort, widths 375 and 1024, kit.json qa.themes.
+// Exit 1 when no page is touched.
 //
 // Headless (the default): one headless Chromium (qa/cdp.mjs) loads each page at each width and
 // theme, runs qa/page-scan.js there, then at 1024 lists every scrolling element and every widget,
@@ -26,11 +33,12 @@
 // The table: page | check | result | finding ("yes", "look" for small targets, blank when clean).
 // nonText (field edges and focus rings under 3:1) is a "yes" like lowContrast; a `tells` row lists
 // the scan's advisory tells and is never a finding.
-import { existsSync, readFileSync, realpathSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { applyTheme, viewportFor } from './qa/batch-shots.mjs'
 import { launch, sleep } from './qa/cdp.mjs'
+import { passFromDiff } from './qa/diff-pages.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const SCAN_SRC = () => readFileSync(join(here, 'qa', 'page-scan.js'), 'utf8')
@@ -170,7 +178,10 @@ export function parseArgs(argv) {
   const o = { file: null, pane: false, tab: undefined, dry: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '--pane') o.pane = true
+    if (a === '--from-diff' || a === '--root' || a === '--out') {
+      if (!argv[i + 1] || argv[i + 1].startsWith('--')) throw new Error(`${a} needs a value`)
+      o[{ '--from-diff': 'fromDiff', '--root': 'root', '--out': 'out' }[a]] = argv[++i]
+    } else if (a === '--pane') o.pane = true
     else if (a === '--tab') o.tab = argv[++i]
     else if (a === '--taste') o.taste = argv[++i]
     else if (a === '--dry') o.dry = true
@@ -249,6 +260,25 @@ async function headless(pass, log) {
   return rows.some((r) => r.finding === 'yes') ? 1 : 0
 }
 
+/**
+ * --from-diff: writes the pass file for the pages a diff touches (qa/diff-pages.mjs says how a file
+ * becomes a page), so the QA order ships the file instead of the agent listing pages by hand.
+ * Prints the file's path (or the JSON with no --out) and one note line per page it could not load.
+ */
+export function fromDiff(o, log = console.log, { changed = null } = {}) {
+  const root = resolve(o.root ?? process.env.CLAUDE_PROJECT_DIR ?? '.')
+  const r = passFromDiff(root, o.fromDiff, { changed })
+  const json = `${JSON.stringify(r.pass, null, 2)}\n`
+  if (o.out) {
+    writeFileSync(resolve(o.out), json)
+    log(`pass file: ${resolve(o.out)} (${r.pass.pages.length} pages from ${r.changed.length} changed files against ${o.fromDiff})`)
+  } else log(json.trimEnd())
+  for (const p of r.pass.pages) log(`- ${p}: ${r.why[p].join(', ')}`)
+  for (const p of r.needsParams) log(`- needs a real id, not in the file: ${p} (${r.why[p].join(', ')})`)
+  if (r.unmapped.length) log(`- reach no page (QA won't see them; add kit.json qa.routes if they should): ${r.unmapped.join(', ')}`)
+  return r.pass.pages.length ? 0 : 1
+}
+
 export async function run(o, log = console.log) {
   const pass = parsePass(readFileSync(resolve(o.file), 'utf8'), o.file)
   // The project's taste.md (run from the project's root) can turn tells off for every pass.
@@ -273,8 +303,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
     console.error(e.message)
     process.exit(2)
   }
+  if (o.fromDiff) {
+    try {
+      process.exit(fromDiff(o))
+    } catch (e) {
+      console.error(e.message)
+      process.exit(2)
+    }
+  }
   if (o.help || !o.file) {
-    console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 30).join('\n'))
+    const src = readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n')
+    console.log(src.slice(1, src.findIndex((l) => l.startsWith('import '))).join('\n'))
     process.exit(o.file || o.help ? 0 : 2)
   }
   run(o).then(

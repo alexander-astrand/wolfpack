@@ -15,7 +15,7 @@ tesseract · the worktree lane (Interstellar's tesseract, a room that reaches an
 
 **Title:** runs inside another session; keeps that session's title, unless that title doesn't parse as `project · kind · subject`: then it first titles the session `<project> · side · tesseract <subject>` (norms.md).
 
-A lane lives outside `.claude`, in `~/Desktop/<Project>-lanes/<lane>`, never under `.claude/worktrees` (`isolation: "worktree"` puts it there, where every write asks even in Auto and its builds break the main checkout's lint: `[lane-home]`, kit 1.5, H2). The navigator makes it before the spawn and names its path and port in the order. A lane can't `git switch` to a branch the main checkout already holds, so it gets its own branch from the release branch, with `V<x>` filled in.
+A lane lives outside `.claude`, in `<parent>/<Project>-lanes/<lane>` (`<parent>` is the main checkout's folder; the kit's own is `~/wolfpack-lanes`), never under `.claude/worktrees` (`isolation: "worktree"` puts it there, where every write asks even in Auto and its builds break the main checkout's lint: `[lane-home]`, kit 1.5, H2). The navigator makes it before the spawn and names its path and port in the order. A lane can't `git switch` to a branch the main checkout already holds, so it gets its own branch from the release branch, with `V<x>` filled in.
 
 **One call makes the lane** (`<kit>` is `${CLAUDE_PLUGIN_ROOT}/../..` written out as an absolute path, so the allow line matches):
 

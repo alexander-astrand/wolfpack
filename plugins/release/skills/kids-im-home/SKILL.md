@@ -24,4 +24,4 @@ Reply with:
 - **Done:** what landed, from the away file's `## Done` (one line, the shas linked), when there is one.
 - **Questions held back:** anything you'd normally have asked with `AskUserQuestion`, recommended option first, asked now for real.
 
-Then carry on as a normal session: pings and questions work as usual again.
+Then carry on as a normal session: pings and questions work as usual again. The last line is `Next: <the first item under Waiting on Alexander> (Alexander)`, or `Next: nothing, done.` when that list is empty (norms.md, "Last line").

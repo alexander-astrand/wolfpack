@@ -14,7 +14,7 @@ An app whose look you'd steal: {{look.steal}} · one you'd never: {{look.never}}
 **Who reads it, and when** (always beside the kit's `design/taste.md`, by section):
 - `mosbius-designs`, before drawing: an option that breaks a rule here isn't an option.
 - Builders, before building a page or component: check the areas it touches.
-- `bengt-johansson` and the Bengan Boys, before passing anything: a pass means "Alexander wouldn't send this back", not "it matches the spec". `tomas-svensson` starts from `taste-repeats.mjs <pages>`, which reads both files.
+- `bengt-johansson` and the Bengan Boys, before passing anything: a pass means "Alexander wouldn't send this back", not "it matches the spec". `bengt-johansson` starts from `taste-repeats.mjs <pages>`, which reads both files.
 - `kissochbajslowski`, the reviewer: a diff that repeats a sendback below is a must.
 
 The worst sendback is a repeat. When one page has solved something (a page's scrolling, a row's drag), every later page copies that solution.

@@ -44,7 +44,7 @@ Times are Europe/Stockholm; `<date>` is today as `yyyy-mm-dd` from your context.
    `<what> · <when it bills or ends> · <what to do> · <needs Alexander: yes (why) | no>`.
    A plan change, a card, a cancel or anything on a dashboard only he can open is always "yes". An unknown card on a trial is a finding: he checks whether one is on file. A file past its refresh is "no": the next release's navigator sends `doc-brown` to re-check it. End with one line of what was read (ledgers, and which live reads answered).
    - **Called by a navigator, `future-ted` or by hand:** the report goes in chat, at most 12 lines. A finding marked "yes" is his to act on: end the turn with no timer and no polling (kit 1.5, M9); `/marco-polo` finds sessions waiting on him.
-   - **Called by the weekly routine:** write `~/pylos/inbox/<date>-scrooge.md`, overwriting one from earlier today:
+   - **Called by the routine:** write `~/pylos/inbox/<date>-scrooge.md`, overwriting one from earlier today. A daily run is `scrooge.mjs --daily`, which leaves out any line identical to yesterday's note (kit 1.10, M7), so the note is only what changed. The weekly run (Monday) keeps every line and, for each overdue file, adds `Next: /88-mph small <file's subject>` so the re-check starts from the note:
 
 ```
 # Costs, <weekday> <d> <Month>

@@ -32,3 +32,4 @@ Production, or browser checks at 375/1024px. Migrations and `supabase/tests/*.sq
 - **No Burrow connector in the cloud:** the Dev HQ card, `find_rows` and `change_row` (norms.md "Dev HQ card") are not there. Finish the rest, push, and say in the summary which card line the local session writes.
 - If a task needs something the cloud lacks, finish the rest, push, and say so plainly in the summary.
 - Check usage on claude.ai after the first few cloud sessions.
+- The cloud session's final message ends `Next: <what the local session does with the pushed branch, e.g. open the PR> (Alexander, or the starting session)`, or `Next: nothing, done.` (norms.md, "Last line").
