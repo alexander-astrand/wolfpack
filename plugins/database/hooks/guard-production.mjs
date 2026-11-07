@@ -2101,6 +2101,15 @@ function findWrites(rest, prot) {
   return starts.find((w) => prot(w) || (above(w) && !filters.length)) ?? filters.find(named)
 }
 
+// The release plugin's step-done.mjs, run by name, writes only beside its
+// --plan file and to the PR body; its --step, --cheaper and --tick are a step's
+// label and a "Cheaper next time" line, text in a TSV row, never a path. So
+// only its path flags are judged (Burrow V1.12, 5 Nov 2026: a --cheaper line
+// saying "skip check.sh's build" asked, nobody was at the desk, and the
+// release sat four hours).
+const STEP_DONE_RE = /(?:^|\/)(?:plugins\/release|\$\{?CLAUDE_PLUGIN_ROOT\}?)\/scripts\/step-done\.mjs$/
+const STEP_DONE_PATHS = new Set(['--plan', '--dir', '--hank-log'])
+
 // Code given inline or on stdin may write any path it names. A script run by
 // name is judged by its other arguments (running the guard to test it is
 // fine); awk's first word is its program.
@@ -2114,6 +2123,10 @@ function interpreterWrites(cmd, rest, seg, prot = namesProtected) {
   const inline = rest.some((w) => /^-(?:[a-z]*[ecpr]|-eval|-print)$/i.test(w))
   const first = rest.findIndex((w) => !w.startsWith('-'))
   let code
+  if (cmd === 'node' && !inline && seg.heredoc === undefined && STEP_DONE_RE.test(rest[first] ?? '')) {
+    code = rest.filter((_, i) => i > first && STEP_DONE_PATHS.has(rest[i - 1])).join(' ')
+    return PROTECTED_TEXT_RE.test(code) || code.split(/\s+/).some(namesProtected) ? `${cmd} code naming the guard's files` : undefined
+  }
   if (cmd === 'awk' || cmd === 'gawk') code = rest[first] ?? ''
   else if (inline) code = rest.join(' ')
   else code = rest.filter((_, i) => i !== first).join(' ')

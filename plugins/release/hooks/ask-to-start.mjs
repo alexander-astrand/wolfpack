@@ -9,7 +9,12 @@
 //    it messages an existing session or leaves the card (council M2).
 // 2. Background work still running with no timer to wake the session
 //    (`[watchdog]`; kit 1.7, council Feature 2).
-// 3. A final message whose last line isn't `Next:` or `Handed to` (norms.md,
+// 3. A release navigator (a `/captain-call` session that has spawned agents and
+//    has no `<plans>V<v>.draft-done` marker yet) ending a turn with no timer,
+//    even with nothing running in the background: the watchdog restarts here,
+//    not by memory (Burrow V1.12 retro, fix 14: its one sleep ran out at 14:41Z,
+//    two prompts closed as "rejected" at 15:32Z, and nothing ran until 18:37Z).
+// 4. A final message whose last line isn't `Next:` or `Handed to` (norms.md,
 //    "Last line"; kit 1.7, council Feature 2), but only after a turn that ran
 //    tools, so a plain chat answer is never sent back.
 //
@@ -21,14 +26,17 @@
 // Each block is one line in `.claude/session-hooks.log` (see start-gate.mjs).
 // Fails open: any error of its own lets the turn end.
 
-import { realpathSync } from 'node:fs'
+import { closeSync, existsSync, openSync, readSync, realpathSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
+import { draftDoneFor, plansDirFor } from './budget-cap.mjs'
 import { logDecision, tailEntries, turnEntries } from './start-gate.mjs'
 
 export const REASON =
   "Start it yourself: start_session with initiation user_asked (norms.md, Starting sessions). If this turn was woken (a timer, a hand-back, another session's message, or a session's first task from its starter), the app refuses start_session: send_message an existing session or leave the card, say so in one line, and never re-spell the call."
 export const WATCHDOG_REASON =
   'Background work you started this turn is still running and no timer will wake you: start a background sleep timer before ending the turn ([watchdog]), or stop the tasks you no longer watch (TaskStop).'
+export const NAV_WATCHDOG_REASON =
+  'You are a release navigator before its draft and no timer will wake you: start the [watchdog] sleep (run_in_background) before ending the turn, also while you hold for Alexander or an answer. A prompt that came back refused while he was quiet is not his no (~/.claude/CLAUDE.md, "A missed prompt is not a no"): ping him with ~/pylos/bin/nestor-push.sh --prompt and keep the other lanes going.'
 export const NEXT_REASON =
   'End the final message with one last line: `Next: <the step> (<who>)`, `Handed to <starter title>; it has taken over.` or `Next: nothing, done.` (norms.md, Last line).'
 
@@ -133,9 +141,39 @@ export function backgroundState(entries) {
   return { running, timer }
 }
 
+// The release skill's own first line, or its slash command, in the transcript's head.
+const RELEASE_START = /Start release: \*\*|<command-name>\/(?:release:)?(?:captain-call|night-watch)<\/command-name>/
+export const HEAD_BYTES = 512 * 1024
+
+/** True when the transcript's first HEAD_BYTES show a `/captain-call` (or `/night-watch`) start. */
+export function startedRelease(file, bytes = HEAD_BYTES) {
+  if (!file || !existsSync(file)) return false
+  const fd = openSync(file, 'r')
+  try {
+    const buf = Buffer.alloc(bytes)
+    const len = readSync(fd, buf, 0, bytes, 0)
+    return RELEASE_START.test(buf.toString('utf8', 0, len))
+  } finally {
+    closeSync(fd)
+  }
+}
+
+/**
+ * Check 3: a navigator mid-release with no timer. Mid-release means it has
+ * spawned an agent and no draft-done marker names this session; a chain link's
+ * `LINK DONE|STOPPED` or a `Next: nothing, done.` end passes.
+ */
+export function navigatorUnwatched(input, entries, text, timer, env = {}) {
+  if (timer || !startedRelease(input.transcript_path)) return false
+  if (/\bLINK (?:DONE|STOPPED)\b/.test(text) || /Next:\s*nothing, done\./i.test(text)) return false
+  if (!entries.some((e) => toolUses(e).some((b) => b.name === 'Agent' || b.name === 'Task'))) return false
+  const plansDir = env.plansDir ?? plansDirFor(input)
+  return !draftDoneFor(input.session_id, plansDir, env.sessionsDir)
+}
+
 /**
  * @param {object} input  the hook's stdin JSON
- * @param {{ logPath?: string | null, now?: number }} [env]
+ * @param {{ logPath?: string | null, now?: number, plansDir?: string, sessionsDir?: string }} [env]
  * @returns {{ decision: 'block', reason: string } | null}
  */
 export function decide(input, env = {}) {
@@ -149,6 +187,7 @@ export function decide(input, env = {}) {
   if (asksToStart(text)) return block(REASON, 'asks him to start a session')
   const { running, timer } = backgroundState(entries)
   if (running && !timer) return block(WATCHDOG_REASON, `${running} background task(s) running, no timer`)
+  if (navigatorUnwatched(input, entries, text, timer, env)) return block(NAV_WATCHDOG_REASON, 'navigator before its draft, no timer')
   const ranTools = turnEntries(entries).some((e) => toolUses(e).length)
   if (ranTools && text && !endsWithNext(text) && !endsOnABox(entries)) return block(NEXT_REASON, 'no Next: last line')
   return null
