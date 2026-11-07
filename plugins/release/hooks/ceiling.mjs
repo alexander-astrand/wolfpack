@@ -13,10 +13,12 @@
 // Tokens are the Usage table's count: the session and its subagents, each
 // message once (usage.mjs sessionTokens).
 //
-// `stop_hook_active` (this stop already came back once) always passes, so the
-// line is sent once a turn and never loops. Fails open: any error lets the turn end.
+// The line is sent once a session: a marker by session id (markerFor) makes
+// every later stop pass, and `stop_hook_active` (this stop already came back
+// once) always passes, so it never loops. Fails open: any error lets the turn end.
 
-import { closeSync, existsSync, openSync, readdirSync, readSync, realpathSync } from 'node:fs'
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readSync, realpathSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { fmtM, parseEntries, sessionCommand, sessionTokens } from '../scripts/usage.mjs'
@@ -101,7 +103,7 @@ function sessionFiles(input) {
 
 /**
  * @param {object} input  the hook's stdin JSON
- * @param {{ logPath?: string | null, now?: number }} [env]
+ * @param {{ logPath?: string | null, now?: number, markerDir?: string }} [env]
  * @returns {{ decision: 'block', reason: string } | null}
  */
 export function decide(input, env = {}) {
@@ -110,9 +112,25 @@ export function decide(input, env = {}) {
   if (!skill) return null
   const tokens = sessionTokens(sessionFiles(input))
   if (tokens <= CEILINGS[skill]) return null
+  const marker = markerFor(input, env)
+  if (existsSync(marker)) return null
   const reason = reasonFor(skill, tokens)
+  try {
+    mkdirSync(dirname(marker), { recursive: true })
+    writeFileSync(marker, `${reason}\n`)
+  } catch {
+    // No marker: the line may come back next turn, which beats never sending it.
+  }
   logDecision(input, 'ceiling', 'block', reason, env)
   return { decision: 'block', reason }
+}
+
+// One marker a session, written when the line is sent: his call is one line
+// past the figure, not one every later turn (each send-back is a call on the
+// whole context). In tmp, by session id, like Hank's state.
+export function markerFor(input, env = {}) {
+  const id = String(input.session_id || 'unknown').replace(/[^\w-]/g, '_')
+  return join(env.markerDir ?? join(tmpdir(), '.ceiling'), id)
 }
 
 async function main() {

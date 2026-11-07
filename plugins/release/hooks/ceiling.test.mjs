@@ -1,26 +1,29 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { activeSkill, decide, reasonFor } from './ceiling.mjs'
+import { activeSkill, decide, markerFor, reasonFor } from './ceiling.mjs'
 
 const typed = (name, args = '') => ({ type: 'user', message: { content: `<command-name>/${name}</command-name>\n<command-args>${args}</command-args>` } })
 const skillCall = (skill, args) => ({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Skill', input: { skill, args } }] } })
 const spend = (id, tokens) => ({ type: 'assistant', message: { id, model: 'claude-opus-x', usage: { cache_read_input_tokens: tokens }, content: [{ type: 'text', text: 'x' }] } })
 const jsonl = (entries) => `${entries.map((e) => JSON.stringify(e)).join('\n')}\n`
 
-// A session folder: the transcript, and a subagent's file when given.
+// A session folder: the transcript, and a subagent's file when given. Each
+// gets its own id, so one test's marker never silences another's.
+let n = 0
 function session(entries, subEntries = null) {
+  const id = `sess-${++n}`
   const dir = mkdtempSync(join(tmpdir(), 'ceiling-'))
-  const transcript_path = join(dir, 'sess-1.jsonl')
+  const transcript_path = join(dir, `${id}.jsonl`)
   writeFileSync(transcript_path, jsonl(entries))
   if (subEntries) {
-    mkdirSync(join(dir, 'sess-1', 'subagents'), { recursive: true })
-    writeFileSync(join(dir, 'sess-1', 'subagents', 'agent-a.jsonl'), jsonl(subEntries))
+    mkdirSync(join(dir, id, 'subagents'), { recursive: true })
+    writeFileSync(join(dir, id, 'subagents', 'agent-a.jsonl'), jsonl(subEntries))
   }
-  return { session_id: 'sess-1', transcript_path }
+  return { session_id: id, transcript_path }
 }
-const env = { logPath: null }
+const env = { logPath: null, markerDir: mkdtempSync(join(tmpdir(), 'ceiling-markers-')) }
 
 describe('ceiling hook', () => {
   it('stays silent under the figure', () => {
@@ -53,10 +56,20 @@ describe('ceiling hook', () => {
 
   it('never fires twice on one stop (stop_hook_active)', () => {
     const input = session([typed('mr-miyagi'), spend('m1', 30_000_000)])
+    expect(decide({ ...input, stop_hook_active: true }, env)).toBeNull()
     expect(decide(input, env)?.decision).toBe('block')
     expect(decide({ ...input, stop_hook_active: true }, env)).toBeNull()
-    // The next turn's stop reads it again: once a turn, never a loop.
+  })
+
+  it('a second stop after a send-back passes: one line a session', () => {
+    const input = session([typed('mr-miyagi'), spend('m1', 30_000_000)])
+    expect(existsSync(markerFor(input, env))).toBe(false)
     expect(decide(input, env)?.decision).toBe('block')
+    expect(existsSync(markerFor(input, env))).toBe(true)
+    expect(decide(input, env)).toBeNull()
+    expect(decide(input, env)).toBeNull()
+    // Another session past its figure still gets its own line.
+    expect(decide(session([typed('mr-miyagi'), spend('m1', 30_000_000)]), env)?.decision).toBe('block')
   })
 
   it('fails open on a missing transcript', () => {
