@@ -156,4 +156,5 @@ The last message: a receipt, not a summary.
 - **Where it runs:** one line per part (`<part>: Code / Cowork / Chat`).
 - **Checks:** what `scripts/check.sh` runs for the stack; on Other, "Checks: you fill in scripts/check.sh".
 - **Kit:** `kit.version` from kit.json; the kit loads from `~/wolfpack-live` via `CLAUDE_CODE_PLUGIN_DIRS` and moves by `<kit>/scripts/live-sync.sh` (no marketplace refresh).
+- **Claude Code 2.1.317 or later:** the `settings.allow.*` fragments carry `permissions.denyInsteadOfPrompting` so a routine never hangs on an unseen prompt; the key takes effect from 2.1.317 (written ahead of the update, kit 1.10 F17).
 - Malcolm, once, just above the `Next:` line: "Life, uh, found a way."
