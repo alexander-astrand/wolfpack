@@ -9,9 +9,9 @@
 // it is a list of folders. Prints one line each: `old -> new` (renamed), `- old` (deleted), `+ new` (added).
 // Edits to a route file that stay in place are not moves and are not printed.
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { pathToFileURL } from 'node:url'
 
 export const DEFAULT_ROUTES = ['src/routes', 'app/', 'pages/', 'src/pages']
 
@@ -66,7 +66,7 @@ export function main(argv, out = console.log) {
   return lines.length
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   try {
     main(process.argv.slice(2))
   } catch (e) {

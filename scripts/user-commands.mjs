@@ -4,10 +4,10 @@
 // --write it replaces the block between the two marker comments under
 // "## Commands only I type" in ~/.claude/CLAUDE.md. future-ted runs it when a
 // skill is added or renamed, so that list never drifts from the kit.
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const START = '<!-- user-commands:start -->'
 export const END = '<!-- user-commands:end -->'
@@ -102,7 +102,7 @@ export function replaceBlock(text, block) {
   return `${text.slice(0, a + START.length)}\n${block}\n${text.slice(b)}`
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   const kitRoot = fileURLToPath(new URL('..', import.meta.url))
   const block = renderBlock(collect(kitRoot))
   if (process.argv.includes('--write')) {

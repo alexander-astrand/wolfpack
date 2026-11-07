@@ -38,6 +38,20 @@ const SCRIPTS = [
   ['release/scripts/council-spawns.mjs', ['--help'], ''],
   ['release/scripts/council-starts.mjs', ['--help'], ''],
   ['release/scripts/meter-calibrate.mjs', ['--help'], ''],
+  // A18 order 2: the `fileURLToPath(import.meta.url) === process.argv[1]` form (and the
+  // `resolve(argv[1])` one in root scripts, reached as ../scripts/ from plugins/).
+  ['core/scripts/dev-hq.mjs', ['--help'], ''],
+  ['core/scripts/scrooge.mjs', [], ''],
+  ['core/scripts/week-receipt.mjs', ['--help'], ''],
+  ['core/scripts/tier-readers.mjs', [], ''],
+  ['core/scripts/envelope.mjs', [], ''],
+  ['release/scripts/routes-moved.mjs', ['--help'], ''],
+  ['release/scripts/roadmap-apply.mjs', ['--help'], ''],
+  ['release/scripts/the-tower.mjs', [], ''],
+  ['../scripts/user-commands.mjs', [], ''],
+  ['../scripts/drift.mjs', [], ''],
+  ['../scripts/bump.mjs', [], ''],
+  ['../scripts/check.mjs', [], ''],
 ]
 
 // Hooks read a payload on stdin; an empty one must exit 0. start-gate and budget-cap print

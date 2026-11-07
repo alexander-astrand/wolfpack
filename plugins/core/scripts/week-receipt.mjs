@@ -25,10 +25,10 @@
 // before Monday adds only its own week's part.
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { pathToFileURL } from 'node:url'
 import { parseExpected } from './plan-check.mjs'
 import { bareVersion, titleHas } from './release-sessions.mjs'
 // The kit ships its plugins side by side (`<kit>/plugins/<name>`), so the
@@ -334,7 +334,7 @@ function parseArgs(argv) {
   return o
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   try {
     const { json, releases, desktop, ...opts } = parseArgs(process.argv.slice(2))
     for (const k of Object.keys(opts)) if (opts[k] === undefined) delete opts[k]

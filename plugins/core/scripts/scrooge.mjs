@@ -15,10 +15,10 @@
 //
 // Usage: node scrooge.mjs [--json] [--daily] [--today yyyy-mm-dd] [--home <dir>] [--desktop <dir>]
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { pathToFileURL } from 'node:url'
 
 const DAY = 86400000
 const WARN_DAYS = 2 // the global Costs rule: "a reminder two days before"
@@ -290,7 +290,7 @@ function stockholmToday() {
   return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Stockholm' })
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   const args = process.argv.slice(2)
   const opt = (name) => {
     const i = args.indexOf(name)

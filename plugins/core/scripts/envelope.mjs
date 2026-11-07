@@ -6,7 +6,8 @@
 //
 // Usage: node envelope.mjs <project> <kind> <subject…>
 
-import { fileURLToPath } from 'node:url'
+import { realpathSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
 
 export function envelope(project, kind, subject) {
   return `[${project} · ${kind}] ${subject}:`
@@ -23,6 +24,6 @@ export function main(argv, out = console.log, err = console.error) {
   return 0
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   process.exitCode = main(process.argv.slice(2))
 }

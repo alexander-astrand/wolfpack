@@ -20,9 +20,9 @@
 // paste. With no projectDir, or none with `.claude/hooks/` (the kit checked on
 // its own, as in <kit>), the check skips with one line and exits 0.
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
@@ -119,7 +119,7 @@ export function describe(p) {
   return `${p.hutzup} ↔ ${p.kit}: differs: ${p.lines} lines, first at ${p.first.file}:${p.first.line}`
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   const args = process.argv.slice(2)
   const json = args.includes('--json')
   const at = args.indexOf('--hutzup')

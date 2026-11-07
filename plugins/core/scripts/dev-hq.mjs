@@ -30,10 +30,10 @@
 // on a command line.
 
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { agentName, dropCounted, parseEntries, sessionCommand, tallyEntries, totalTokens } from '../../release/scripts/usage.mjs'
 import { firstNumber, scan as scrooge } from './scrooge.mjs'
 import { readings as tierReadings } from './tier-readers.mjs'
@@ -907,7 +907,7 @@ async function main(argv) {
   throw new Error('Usage: node dev-hq.mjs hook | parts [--backfill] | push [--dry-run] [--backfill] [--wait <s>] | moves <input.json>')
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   main(process.argv.slice(2)).catch((e) => {
     console.error(`dev-hq: ${e.message}`)
     process.exit(1)

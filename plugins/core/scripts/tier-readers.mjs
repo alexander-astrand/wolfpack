@@ -26,10 +26,10 @@
 // here changes a plan or a project.
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HOUR = 3_600_000
 const iso = (ms) => new Date(ms).toISOString()
@@ -525,7 +525,7 @@ async function main(argv) {
   console.log(JSON.stringify(readings(spool), null, 2))
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   main(process.argv.slice(2)).catch((e) => {
     console.error(`tier-readers: ${e.message}`)
     process.exit(1)

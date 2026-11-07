@@ -12,10 +12,10 @@
 // the segment that starts with Planned, Planning, In progress, In review, Shipped or Parked; it is
 // replaced, or appended as a last segment when the line has none. The file is written only when the
 // line changes (--dry writes nothing). Exit 1 when the release has no line (add the card first).
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { pathToFileURL } from 'node:url'
 
 const STATUS_SEGMENT = /^(planned|planning|in progress|in review|shipped|parked)\b/i
 
@@ -88,7 +88,7 @@ export function main(argv, out = console.log) {
   return 0
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) {
   try {
     main(process.argv.slice(2))
   } catch (e) {
