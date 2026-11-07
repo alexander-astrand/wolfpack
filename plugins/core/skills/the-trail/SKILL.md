@@ -80,3 +80,5 @@ For a data page. When `page.html` itself changes (layout, CSS, a new field the p
 
 ## Style
 Plain words for the whole group, not code talk. A release note says what the members (`project.noun` in `.claude/kit.json`) get, then one line on how. Dates as "26 Sep".
+
+When it runs on its own, the last line of the reply is `Next: nothing, done.`, or the step the write opens, such as `Next: build the card's release (this session)` (norms.md, "Last line"). Called from another skill, that skill's closing line stands.

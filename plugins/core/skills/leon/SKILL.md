@@ -59,3 +59,6 @@ After its mode's steps, every run (quick, deep, dry) runs `node ${CLAUDE_PLUGIN_
 ## dry
 
 Runs every read (sessions, `gh`, chain logs, file lists) and writes the note with `would archive:` / `would move:` / the proposed diff. It calls no `archive_session`, no `mv`, no memory edit. The note is the only file it writes.
+
+## The last line
+Run by hand, the final message ends `Next: <the first cleanup to run, e.g. leon deep> (Alexander)` after a `dry` run, `Next: remove the worktrees the note lists (Alexander)` when it found some, or `Next: nothing, done.` A scheduled run has no reader, so it needs no such line (norms.md, "Last line").
