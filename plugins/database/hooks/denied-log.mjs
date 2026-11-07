@@ -124,8 +124,8 @@ export const GUARD_REASONS = [
   { code: 'arm-script', re: /^scripts\/full-auto\.sh (?:arms production|is never copied)/, rule: 'SCRIPT_DENIED (mentionsScript, scriptGlob, mayBeScripts)', carry: 'A loop or glob passes when the folder before its `*` ends in a literal name (kit 1.8, H5); never `scripts/` or a run-time `$d` as that last part. Check a shape first with `guard-production.mjs --explain`.' },
   { code: 'marker-write', re: /^The full-auto marker and its log are written only by/, rule: 'MARKER_DENIED (the marker-write rules)', carry: 'Edit files with Edit or Write, never a heredoc, `python3 -`, `perl -pi` or a shell loop that writes ([edit-not-heredoc]).' },
   { code: 'built-at-runtime', re: /is built at run time and may be/, rule: 'segmentRules (a command word built at run time)', carry: 'Spell each command out; a `$var` goes in arguments only, never as the command or its subcommand.' },
-  { code: 'psql', re: /can reach any database\. Check where it connects/, rule: 'segmentRules (database clients ask)', carry: 'Read the local schema with `supabase db query --local` from the lane root, never `docker exec ... psql` (the-playbook).' },
-  { code: 'workdir', re: /^--workdir can point the CLI/, rule: 'checkSupabase (--workdir)', carry: 'Run supabase from the lane\'s own root (one command, no `cd`), never with `--workdir` (the-playbook).' },
+  { code: 'psql', re: /can reach any database\. Check where it connects/, rule: 'segmentRules (database clients ask)', carry: 'Read the local schema with `supabase db query --local "<sql>"` (any folder), or run the project\'s script as `npm --prefix <lane> run <script>`; never `psql` or `docker exec ... psql` (the-playbook).' },
+  { code: 'workdir', re: /^--workdir can point the CLI/, rule: 'checkSupabase (--workdir)', carry: 'Run the project\'s script as `npm --prefix <lane> run <script>` (one command, no `cd`), never with `--workdir` (the-playbook).' },
   { code: 'prod-db', re: /^scripts\/prod-db\.sh reaches production/, rule: 'checkProdDb' },
   { code: 'prod-ref', re: /isn't dev\b|isn't the dev project|would point the CLI away from dev/, rule: 'segmentRules, checkSupabase, checkProdDb (project refs)' },
   { code: 'merge', re: /^Merging goes through `gh pr merge`|ships a release\. Only the deploy/, rule: 'MERGE_BY_API, checkGh', carry: 'A merge is /one-ring\'s, on Alexander\'s go; never `gh pr merge` or the API from a build session.' },
@@ -134,6 +134,24 @@ export const GUARD_REASONS = [
   { code: 'fed-shell', re: /which the guard can't read, so a person decides/, rule: 'fedShell', carry: 'Write the code to a scratch file and run it by name (`node <file>`), never through a pipe, heredoc or `sh -c`.' },
   { code: 'guard-error', re: /^guard-production failed/, rule: 'main (fails closed)' },
 ]
+
+/**
+ * Kit 1.10 (F6): the guard's result with the habit fix added to its reason, so
+ * the agent that was refused reads the shape that passes in the same message
+ * and does not redo the call in another spelling. A reason with no `carry`, a
+ * deny that already says it, or anything unreadable comes back unchanged. The
+ * first line stays the guard's own, which is what the log and the codes read.
+ */
+export function withCarry(result) {
+  try {
+    const reason = String(result?.reason ?? '')
+    const hit = GUARD_REASONS.find((r) => r.code === reasonCode(reason))
+    if (!hit?.carry || reason.includes(hit.carry)) return result
+    return { ...result, reason: `${reason}\nInstead: ${hit.carry}` }
+  } catch {
+    return result
+  }
+}
 
 /** The stable code for one guard reason (its first line). */
 export function reasonCode(reason) {

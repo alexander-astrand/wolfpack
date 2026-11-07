@@ -3934,11 +3934,17 @@ export async function main() {
     result = deny(`guard-production failed (${String(err?.message ?? err).split('\n')[0]}); refusing to be safe.`)
   }
   if (result) {
+    // Kit 1.10 (F6): the refused agent reads the line that passes with the reason.
+    // Loaded here only and best effort, so a broken denied-log.mjs changes no verdict.
+    let told = result
+    if (result.decision === 'ask' || result.decision === 'deny') {
+      try { told = (await import('./denied-log.mjs')).withCarry(result) } catch { /* the plain reason */ }
+    }
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
         permissionDecision: result.decision,
-        permissionDecisionReason: result.reason,
+        permissionDecisionReason: told.reason,
       },
     }))
   }
