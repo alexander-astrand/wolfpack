@@ -95,6 +95,8 @@ Only the hard stops above wait for a person. When anything else is refused or fa
 2. If no route works within two tries, defer that item to the end of the leg or link and go on with the rest.
 3. Every deferred item goes first under "What needs you" in the final ping, with what was refused and the route that would clear it.
 
+**A missed prompt is not a no** (`[missed-prompt]`; Alexander, 5 Nov 2026, after Burrow V1.12 sat four hours: "I was also available on phone so should have been pinged"). A call that comes back "User rejected tool use", or refused by a prompt, while his last own message is over 10 minutes old is a prompt nobody saw: ping him in the same turn (`~/pylos/bin/nestor-push.sh --prompt "<line>"`: what was refused, what the leg does next), then the steps above, with one other route before it defers. Never stop a leg or link on it. A production call or a hard stop is still a hard stop; norms.md, "A missed prompt is not a no".
+
 Never re-spell a refused production command to get it past the guard; production stays behind the hard stops.
 
 ## The 5-hour self-wake (every leg, link and conductor)
@@ -103,7 +105,7 @@ Nobody types "continue". Before any spawn, and before the deploy's arm, read `ge
 2. Start `sleep <seconds to resetsAt + 60>` with Bash `run_in_background` (never a foreground sleep), and end the turn.
 3. The harness re-invokes the session when the sleep exits (checked 30 Sep: background sleeps of 180 s and 720 s each ran to the end and sent their completion notice; the wake from an idle main session is first proven in step 7's drive). Re-read `get_usage`: still above 85%, sleep once more; otherwise read the `Next:` line and go on.
 
-An armed `ranjit` run is never paused midway: the check comes before the arm. The weekly meter is a separate check: the arm accepts it (`[meter]` in lessons.md), and a chain stops for the week only when the headroom left is below 1.5x the next link's budget.
+An armed `ranjit` run is never paused midway: the check comes before the arm. The weekly meter is a separate check: the arm accepts it (`[meter]` in lessons.md), and a chain stops for the week only when the headroom left is below 1.5x the next link's budget. With headroom, it never waits for the reset (`[accelerate]`).
 
 ## Preflight (both legs; a failure is a hard stop)
 - **The deploy's preflight** is `deploy-leg.md`'s "Preflight" (scripts, deployer, Auto, the root checkout at the PR head), checked in leg 1's first minute too, so a missing script stops the drive before the build.
