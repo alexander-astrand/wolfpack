@@ -178,7 +178,7 @@ function readMeta(subDir, jsonlName) {
 // boba-fett and farbror-vattenmelon were retired in 3.3.3 (not in AGENTS below); the
 // two entries stay so old transcripts keep reading under the names they ran as.
 const RENAMED = {
-  scout: 'lorenzo-von-matterhorn', 'test-runner': 'romeo-olsson', planner: 'admiral-ackbar',
+  scout: 'lorenzo-von-matterhorn', planner: 'admiral-ackbar',
   builder: 'chris-de-kok', designer: 'mosbius-designs', 'db-engineer': 'the-playbook',
   debugger: 'boba-fett', qa: 'bengt-johansson', 'release-reviewer': 'kissochbajslowski',
   documenter: 'c-3po', 'prod-deployer': 'ranjit', 'senior-opus': 'yoda', 'senior-fable': 'farbror-vattenmelon',
@@ -190,7 +190,7 @@ const RENAMED = {
 // so that prefix names it instead.
 export const AGENTS = new Set([
   'lorenzo-von-matterhorn', 'admiral-ackbar', 'heisenberg', 'chris-de-kok', 'jesse-pinkman',
-  'mosbius-designs', 'the-playbook', 'romeo-olsson', 'kissochbajslowski', 'c-3po',
+  'mosbius-designs', 'the-playbook', 'kissochbajslowski', 'c-3po',
   'ranjit', 'yoda', 'bengt-johansson',
   // The builder pool beside chris-de-kok (2.10.2).
   'ahmed-och-ahmed', 'saul-goodman', 'jeff-winger', 'troy-and-abed',

@@ -24,7 +24,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 
 // Old agent names, so pre-2.10 transcripts read under today's names.
 const RENAMED = {
-  scout: 'lorenzo-von-matterhorn', 'test-runner': 'romeo-olsson', planner: 'admiral-ackbar',
+  scout: 'lorenzo-von-matterhorn', planner: 'admiral-ackbar',
   builder: 'chris-de-kok', designer: 'mosbius-designs', 'db-engineer': 'the-playbook',
   qa: 'bengt-johansson', 'release-reviewer': 'kissochbajslowski', documenter: 'c-3po',
 }

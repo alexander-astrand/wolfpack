@@ -132,7 +132,7 @@ const TYPICAL_PER_CALL = {
   'chris-de-kok': 160_000, 'ahmed-och-ahmed': 160_000, 'saul-goodman': 160_000, 'jeff-winger': 160_000,
   'troy-and-abed': 160_000, 'jesse-pinkman': 160_000, 'the-playbook': 185_000, 'bengt-johansson': 140_000,
   kissochbajslowski: 85_000, 'mosbius-designs': 120_000, 'c-3po': 135_000, 'lorenzo-von-matterhorn': 40_000,
-  'romeo-olsson': 10_000, ranjit: 85_000,
+  ranjit: 85_000,
 }
 const OTHER_PER_CALL = 120_000
 
