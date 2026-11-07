@@ -275,8 +275,13 @@ describe('--since (kit 1.10, F2)', () => {
     expect(sessionTokens(files, { since: Date.parse(at(10)) })).toBe(3_000_000)
   })
 
-  it('tokensSinceGo reads the newest transcript in the folder', async () => {
-    expect(await tokensSinceGo(dir)).toEqual({ tokens: 3_000_000, since: Date.parse(at(10)) })
+  it('tokensSinceGo finds the transcript whose go names the argument', async () => {
+    const { lastTypedGo } = await import('../../database/hooks/one-ring-go.mjs')
+    expect(tokensSinceGo(dir, lastTypedGo, { arg: 'kit-1.10' })).toEqual({ tokens: 3_000_000, since: Date.parse(at(10)), session: 'eeee5555-deploy' })
+    // a lane beside it in the same project, without that go
+    expect(tokensSinceGo(dir, lastTypedGo, { arg: '1.2' })).toBeNull()
+    // an old transcript is never read
+    expect(tokensSinceGo(dir, lastTypedGo, { arg: 'kit-1.10', now: Date.now() + 13 * 3600_000 })).toBeNull()
   })
 
   it('says so when there is no go or the word is no time', () => {

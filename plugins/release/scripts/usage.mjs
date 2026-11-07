@@ -349,35 +349,35 @@ export async function sinceTime(word, mainFile, sessionId) {
   return at
 }
 
-// The newest transcript in a project's folder: the running session's, since
-// it is writing to it right now. The deploy has no session id to go by.
-export function newestTranscript(dir) {
-  let best = null
+/**
+ * The deploy's tokens since his go, for its DONE line. The deploy has no
+ * session id, so it takes the newest transcript in `dir` (the project's
+ * folder) written in the last `hours` whose typed go names `arg`: a lane
+ * running beside it in the same project has no such go. `findGo` is
+ * one-ring-go.mjs's lastTypedGo, passed in so this file never imports the
+ * database plugin. Null when no transcript has that go.
+ * @returns {{ tokens: number, since: number, session: string } | null}
+ */
+export function tokensSinceGo(dir, findGo, { arg = null, now = Date.now(), hours = 12 } = {}) {
+  let files
   try {
-    for (const name of readdirSync(dir)) {
-      if (!name.endsWith('.jsonl')) continue
-      const mtime = statSync(join(dir, name)).mtimeMs
-      if (!best || mtime > best.mtime) best = { name, mtime }
-    }
+    files = readdirSync(dir)
+      .filter((n) => n.endsWith('.jsonl'))
+      .map((n) => ({ n, mtime: statSync(join(dir, n)).mtimeMs }))
+      .filter((f) => now - f.mtime <= hours * 3600_000)
+      .sort((a, b) => b.mtime - a.mtime)
   } catch {
     return null
   }
-  return best && join(dir, best.name)
-}
-
-/**
- * This session's tokens since his go, for the deploy's DONE line: the newest
- * transcript in `dir` (the folder of the cwd's project by default) and its
- * subagents. Null when there is no transcript or no go in it.
- */
-export async function tokensSinceGo(dir = projectDir()) {
-  const mainFile = newestTranscript(dir)
-  if (!mainFile) return null
-  const id = basename(mainFile, '.jsonl')
-  let since
-  try { since = await sinceTime('go', mainFile, id) } catch { return null }
-  const { subDir, subFiles } = resolveSession(dir, id)
-  return { tokens: sessionTokens([mainFile, ...subFiles.map((f) => join(subDir, f))], { since }), since }
+  for (const { n } of files) {
+    const id = basename(n, '.jsonl')
+    let go
+    try { go = findGo(readFileSync(join(dir, n), 'utf8'), { sessionId: id }) } catch { continue }
+    if (!go || (arg !== null && go.arg !== arg)) continue
+    const { mainFile, subDir, subFiles } = resolveSession(dir, id)
+    return { tokens: sessionTokens([mainFile, ...subFiles.map((f) => join(subDir, f))], { since: go.at }), since: go.at, session: id }
+  }
+  return null
 }
 
 // The ceiling read (kit 1.10, F1): `OVER <used>` past `millions`, else the

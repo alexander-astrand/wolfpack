@@ -22,8 +22,11 @@
 // database changes only after a fresh, complete backup (prod-db.sh push
 // refuses without one). Anything that stops exits with a code below and one
 // `STOP` line saying what to fix; the session fixes it and runs this again.
-// A finished run prints a `COST` line (minutes, the step it waited on, the
-// baseline) just before its `DONE` line (kit 1.8, costLine).
+// A finished run prints the step it waited on longest and the baseline, then
+// one fixed cost line, `/one-ring <arg>: DONE | <min> min | <M> tokens`, the
+// tokens counted from his go (kit 1.10, costLine), just before its `DONE` line.
+// `deploy.mjs --expected <migrations> <functions> <waits>` prints the price
+// `/one-ring check` shows beside the baseline (expectedCost).
 //
 // Pure helpers are exported for the tests; `deploy` takes its runner (`io`)
 // so a test can play GitHub, git, Docker and the scripts.
@@ -34,6 +37,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { appliedMigrations } from './chain-arm.mjs'
+import { goArg, lastTypedGo } from './one-ring-go.mjs'
 import * as kit from './production-steps.mjs'
 
 export const EXIT = {
@@ -263,29 +267,74 @@ export function settingSteps(body, pr) {
 // Burrow's [deploy-cost] lesson: a no-migration deploy is about 4.5M tokens
 // and 12 minutes. The kit 1.7.1 council (M2, Feature 6) found deploys at 14x
 // that inside heavy sessions, unseen until a hand count.
+export const DEPLOY_BASE = { tokens: 4.5e6, min: 12 }
 export const DEPLOY_BASELINE = '4.5M tokens / 12 min'
 
+// What each thing `/one-ring check` counts adds to that baseline (kit 1.10,
+// F2), so a deploy is priced before it runs. Rough figures, rounded up from
+// the kit 1.9 council's deploys: a migration is its share of the backup, the
+// dry run and the push; a function is one deploy and its check; a step that
+// waits on Alexander is the ping, the wait and the context read again after.
+export const DEPLOY_ADDS = {
+  migration: { tokens: 0.5e6, min: 2 },
+  function: { tokens: 0.5e6, min: 2 },
+  wait: { tokens: 1.5e6, min: 15 },
+}
+
+const fmtM = (t) => `${(t / 1e6).toFixed(1)}M`
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
 /**
- * The COST line printed just before DONE (kit 1.8, Feature 6): this run's
- * minutes, the step it waited on (each progress line is said when its step
- * ends, so the longest gap ends at the line naming that step), and the
- * baseline beside it. Tokens are the session's, which this script can't see:
- * /car-wash or usage.mjs --timeline adds them. A re-run after a STOP counts
- * only its own run.
+ * `check`'s expected cost, one line: the baseline plus DEPLOY_ADDS per item,
+ * e.g. `expected: ~6.0M / 18 min (2 migrations, 1 function; baseline 4.5M / 12 min)`.
+ */
+export function expectedCost({ migrations = 0, functions = 0, waits = 0 } = {}) {
+  const n = { migration: migrations, function: functions, wait: waits }
+  let tokens = DEPLOY_BASE.tokens
+  let min = DEPLOY_BASE.min
+  for (const [k, add] of Object.entries(DEPLOY_ADDS)) { tokens += n[k] * add.tokens; min += n[k] * add.min }
+  const items = [
+    migrations && plural(migrations, 'migration'),
+    functions && plural(functions, 'function'),
+    waits && plural(waits, 'step waiting on Alexander', 'steps waiting on Alexander'),
+  ].filter(Boolean)
+  const base = `baseline ${fmtM(DEPLOY_BASE.tokens)} / ${DEPLOY_BASE.min} min`
+  return `expected: ~${fmtM(tokens)} / ${min} min (${items.length ? `${items.join(', ')}; ${base}` : `nothing beyond the ${base}`})`
+}
+
+const minutes = (ms) => (ms / 60_000).toFixed(1)
+
+/**
+ * The line before the COST line (kit 1.8, Feature 6): the step this run
+ * waited on longest (each progress line is said when its step ends, so the
+ * longest gap ends at the line naming that step), and the baseline beside it.
  * @param {number} start  ms
- * @param {number} end  ms
  * @param {[number, string][]} said  [time, line] in order
  */
-export function costLine(start, end, said) {
-  const min = (ms) => (ms / 60_000).toFixed(1)
+export function waitLine(start, said) {
   let longest = null
   let prev = start
   for (const [t, line] of said) {
     if (!longest || t - prev > longest.ms) longest = { ms: t - prev, line }
     prev = t
   }
-  const wait = longest ? `; longest wait ${min(longest.ms)} min, until "${longest.line.slice(0, 60)}"` : ''
-  return `COST: ${min(end - start)} min this run${wait}; baseline ${DEPLOY_BASELINE} (no migrations). Tokens: /car-wash or usage.mjs --timeline.`
+  const wait = longest ? `Longest wait ${minutes(longest.ms)} min, until "${longest.line.slice(0, 60)}"` : 'No wait'
+  return `${wait}; baseline ${DEPLOY_BASELINE} (no migrations).`
+}
+
+/**
+ * The COST line, printed just before DONE in one fixed shape a council's
+ * script reads (kit 1.10, F2 and H5): `/one-ring <arg>: DONE | <min> min | <M> tokens`.
+ * Minutes are this run's (a re-run after a STOP counts only its own); tokens
+ * are the session's since his go (usage.mjs --since go), or `?` when no
+ * transcript with that go was found.
+ * @param {string} arg  the go as typed
+ * @param {number} start  ms
+ * @param {number} end  ms
+ * @param {number | null} tokens
+ */
+export function costLine(arg, start, end, tokens) {
+  return `/one-ring ${String(arg ?? '').trim()}: DONE | ${minutes(end - start)} min | ${tokens === null || tokens === undefined ? '?' : fmtM(tokens)} tokens`
 }
 
 // ---------------------------------------------------------------- the run
@@ -294,7 +343,7 @@ export function costLine(start, end, said) {
  * Runs the deploy. Returns the exit code; prints as it goes.
  * @param {string[]} argv  [<go>, <fix-forward PR>?]
  * @param {object} io  run(cmd, args, { cwd, env, timeout }) → { status, stdout, stderr }, sleep(ms), now(), log(line),
- *   fetchOk(url, seconds) → '' or why, root, tmp
+ *   fetchOk(url, seconds) → '' or why, root, tmp, tokensSinceGo(arg) → tokens or null (optional)
  */
 export function deploy(argv, io) {
   const started = io.now()
@@ -302,7 +351,9 @@ export function deploy(argv, io) {
   const say = (line) => { said.push([io.now(), line]); io.log(line) }
   try {
     const out = run(argv, io, say)
-    say(costLine(started, io.now(), said))
+    const end = io.now()
+    say(waitLine(started, said))
+    say(costLine(argv[0], started, end, io.tokensSinceGo?.(argv[0]) ?? null))
     say(`DONE: ${out}`)
     return EXIT.DONE
   } catch (err) {
@@ -614,13 +665,19 @@ function lastLines(r) {
 
 // ---------------------------------------------------------------- main
 
-function realIo(root) {
+function realIo(root, usage) {
   const tmp = mkdtempSync(join(tmpdir(), 'wolfpack-deploy-'))
   process.once('exit', () => rmSync(tmp, { recursive: true, force: true }))
   return {
     root,
     tmp,
     env: process.env,
+    // The session's tokens since his go, from its transcript folder (named
+    // after the cwd, which full-auto.sh sets to the project root).
+    tokensSinceGo: (arg) => {
+      if (!usage) return null
+      try { return usage.tokensSinceGo(usage.projectDir(), lastTypedGo, { arg: goArg(arg) })?.tokens ?? null } catch { return null }
+    },
     run: (cmd, args, { cwd = root, env = process.env, timeout = 10 * 60_000 } = {}) => {
       const r = spawnSync(cmd, args, { cwd, env, encoding: 'utf8', timeout, maxBuffer: 64 << 20 })
       return { status: r.status ?? 1, stdout: r.stdout ?? '', stderr: r.stderr ?? (r.error ? String(r.error.message) : '') }
@@ -636,10 +693,19 @@ function realIo(root) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+  // `--expected <migrations> <functions> <waits>`: /one-ring check's price,
+  // one line, nothing read or run (kit 1.10, F2).
+  if (process.argv[2] === '--expected') {
+    const [migrations, functions, waits] = process.argv.slice(3).map((s) => Math.max(0, Number.parseInt(s, 10) || 0))
+    process.stdout.write(`${expectedCost({ migrations, functions, waits })}\n`)
+    process.exit(0)
+  }
+  // The release plugin sits beside this one; without it the COST line says `?` tokens.
+  const usage = await import('../../release/scripts/usage.mjs').catch(() => null)
   const root = kit.projectRoot()
   if (!existsSync(join(root, '.git'))) {
     process.stderr.write(`deploy: ${root} isn't a git checkout\n`)
     process.exit(EXIT.SETUP)
   }
-  process.exit(deploy(process.argv.slice(2), realIo(root)))
+  process.exit(deploy(process.argv.slice(2), realIo(root, usage)))
 }
