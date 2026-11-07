@@ -250,6 +250,8 @@ export function run(o, { budgets, gh = realGh, now = new Date(), log = console.l
   const writeSteps = () => {
     if (!o.plan) return log('no --plan: no steps file, no cost line and no build log')
     const file = stepsFileFor(o.plan)
+    // A mistyped --plan in a folder that isn't there: say so rather than throw after the PR edit.
+    if (!existsSync(dirname(file))) return log(`warning: no folder ${dirname(file)}: steps row not written, rerun with the right --plan:\n${line}`)
     if (o.dry) log(`steps file ${file} would get:\n${line}`)
     else appendSteps(file, line)
     if (o.log) {
@@ -261,7 +263,9 @@ export function run(o, { budgets, gh = realGh, now = new Date(), log = console.l
   // The stop check reads the plan whether or not a PR is edited; it prints after the normal writes.
   let cost = null
   let stop = null
-  if (o.plan) {
+  // A wrong --plan path (R1 S4) warns and goes on: the step's row still lands, only the cost line and STOP check are skipped.
+  if (o.plan && !existsSync(o.plan)) log(`warning: no plan file ${o.plan}: no cost line and no STOP check this time`)
+  else if (o.plan) {
     const expected = parseExpected(readFileSync(o.plan, 'utf8'))
     if (expected) {
       const spent = sessionTotal(baseDir, o.session)

@@ -275,6 +275,20 @@ describe('run', () => {
     expect(dry.stdout).toContain('STOP: 9.1M is past 1.3x')
   })
 
+  it('R1 S4: a wrong --plan path with no --pr writes the step row and warns, no crash', () => {
+    const typo = join(dir, 'V14-typo.md') // never written
+    const out = []
+    const r = run(opts(['--step', 'step 4', '--plan', typo]), { budgets, now, log: (s) => out.push(s) })
+    expect(r.stop).toBeNull()
+    expect(out.join('\n')).toContain(`warning: no plan file ${typo}`)
+    expect(readFileSync(join(dir, 'V14-typo-steps.tsv'), 'utf8').trim().split('\n')).toHaveLength(2)
+    // A plan path in a folder that isn't there: warns with the row, still no crash.
+    const gone = join(dir, 'no-such-folder', 'V15.md')
+    const out2 = []
+    expect(() => run(opts(['--step', 'step 4', '--plan', gone]), { budgets, now, log: (s) => out2.push(s) })).not.toThrow()
+    expect(out2.join('\n')).toMatch(/warning: no folder .*no-such-folder: steps row not written/)
+  })
+
   it('names a missing agent', () => {
     expect(() => run(parseArgs(['troy-and-abed', '--session', 'dddd4444', '--dir', dir]), { budgets, log: quiet })).toThrow(/No spawn of "troy-and-abed"/)
   })
