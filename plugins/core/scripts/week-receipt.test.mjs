@@ -101,10 +101,10 @@ describe('week-receipt', () => {
     expect(app.folders).toHaveLength(2)
     expect(r.projects.find((p) => p.name === 'pylos').tokens).toBe(23e6)
     expect(r.projects.some((p) => p.name === 'old')).toBe(false)
-    // Opus at 46M a point, plus the Sonnet slice at its own figure.
+    // Opus at 27M a point (Max 5x), plus the Sonnet slice at its own figure.
     expect(app.meterPct).toBeGreaterThan(1.5)
     expect(r.projects.reduce((s, p) => s + p.share, 0)).toBeCloseTo(1)
-    expect(markdown(r)).toMatch(/\| myapp \| 79\.0M \| \d+% \| 2% \|/)
+    expect(markdown(r)).toMatch(/\| myapp \| 79\.0M \| \d+% \| 3% \|/)
   })
 
   it('writes the receipt once and reads it after', () => {

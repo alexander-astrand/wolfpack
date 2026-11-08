@@ -38,7 +38,7 @@ session 9.6M ≈0.4% wk (fable 0.3 opus 0.1) · plan 0.31× · link 2/2 · Hank:
 | `auto said no (...) 17:12Z` | auto mode's last refusal in `.claude/permission-denied.log` | within 30 minutes |
 | `week 86% (Fable 40%)` | the live weekly all-models meter from the input's rate limits, else `~/.claude/meter-now.json` (written by `daily-budget.mjs --tower`), `~` in front when that file is older than 30 minutes; Fable's own week while Fable runs here | always, when either source has it |
 
-The share uses one meter figure: `tokensPerPoint` in `usage.mjs`, which is kit.json's `meter.tokensPerPoint` when set, else 46M a point (Fable measured at 8M; H5, kit 1.5); a project measures its own with `${CLAUDE_PLUGIN_ROOT}/scripts/meter-calibrate.mjs`. The git branch (read from `.git/HEAD`, no git process) shows only when no part can be read.
+The share uses one meter figure: `tokensPerPoint` in `usage.mjs`, the tier file `~/.claude/global/meter.json` (27M a point on Max 5x since 8 Nov 2026), or kit.json's `meter.tokensPerPoint` beside a matching `meter.plan` (Fable follows Opus at 8/46 of its figure; H5, kit 1.5); a project measures its own with `${CLAUDE_PLUGIN_ROOT}/scripts/meter-calibrate.mjs`. The git branch (read from `.git/HEAD`, no git process) shows only when no part can be read.
 
 Times are UTC. If the line would pass 79 columns, the refusal's command is cut first, then parts drop in this order: the link, Hank, the plan ratio, the refusal. The session and the week stay. It never throws: a part that can't be read is left out. It reads small files, the tail of the logs and only a transcript's new bytes (a count cached in the temp folder), with no network and no `gh`, because it runs on every redraw.
 

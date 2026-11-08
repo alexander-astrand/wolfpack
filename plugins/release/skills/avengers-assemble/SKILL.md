@@ -45,7 +45,7 @@ The order matters: leon's list first, the audits whose findings repeat across wi
 
 **The wake message** is "Read <skill file> as a file and run it with: <args>", plus the wave 3 paths below. These skills are his to type (`disable-model-invocation`), and a cross-session message never loads a skill, so a bare `/black-box <version>` does nothing (kit 1.5 review M4). `<core>`, `<release>` and `<design>` are the folders of those wolfpack plugins.
 
-**Budget:** ≈ 130M to 140M for a project (≈ 3% of the week at 1% ≈ 46M), plus darth-vader when it runs, plus the conductor's own ≈ 2M. Kit scope: ≈ 50M.
+**Budget:** ≈ 130M to 140M for a project (≈ 5% of a Max 5x week at 1% ≈ 27M; it was 3% on 20x), plus darth-vader when it runs, plus the conductor's own ≈ 2M. Kit scope: ≈ 50M.
 
 - **darth-vader runs only when a release's draft PR is open** (`gh pr list --draft --json number,title`, a title starting `V<x>:`), against that PR's version. With none open it is skipped and the summary says "skipped, no release PR". Its skill reads the PR's "What changed" and compares against its screenshots, and the only other target, a preview of `main`, runs on production's database, which darth-vader's own skill rules out.
 - **kit** (`/avengers-assemble kit`, from `~/pylos`): only jedi-council, args `kit-<v>`, as its "From Pylos" paragraph says (`<v>` the kit's `core` version). The project audits belong to each project's own run; the council reads their summaries where they already are.

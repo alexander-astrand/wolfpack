@@ -86,7 +86,7 @@ Started by a `CHAIN ... ORDER` (`/cattle-drive <version> chain`): read `referenc
   - What it lists: `reference.md`, `## Plan: what it lists` (builders, `heisenberg`, `[layout-first]`, designers, production steps, qa marks, lanes, scope).
 - Save it to `<plans>V<version>.md`, mark the release "In progress" (`the-trail`, one row write; chain links skip) and in memory, then branch from `main`. Planner questions only he can answer are a ping.
 - **The headline is the expected spend:** planned commits × the project's measured rate + look (about a third) + deploy; the cap (about 1.3×) is only the budget tag. The project's numbers file has the navigator rate.
-- **Target: the week's spare decides.** 5 % a release, deploy included, is the default for a tight week; spare that would go unused at the reset lifts it (`[accelerate]`).
+- **Target: the week's spare decides.** ≈ 230M real tokens a release, deploy included (≈ 8.5 % of a Max 5x week), is the default for a tight week; spare that would go unused at the reset lifts it (`[accelerate]`).
   - Cite, never copy: `~/.claude/CLAUDE.md`, "Usage and budget", and norms.md, "Meter timing".
 - After each step, read the agent's usage from `step-done.mjs`'s print, and switch to a fresh agent or a cheaper model before a step runs over budget.
 - **A budget lift is his and lasts to its `until`** in `~/.claude/budget-override`: no session removes, shortens or rewrites it (`reference.md`, `## Plan: what it lists`).

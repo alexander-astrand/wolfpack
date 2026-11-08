@@ -129,7 +129,7 @@ test('before the switch-on date it only computes', () => {
 test('the day in tokens reads the one meter figure (kit 1.5)', () => {
   const st = standing(env({ now: W3 + H, used: 32, log: [[W3 - H, 29, 30]] }))
   assert.equal(st.dayUse, 2)
-  assert.equal(dayTokens(st, null), 92e6)
-  assert.equal(dayTokens(st, { meter: { tokensPerPoint: { opus: 40e6 } } }), 80e6)
+  assert.equal(dayTokens(st, null), 54e6)
+  assert.equal(dayTokens(st, { meter: { plan: '5x', tokensPerPoint: { opus: 40e6 } } }), 80e6)
   assert.equal(dayTokens({ ok: false }, null), null)
 })

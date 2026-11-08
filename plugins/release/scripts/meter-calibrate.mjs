@@ -26,7 +26,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
-import { parseEntries, tallyEntries, totalTokens } from './usage.mjs'
+import { meterPlan, parseEntries, readUserMeter, tallyEntries, totalTokens } from './usage.mjs'
 
 const DEFAULT_LOG = join(homedir(), '.claude', 'meter-ticks.log')
 const DEFAULT_PROJECTS = join(homedir(), '.claude', 'projects')
@@ -144,7 +144,11 @@ async function main() {
     console.log(`Floor recorded in ${floorsFile}.`)
   }
   const floors = existsSync(floorsFile) ? readFloors(readFileSync(floorsFile, 'utf8')) : []
-  const highest = floors.reduce((top, f) => (f.perPoint > (top?.perPoint ?? 0) ? f : top), null)
+  // Only a floor read on the plan the meter runs on now stands in for it: one
+  // from before the tier file's `since` was another plan's (Burrow V1.2's 76M is 20x).
+  const planSince = readUserMeter()?.since
+  const onPlan = floors.filter((f) => !planSince || f.at.slice(0, 10) >= planSince)
+  const highest = onPlan.reduce((top, f) => (f.perPoint > (top?.perPoint ?? 0) ? f : top), null)
   if (floors.length) {
     console.log('Release floors (Skyler over the meter delta, other sessions beside it: the real figure is at least this):')
     for (const f of floors) console.log(`  ${f.label}: ${fmtM(f.perPoint)} a point (${fmtM(f.tokens)} over ${f.points} points, ${f.at.slice(0, 10)})`)
@@ -184,13 +188,19 @@ async function main() {
   if (perPoint.has('20x') && perPoint.has('5x')) {
     console.log(`20x/5x ratio: ${(perPoint.get('20x') / perPoint.get('5x')).toFixed(2)}`)
   }
-  const first = [...perPoint.values()][0]
+  // The figure for the plan the meter runs on now (~/.claude/global/meter.json),
+  // else the first one measured. Floors were read on whatever plan ran then, so
+  // they only stand in for the plan they share a stretch label with.
+  const plan = meterPlan()
+  const first = perPoint.get(plan) ?? [...perPoint.values()][0]
+  if (!perPoint.has(plan)) console.log(`\nNo stretch on Max ${plan} yet: the figure below is another plan's. Wait for a full week on ${plan}.`)
   // A stretch under a release's floor missed transcripts (another machine's
   // sessions, a cloud one): the floor is the better figure then.
   const pick = highest && highest.perPoint > first ? highest.perPoint : first
   if (pick !== first) console.log(`\nThe stretches give less than ${highest.label}'s floor (${fmtM(highest.perPoint)}): transcripts are missing from them (another machine, a cloud session), so the floor stands.`)
-  console.log(`\nFor kit.json (paste it yourself; this script never writes it):`)
-  console.log(`  "meter": { "tokensPerPoint": { "opus": ${Math.round(pick)} } }`)
+  console.log(`\nFor ~/.claude/global/meter.json, the tier's one home (paste it yourself; this script never writes it):`)
+  console.log(`  "plan": "${plan}", "tokensPerPoint": { "opus": ${Math.round(pick)} }`)
+  console.log(`A project with its own figure puts the same pair under kit.json "meter"; it counts only while "plan" matches.`)
   console.log('All models count together here: a mixed week gives one blended figure.')
 }
 

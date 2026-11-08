@@ -96,9 +96,10 @@ Every repo's CI has this shape, and `/life-finds-a-way`'s `ci.yml` starts a new 
 ## Meter timing (`[accelerate]`)
 Every piece of timing or size advice against the weekly meter (a planner's "When" question, `/inception`'s go, a release's or chain's start, a side session's brief) runs this check first, from a fresh `get_usage` (`[reset-from-usage]`):
 - **Spare** = what's left of the week − a 10-point safety margin − what's already booked this week (the `dev_meter` row's `planned` shares, and any release running now). **Usable** = the smaller of the spare and 14 % for each daily window left before the reset.
-- **Usable spare would go unused at the reset:** recommend accelerating. Start now, and bundle the next roadmap card in when it fits. The 5 % per release is the default for a week with no spare, never a cap on a week that would otherwise waste meter, so a release over 5 % that fits the usable spare is "fits", not "too big".
+- **Usable spare would go unused at the reset:** recommend accelerating. Start now, and bundle the next roadmap card in when it fits. The ≈ 230M real tokens per release (≈ 8.5 % of a Max 5x week; it was 5 % on 20x) is the default for a week with no spare, never a cap on a week that would otherwise waste meter, so a bigger release that fits the usable spare is "fits", not "too big".
 - **Never recommend "after the reset"** while the week has usable spare, and never offer it as an option. A wait is right only when the release is bigger than the usable spare; then say how much is short and offer a trim to fit first.
-- The 14 % daily stop, the 7 % step-down and the lift in the last two windows (week ≤ 60 %) stay as `~/.claude/CLAUDE.md` says: they pace a release across the windows, they're no reason to wait for the next week.
+- The 14 % daily stop, the 7 % step-down and the lift in the last two windows (week ≤ 60 %) stay as `~/.claude/CLAUDE.md` says: they pace a release across the windows, they're no reason to wait for the next week. They are shares of the week, so on Max 5x (since 8 Nov 2026) a window holds about 1/1.7 the tokens it did on 20x.
+- **The tier** is one file, `~/.claude/global/meter.json` (`plan`, `tokensPerPoint`), read by `usage.mjs`: on Max 5x 1 % ≈ 27M real tokens. A project's `kit.json` `meter.tokensPerPoint` counts only beside a matching `meter.plan`.
 - Alexander, 4 Nov 2026: "You should tell me to accelerate instead to not waste usage" (the case and his full words: `lessons-numbers.md`, `[accelerate]`).
 
 ## Which Claude for what
