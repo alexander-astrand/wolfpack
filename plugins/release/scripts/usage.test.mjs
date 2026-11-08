@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { budgetRows, budgetTableMarkdown, ceilingLine, sessionTokens, tokensSinceGo, stepOf, stoppedInLog, stoppedInTranscript, countCalls, hhmm, projectFolderName, readEntries, resolveLocalId, resolveSession, sessionCommand, tallyEntries, tokensPerPoint, totalTokens, transcriptDirs } from './usage.mjs'
+import { budgetRows, budgetTableMarkdown, ceilingLine, sessionTokens, tokensSinceGo, stepOf, stoppedInLog, stoppedInTranscript, countCalls, hhmm, meterPlan, projectFolderName, readEntries, resolveLocalId, resolveSession, sessionCommand, tallyEntries, tokensPerPoint, totalTokens, transcriptDirs } from './usage.mjs'
 
 const usage = { input_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 }
 const line = (id, block) => ({
@@ -114,19 +114,31 @@ describe('forked copies (M2)', () => {
 })
 
 describe('tokensPerPoint', () => {
-  it('is 46M a point without a meter key', () => {
-    expect(tokensPerPoint(null)).toBe(46e6)
-    expect(tokensPerPoint({ project: {} })).toBe(46e6)
+  it('is 27M a point (Max 5x) with no meter key and no user file', () => {
+    expect(tokensPerPoint(null)).toBe(27e6)
+    expect(tokensPerPoint({ project: {} })).toBe(27e6)
+    expect(meterPlan(null)).toBe('5x')
   })
 
-  it('takes kit.json meter.tokensPerPoint, per family or as one number', () => {
-    expect(tokensPerPoint({ meter: { tokensPerPoint: { opus: 40e6 } } })).toBe(40e6)
-    expect(tokensPerPoint({ meter: { tokensPerPoint: 30e6 } }, 'sonnet')).toBe(30e6)
+  it('takes the user-level tier file over the default', () => {
+    const user = { plan: '20x', tokensPerPoint: { opus: 46e6 } }
+    expect(tokensPerPoint(null, 'opus', user)).toBe(46e6)
+    expect(meterPlan(user)).toBe('20x')
   })
 
-  it('keeps Fable measured and derives Sonnet and Haiku from the Opus figure', () => {
-    expect(tokensPerPoint(null, 'fable')).toBe(8e6)
-    expect(tokensPerPoint(null, 'sonnet')).toBeGreaterThan(46e6)
+  it('takes kit.json meter.tokensPerPoint only when its plan matches the tier', () => {
+    const user = { plan: '5x', tokensPerPoint: { opus: 27e6 } }
+    expect(tokensPerPoint({ meter: { plan: '5x', tokensPerPoint: { opus: 40e6 } } }, 'opus', user)).toBe(40e6)
+    expect(tokensPerPoint({ meter: { plan: '5x', tokensPerPoint: 30e6 } }, 'sonnet', user)).toBe(30e6)
+    // Burrow's 76M was measured on 20x and carries no plan: it drops out.
+    expect(tokensPerPoint({ meter: { tokensPerPoint: 76e6 } }, 'opus', user)).toBe(27e6)
+    expect(tokensPerPoint({ meter: { plan: '20x', tokensPerPoint: 76e6 } }, 'opus', user)).toBe(27e6)
+  })
+
+  it('scales Fable with the Opus figure and derives Sonnet and Haiku by price', () => {
+    expect(tokensPerPoint(null, 'fable', { plan: '20x', tokensPerPoint: { opus: 46e6 } })).toBe(8e6)
+    expect(tokensPerPoint(null, 'fable')).toBe(4.7e6)
+    expect(tokensPerPoint(null, 'sonnet')).toBeGreaterThan(27e6)
     expect(tokensPerPoint(null, 'haiku')).toBeGreaterThan(tokensPerPoint(null, 'sonnet'))
   })
 })

@@ -9,21 +9,21 @@ const usage = (n) => ({ input_tokens: 0, cache_creation_input_tokens: 0, cache_r
 const msg = (id, model, n) => JSON.stringify({ type: 'assistant', message: { id, model, usage: usage(n), content: [] } })
 const transcript = join(dir, 'sess-1.jsonl')
 // Two lines of one message (counted once), then a Fable message.
-writeFileSync(transcript, `${[msg('a', 'claude-opus-x', 23e6), msg('a', 'claude-opus-x', 23e6), msg('b', 'claude-fable-x', 4e6)].join('\n')}\n`)
+writeFileSync(transcript, `${[msg('a', 'claude-opus-x', 27e6), msg('a', 'claude-opus-x', 27e6), msg('b', 'claude-fable-x', 4.7e6)].join('\n')}\n`)
 const meterNow = join(dir, 'meter-now.json')
 const saved = (at, pct) => writeFileSync(meterNow, JSON.stringify({ at, rate_limits: [{ kind: 'seven_day', percentUsed: pct, resetsAt: '2026-10-24T10:00:00Z' }] }))
 
 describe('the session part', () => {
   it('splits by model, each by the one meter figure', () => {
-    const { by, total } = meterShares({ opus: 23e6, fable: 4e6 })
-    expect(by.opus).toBe(0.5) // 23M of 46M a point
-    expect(by.fable).toBe(0.5) // Fable measured at 8M a point
+    const { by, total } = meterShares({ opus: 13.5e6, fable: 2.35e6 })
+    expect(by.opus).toBe(0.5) // 13.5M of 27M a point (Max 5x)
+    expect(by.fable).toBe(0.5) // Fable at 4.7M a point (8M on 20x, scaled with Opus)
     expect(total).toBe(1)
-    expect(sessionLine({ opus: 23e6, fable: 4e6 })).toBe('session 27.0M ≈1.0% wk (opus 0.5 fable 0.5)')
+    expect(sessionLine({ opus: 27e6, fable: 4.7e6 })).toBe('session 31.7M ≈2.0% wk (opus 1.0 fable 1.0)')
   })
 
   it('takes kit.json meter.tokensPerPoint over the default', () => {
-    expect(sessionLine({ opus: 23e6 }, { meter: { tokensPerPoint: { opus: 23e6 } } })).toBe('session 23.0M ≈1.0% wk')
+    expect(sessionLine({ opus: 23e6 }, { meter: { plan: '5x', tokensPerPoint: { opus: 23e6 } } })).toBe('session 23.0M ≈1.0% wk')
   })
 })
 
@@ -46,7 +46,7 @@ describe('the line', () => {
   it('carries session and week, under 80 columns', () => {
     saved(new Date().toISOString(), 12)
     const line = statusLine({ transcript_path: transcript, cwd: dir }, { cacheDir: dir, meterNow })
-    expect(line).toBe('session 27.0M ≈1.0% wk (opus 0.5 fable 0.5) · week 12%')
+    expect(line).toBe('session 31.7M ≈2.0% wk (opus 1.0 fable 1.0) · week 12%')
     expect(line.length).toBeLessThan(80)
   })
 

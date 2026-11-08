@@ -1,10 +1,12 @@
 #!/usr/bin/env node
-// Alexander's daily budget on Max 20x, for every project (user-level
+// Alexander's daily budget, for every project (Max 5x since 8 Nov 2026; Max 20x
+// 8 Oct to 8 Nov). The rules are shares of the week, so the tier change kept
+// them; a window now holds about 1/1.7 the tokens it did on 20x (user-level
 // PreToolUse hook in ~/.claude/settings.json). The kit's copy of
 // ~/.claude/hooks/daily-budget.mjs (kit 1.5, L2: the enforcer lives in the
 // kit); it behaves the same, and turns points into tokens only through
 // usage.mjs's tokensPerPoint (H5 C2). His rule, 8 Oct 2026, memory
-// feedback_daily_budget_20x.md:
+// feedback_daily_budget.md (was feedback_daily_budget_20x.md):
 //
 //   1. A week is 7 windows of 24 h starting at the weekly reset (resetsAt − 7 d
 //      + n × 24 h), tied to resetsAt and not the clock (summer time ends 25 Oct).

@@ -36,11 +36,23 @@ import { pathToFileURL } from 'node:url'
 // weekly all-models meter. car-wash, the-tower and daily-budget read it from
 // here; none keeps its own number (car-wash said 27M, Hutzup's tower 27e6,
 // the global CLAUDE.md 46M, so a PR's Usage % read about 1.7x high).
-export const DEFAULT_TOKENS_PER_POINT = 46e6
-// Fable is measured on its own (one reading, 32.9M against 66% -> 70% on
-// 6 Oct): the meter charges it about 3x Opus a token. Sonnet and Haiku are
+//
+// The tier is one user-level setting (kit 1.10.1, 8 Nov 2026: Max 20x -> Max 5x):
+// ~/.claude/global/meter.json, `{ "plan": "5x", "tokensPerPoint": { "opus": n } }`
+// (Syncthing keeps Pollux's and delphi's copies the same), so the next tier
+// change is one edit there. A project's kit.json `meter.tokensPerPoint` counts
+// only when its `meter.plan` names that same plan, so a figure measured on
+// another tier (Burrow's 76M, Kastalia's 54M, both 20x) drops out by itself.
+// Defaults when the file is missing: Max 5x at 46M (the 20x figure) / 1.7
+// (Alexander's 20x/5x ratio, ~/pylos/notes/meter-log.md), unmeasured.
+export const DEFAULT_PLAN = '5x'
+export const DEFAULT_TOKENS_PER_POINT = 27e6
+export const USER_METER_FILE = join(homedir(), '.claude', 'global', 'meter.json')
+// Fable is measured on its own (one reading on 20x, 32.9M against 66% -> 70%
+// on 6 Oct: 8M a point beside Opus's 46M), so the meter charges it about 5.75x
+// Opus a token and its figure follows the Opus one. Sonnet and Haiku are
 // unmeasured and derived from the Opus figure by list price (tokensPerPoint below).
-const FABLE_POINT = 8e6
+const FABLE_SHARE = 8 / 46
 // $ per million tokens (input, cache write, cache read, output), Claude API list prices of Sep 2026.
 const PRICE = {
   opus: { inp: 4, cc: 5, cr: 0.2, out: 20 },
@@ -52,19 +64,40 @@ const PRICE = {
 const MIX = { inp: 0.0001, cc: 0.0094, cr: 0.9887, out: 0.0019 }
 const dollarsPerToken = (p) => Object.keys(MIX).reduce((sum, k) => sum + MIX[k] * p[k], 0)
 
+// The user-level tier file, parsed, or null. KIT_METER_FILE points it
+// elsewhere (the kit's tests point it at nothing, so they run on the defaults).
+export function readUserMeter(file = process.env.KIT_METER_FILE || USER_METER_FILE) {
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+// The plan the meter runs on now: the user-level file's, else the default.
+export function meterPlan(user = readUserMeter()) {
+  return typeof user?.plan === 'string' && user.plan ? user.plan : DEFAULT_PLAN
+}
+
+// A figure as kit.json or meter.json write it: one number, or one per family.
+function figureFor(set, family) {
+  const n = typeof set === 'number' ? set : set && typeof set === 'object' ? set[family] : undefined
+  return typeof n === 'number' && n > 0 ? n : null
+}
+
 // Tokens to 1% of the week for one model family (default the all-models
 // figure). `kitJson` is the parsed `.claude/kit.json` (or null): its
-// `meter.tokensPerPoint` wins when set, as a number or per family
-// (`{ "opus": 46000000 }`, what meter-calibrate.mjs prints).
-export function tokensPerPoint(kitJson, family = 'opus') {
-  const set = kitJson?.meter?.tokensPerPoint
-  const own = (f) => {
-    const n = typeof set === 'number' ? set : set && typeof set === 'object' ? set[f] : undefined
-    return typeof n === 'number' && n > 0 ? n : null
-  }
+// `meter.tokensPerPoint` wins when set and its `meter.plan` is the plan the
+// user-level file names; else the user-level figure; else the default.
+// Either is a number or per family (`{ "opus": 27000000 }`, what
+// meter-calibrate.mjs prints).
+export function tokensPerPoint(kitJson, family = 'opus', user = readUserMeter()) {
+  const plan = meterPlan(user)
+  const project = kitJson?.meter?.plan === plan ? kitJson.meter.tokensPerPoint : undefined
+  const own = (f) => figureFor(project, f) ?? figureFor(user?.tokensPerPoint, f)
   if (own(family)) return own(family)
   const opus = own('opus') ?? DEFAULT_TOKENS_PER_POINT
-  if (family === 'fable') return FABLE_POINT
+  if (family === 'fable') return Math.round((opus * FABLE_SHARE) / 1e5) * 1e5
   if (!PRICE[family] || family === 'opus') return opus
   // A family we haven't measured costs a point where it has spent what an Opus point costs.
   return Math.round((opus * dollarsPerToken(PRICE.opus)) / dollarsPerToken(PRICE[family]) / 1e6) * 1e6
@@ -826,7 +859,7 @@ async function main() {
       .map(([model, tokens]) => `${model} ${fmtPct(tokens, grandTotal)}`)
       .join(', '),
   )
-  console.log(`Week: ${weekPct.toFixed(1)}% of the weekly meter (${fmtM(grandTotal)} / ${fmtM(perPoint)} a point, kit.json meter.tokensPerPoint or the kit's default)`)
+  console.log(`Week: ${weekPct.toFixed(1)}% of the weekly meter (${fmtM(grandTotal)} / ${fmtM(perPoint)} a point on Max ${meterPlan()}, ~/.claude/global/meter.json or a kit.json figure for that plan)`)
   if (copies.length) console.log(`Counted once: ${copies.map((c) => c.slice(0, 8)).join(', ')} only repeat messages an earlier session already counted (forked copies).`)
   if (wantTimeline) {
     console.log('')
