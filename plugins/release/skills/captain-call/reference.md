@@ -68,7 +68,7 @@ The final ping becomes a short line in this session. Under `/cattle-drive`, befo
 
 - A scope decision that went to a senior first: the ping names it ("`yoda` said X").
 - `[missed-prompt]`: Alexander, 5 Nov 2026, after Burrow V1.12 sat four hours: "there shouldn't be a missed permission that blocka release for four hours like that. I was also available on phone so should have been pinged".
-- The user-level hook `permission-ping.mjs` pings him for a prompt left a minute, and blocks a stop after a missed refusal once.
+- No ping for a missed prompt since 12 Nov 2026 (ADR 0002): "can we remove all these waiting on you pings, they were a mistake to add". The `permission-ping.mjs` hook is unwired.
 - `[live-check]`: in 2.14.8 he had to ask "What exactly am I running in another window?". A toy run, a QA look or a `--plugin-dir` session gets the three lines up front.
 
 ## Preflight: the details

@@ -36,7 +36,7 @@ export const REASON =
 export const WATCHDOG_REASON =
   'Background work you started this turn is still running and no timer will wake you: start a background sleep timer before ending the turn ([watchdog]), or stop the tasks you no longer watch (TaskStop).'
 export const NAV_WATCHDOG_REASON =
-  'You are a release navigator before its draft and no timer will wake you: start the [watchdog] sleep (run_in_background) before ending the turn, also while you hold for Alexander or an answer. A prompt that came back refused while he was quiet is not his no (~/.claude/CLAUDE.md, "A missed prompt is not a no"): ping him with ~/pylos/bin/nestor-push.sh --prompt and keep the other lanes going.'
+  'You are a release navigator before its draft and no timer will wake you: start the [watchdog] sleep (run_in_background) before ending the turn, also while you hold for Alexander or an answer. A prompt that came back refused while he was quiet is not his no (~/.claude/CLAUDE.md, "A missed prompt is not a no"): keep the other lanes going and park that piece.'
 export const NEXT_REASON =
   'End the final message with one last line: `Next: <the step> (<who>)`, `Handed to <starter title>; it has taken over.` or `Next: nothing, done.` (norms.md, Last line).'
 
