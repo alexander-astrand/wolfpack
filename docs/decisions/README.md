@@ -7,3 +7,4 @@ Each file has: **Status** (accepted, or replaced by NNNN), **Context** (what for
 | No. | Decision |
 |---|---|
 | [0001](0001-one-word-deploy.md) | `/one-ring` merges and deploys in the session he types it in, and fixes what stops it |
+| [0002](0002-no-waiting-on-you-pings.md) | No "Waiting on you" pings: the missed-prompt rule stays, its ping and hook go |

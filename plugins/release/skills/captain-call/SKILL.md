@@ -42,12 +42,12 @@ A ping is a push notification (PushNotification, when it's there) plus a message
   - a live check handed to him says in three lines what the other window runs, what it may touch outside this machine, and how to look and stop it (`[live-check]`)
 - a blocker the Opus escalation couldn't clear, or checks that still fail after a fix attempt
 - a must-fix review finding with more than one reasonable fix; two pages worse than main (`[worse-than-main]`, Build)
-- the checkpoint, when asked for; the end, when the draft PR is ready; a missed prompt, at once and even in `away`
+- the checkpoint, when asked for; the end, when the draft PR is ready
 
 **A missed prompt is not a no** (`[missed-prompt]`): a call back as "User rejected tool use", or refused by a prompt, while his last message is over 10 minutes old is a prompt nobody saw, never a reason to stop.
-- Same turn: `~/pylos/bin/nestor-push.sh --prompt "<line>"` (what was refused, what you do next; no secrets); every other lane goes on.
+- Every other lane goes on; no ping for it (12 Nov 2026, ADR 0002).
 - One other route (Edit or Write for a shell edit, a fresh agent, smaller steps; never the same call re-spelled, never production); if it fails, park only that piece under "What needs you".
-- Why and the hook: `reference.md`, `## Pinging: the details`; norms.md, "A missed prompt is not a no".
+- Why: `reference.md`, `## Pinging: the details`; norms.md, "A missed prompt is not a no".
 
 A look default (a mark, label or placement, however small) goes to Alexander at the start or parks as `TASTE WAIT`, never into the build unasked (`[taste-default]`).
 
@@ -125,7 +125,7 @@ Started by a `CHAIN ... ORDER` (`/cattle-drive <version> chain`): read `referenc
   1. `node ${CLAUDE_PLUGIN_ROOT}/scripts/run-clock.mjs --lanes <lane>... --scratch <folder>... [--transcript <t>...]` prints the silent lanes only;
   2. silent past the limit → stop it (TaskStop or `stop_session`), its files and order to a fresh agent of the same role;
   3. stuck on a prompt → the prompt-free path, or do the step here;
-  4. your own refusal or prompt sat 20 minutes → `nestor-push.sh --prompt` now, then as "A missed prompt is not a no";
+  4. your own refusal or prompt sat 20 minutes → work around it as "A missed prompt is not a no" says;
   5. start the next timer, end the turn. Nothing running, no timer.
 - **Checks:** read the builder's `check.sh: pass|fail` line, don't rerun. Run `scripts/check.sh` yourself only after merging lanes and before the review. A failure goes back once, then `oceans-eleven`'s Escalation, then a ping.
 - **Stamps:** build log lines from `step-done.mjs --log`, other stamps from `${CLAUDE_PLUGIN_ROOT}/scripts/stamp.sh`, never typed and never Stockholm time with a Z (`[inception]`).
