@@ -41,6 +41,13 @@ describe('scrooge', () => {
     expect(readTrials(trials, '2026-10-17', 'trials.md')[1]).toMatchObject({ ends: null, status: 'no-date' })
   })
 
+  it('prints a trial on its end day and not after it', () => {
+    const page = (today) => render({ today, trialsLedger: 'trials.md', trials: readTrials(trials, today, 'trials.md'), freeTiers: [], costs: [], projects: [] })
+    const name = readTrials(trials, '2026-10-25', 'trials.md')[0].service
+    expect(page('2026-10-25')).toContain(name)
+    expect(page('2026-10-26')).not.toContain(name)
+  })
+
   it('flags usage at 70% or more, rows with no date and a stale file', () => {
     const f = readFreeTiers(freeTiers, '2026-10-17', 'free-tiers.md', 'demo')
     expect(f).toMatchObject({ checked: '2026-10-05', refreshDue: '2026-11-04', stale: false, rows: 4, usageRows: 3 })
