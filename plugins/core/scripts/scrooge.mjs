@@ -224,8 +224,11 @@ const mark = (s) => (s === 'ended' || s === 'passed' || s === 'warn' ? '!!' : s 
 export function render(r) {
   const out = [`scrooge · ${r.today}`, '']
   out.push(`Trials (${r.trialsLedger ?? 'no ledger at ~/.claude/plans/trials.md'})`)
-  if (!r.trials.length) out.push('   none recorded')
-  for (const t of r.trials) {
+  // A trial is reported up to and on its end day, never after: past it the count is noise
+  // (Alexander, 18 Nov 2026: "it should be removed the day of, after that it's pointless counting").
+  const live = r.trials.filter((t) => t.status !== 'ended')
+  if (!live.length) out.push('   none recorded')
+  for (const t of live) {
     const when = !t.ends
       ? 'no end date'
       : t.daysLeft < 0
