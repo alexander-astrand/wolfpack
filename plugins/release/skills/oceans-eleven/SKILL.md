@@ -76,7 +76,7 @@ Each row: job → agent, model, effort. `captain-call` applies it itself and pas
 - The second reviewer, for design and accessibility → `daredevil`, Sonnet, high, read-only, in every release with UI; its order names the release branch, its base and the app's source folder too.
 
 **Database**
-- Migrations, RLS, SQL tests, types, Edge Functions → `the-playbook`, Opus, high; xhigh only for policy rewrites. Fresh per migration (`[playbook]`). The order carries the scope sheet (`scope.mjs` output, one per table or function the step touches).
+- Migrations, RLS, SQL tests, types, Edge Functions → `the-playbook`, Opus, high; xhigh only for policy rewrites. Fresh per migration (`[playbook]`); a migration with its tests and types is one spawn, and a new Edge Function part for it is the next, never one order (Burrow V1.16 B1 10.1M of 10M, V1.17 B-M2 12.7M of 12M). The order carries the scope sheet (`scope.mjs` output, one per table or function the step touches).
 - **A security brief** (`[security-brief]`) for a throttle names all three caps (per key, per target, global) and where it counts atomically; a security read runs in the same wave as the anon surface it covers; an auth brief names the link types each flow signs in with.
 - Beside a builder in its own lane (the Lanes bullet above) when the files don't overlap.
 
