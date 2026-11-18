@@ -1,8 +1,8 @@
 # {{project.name}}: roadmap
 
-Updated {{date}}.
+Updated {{date}}, after `/life-finds-a-way`.
 
-<!-- Private plans file. One theme per release. Move a row between sections by cutting it; never delete a Shipped row. -->
+<!-- Private plans file. The Updated line is one line, replaced whole on each change, never a chain. One theme per release. Move a row between sections by cutting it; never delete a Shipped row. -->
 
 {{project.summary}}
 

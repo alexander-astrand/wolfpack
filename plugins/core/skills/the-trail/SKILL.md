@@ -8,7 +8,7 @@ A release's status on a **data page** (kit 1.8, F-4: most calls were this one wr
 1. The page: its id from `pages.roadmap` in `.claude/kit.json` or memory `project_roadmap.md`. A static page (`pages.roadmapSource` set) or `roadmap: file`: read on, this card isn't for you.
 2. `get` `cards/<anchor>` (e.g. `cards/v1-5`) for its badge's PR number.
 3. `update` `cards/<anchor>`: `status` (`shipped | in-progress | in-review | planned | parked`), `badge` ("Shipped · PR #80", "Planned") and `updated_at` (ISO), together.
-4. `str_replace` on `meta/page`'s `revised_html`: one dated line in front of its first words ("31 Oct 2026 (V1.5 shipped); earlier <the old first words>"), never the field resent.
+4. `update` `meta/page`'s `revised_html` to the one line "31 Oct 2026, after V1.5 shipped": the whole field replaced, nothing kept from the old line ("The Updated line", below).
 5. `get` the card back to check it, and the same change into `project_roadmap.md` when the project keeps one.
 Anything else (a new card, a section, a batch, an `order` move, the header): the full skill below.
 
@@ -38,9 +38,18 @@ Every skill that changes the roadmap (`/badger`, `future-ted`, `/inception`, `ca
 
 With `roadmap: page` the page is the record and the table changes nothing. A memory note naming a roadmap page that kit.json lacks means kit.json is behind: write that page this once and say in the reply that kit.json's `pages.roadmap` (and `pages.roadmapSource` for a static page) needs filling; kit.json is locked to agents, so that is a setup step.
 
+## The Updated line
+One short line that says when the roadmap last changed and after what, on every kind of roadmap (`[updated-line]`):
+- **Shape:** "<date>, after <command or event>", at most about twelve words: "18 Nov 2026, after `/badger`", "31 Oct 2026, after V1.5 shipped". A data page holds it in `meta/page`'s `revised_html` (the page puts "Revised:" in front); a static page's source and a `roadmap.md` file hold it as "Updated <date>, after <command or event>."
+- **Replaced, never a chain:** each write replaces the whole line or field. Nothing of the old line is kept: no "earlier ...", no second date, no summary of what moved, no list of ideas.
+- **A line that has grown** (an "earlier ..." tail, several dates) is cut back to this one line by the next write that touches it, unasked.
+- **History** lives in the project's roadmap archive file or page and in git, not on the page.
+
+His words, 18 Nov 2026, after a Burrow horizon session republished the page with a twelve-entry "earlier ..." paragraph he had just had cleaned out: "This craps clutter up the roadmap, can we stop doing this? I just uncluttered it with a badger session and now it's right back".
+
 ## A static page (`pages.roadmapSource`)
 1. **Read the live page:** `Artifact` `read` with `url` = `pages.roadmap` (a publish to a URL this session hasn't read is refused). If it holds a change the source lacks (another session published from its own copy), carry that into the source first.
-2. **Edit the source** with exact string replacements, never rewritten from memory: the same change you made in `roadmap.md`, in the shape of its neighbouring cards, and one dated line in front of its "Updated" line ("27 Oct 2026 (after `/badger`: …). Earlier …").
+2. **Edit the source** with exact string replacements, never rewritten from memory: the same change you made in `roadmap.md`, in the shape of its neighbouring cards, and its "Updated" line replaced whole with the one line "Updated 27 Oct 2026, after `/badger`." ("The Updated line", below).
 3. **Publish:** `Artifact` with `url` = `pages.roadmap`, `file_path` = the source, a short `label` ("badger: <idea>"), no `icon`, `capabilities` left out. Never without `url` (that makes a second page). A refusal that hands back a newer live version: merge it into the source and publish once more.
 4. **Check:** the result names the same URL. The reply says "page republished".
 
@@ -65,7 +74,7 @@ With `roadmap: page` the page is the record and the table changes nothing. A mem
 2. **Add a card:** `get` the two neighbours' `order`, then `set` `cards/<new-anchor>` with every field above (`order` = the midpoint). Copy a neighbour's shape for `body_html` (`<h4>What's in it</h4><ul><li>…</li></ul>`, notes as `<p class="note">`, facts as `<div class="tech">`).
 3. **Edit a card's text:** `get` it, change the one field in your copy, `update` only that field (`body_html` is replaced whole, so start from the text you just read).
 4. **Edit a section** (an Open question, a Parked idea, a guideline): `get` `sections/<id>`, change `body_html`, `update` it.
-5. **The header:** `update` `meta/page` with `revised_html` (and `status_html` or `lede_html` when they change). The "Revised:" word is the page's own. **Change `revised_html` and `status_html` with `str_replace`, never by resending the field:** it edits one string in place, while a resent field replaces the whole log (`[roadmap-page]`: 2.14.7's first `meta/page` write cut the revision log to one entry, restored by retyping). The log keeps its newest ten entries; older ones go to the archive page.
+5. **The header:** `update` `meta/page` with `revised_html` (and `status_html` or `lede_html` when they change). The "Revised:" word is the page's own. `revised_html` is one line, replaced whole on every write ("The Updated line", below). Change `status_html` with `str_replace`, never by resending the field: it edits one of its three spans in place, while a resent field replaces them all.
 6. **Several changes at once** (a wrap-up, the conductor's end publish): one `batch` of these writes. The conductor's end publish is now a few row updates.
 7. **Check:** `get` what you wrote back, or `list` `cards` for a count.
 8. **Keep memory in step:** the same change goes into `project_roadmap.md`.
